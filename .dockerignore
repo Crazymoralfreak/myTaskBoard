@@ -1,0 +1,16 @@
+# Ignore all by default
+*
+
+# Allow specific files and directories
+!backend/pom.xml
+!backend/src
+!backend/Dockerfile
+!docker-compose.yml
+
+# Ignore specific patterns
+**/target/
+**/.mvn/
+**/.git/
+**/.idea/
+**/*.iml
+**/node_modules/

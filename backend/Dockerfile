@@ -16,8 +16,16 @@ WORKDIR /app
 # Copy the built JAR file from the build stage
 COPY --from=build /app/target/myTaskBoard-1.0-SNAPSHOT.jar ./app.jar
 
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+# Add environment variables
+ENV SPRING_PROFILES_ACTIVE=prod
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
+
 # Expose the application port
 EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
