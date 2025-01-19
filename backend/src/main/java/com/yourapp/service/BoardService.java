@@ -1,6 +1,7 @@
 package com.yourapp.service;
 
 import com.yourapp.model.Board;
+import com.yourapp.model.Column;
 import com.yourapp.repository.BoardRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -28,6 +29,35 @@ public class BoardService {
         board.setName(boardDetails.getName());
         board.setDescription(boardDetails.getDescription());
         board.setArchived(boardDetails.isArchived());
+        return boardRepository.save(board);
+    }
+
+    public Board addColumnToBoard(Long boardId, Column column) {
+        Board board = boardRepository.findById(boardId)
+            .orElseThrow(() -> new RuntimeException("Board not found"));
+        board.addColumn(column);
+        return boardRepository.save(board);
+    }
+
+    public Board removeColumnFromBoard(Long boardId, Long columnId) {
+        Board board = boardRepository.findById(boardId)
+            .orElseThrow(() -> new RuntimeException("Board not found"));
+        Column column = board.getColumns().stream()
+            .filter(c -> c.getId().equals(columnId))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Column not found"));
+        board.removeColumn(column);
+        return boardRepository.save(board);
+    }
+
+    public Board moveColumnInBoard(Long boardId, Long columnId, int newPosition) {
+        Board board = boardRepository.findById(boardId)
+            .orElseThrow(() -> new RuntimeException("Board not found"));
+        Column column = board.getColumns().stream()
+            .filter(c -> c.getId().equals(columnId))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Column not found"));
+        board.moveColumn(column, newPosition);
         return boardRepository.save(board);
     }
 

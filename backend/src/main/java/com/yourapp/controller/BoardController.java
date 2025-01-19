@@ -1,6 +1,7 @@
 package com.yourapp.controller;
 
 import com.yourapp.model.Board;
+import com.yourapp.model.Column;
 import com.yourapp.service.BoardService;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -27,6 +28,25 @@ public class BoardController {
     @PutMapping("/{id}")
     public Board updateBoard(@PathVariable Long id, @RequestBody Board board) {
         return boardService.updateBoard(id, board);
+    }
+
+    @PostMapping("/{boardId}/columns")
+    public Board addColumn(@PathVariable Long boardId, @RequestBody Column column) {
+        return boardService.addColumnToBoard(boardId, column);
+    }
+
+    @DeleteMapping("/{boardId}/columns/{columnId}")
+    public Board removeColumn(@PathVariable Long boardId, @PathVariable Long columnId) {
+        return boardService.removeColumnFromBoard(boardId, columnId);
+    }
+
+    @PatchMapping("/{boardId}/columns/{columnId}/move/{newPosition}")
+    public Board moveColumn(
+        @PathVariable Long boardId,
+        @PathVariable Long columnId,
+        @PathVariable int newPosition
+    ) {
+        return boardService.moveColumnInBoard(boardId, columnId, newPosition);
     }
 
     @PatchMapping("/{id}/archive")

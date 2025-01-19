@@ -1,30 +1,26 @@
 package com.yourapp.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.*;
+import lombok.Data;
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
-@ToString
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
+@Data
 public class TaskHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private String changedBy;
-    private LocalDateTime changeDate;
-    private String fieldName;
+    
+    private String fieldChanged;
     private String oldValue;
     private String newValue;
+    private LocalDateTime changedAt;
+    
+    @ManyToOne
+    @JoinColumn(name = "changed_by_id")
+    private User changedBy;
+    
+    @ManyToOne
+    @JoinColumn(name = "task_id")
+    private Task task;
 }
