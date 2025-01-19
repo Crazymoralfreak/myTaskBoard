@@ -32,8 +32,8 @@ public class TelegramNotificationService extends TelegramLongPollingBot {
         // Handle incoming messages if needed
     }
 
-    public void sendTaskNotification(User user, Task task, String message) {
-        if (user.getTelegramChatId() != null) {
+    public void sendTaskNotification(User user, Task task, String message, NotificationType type) {
+        if (shouldSendNotification(user, type)) {
             SendMessage sendMessage = new SendMessage();
             sendMessage.setChatId(user.getTelegramChatId().toString());
             sendMessage.setText(message);
@@ -44,5 +44,26 @@ public class TelegramNotificationService extends TelegramLongPollingBot {
                 // Handle exception or log error
             }
         }
+    }
+
+    private boolean shouldSendNotification(User user, NotificationType type) {
+        if (user.getTelegramChatId() == null) return false;
+        
+        NotificationPreferences preferences = user.getNotificationPreferences();
+        if (!preferences.isGlobalNotificationsEnabled()) return false;
+
+        return switch (type) {
+            case TASK_ASSIGNED -> preferences.isTaskAssignedNotifications();
+            case TASK_UPDATED -> preferences.isTaskUpdatedNotifications();
+            case TASK_MOVED -> preferences.isTaskMovedNotifications();
+            case MENTION -> preferences.isMentionNotifications();
+        };
+    }
+
+    public enum NotificationType {
+        TASK_ASSIGNED,
+        TASK_UPDATED,
+        TASK_MOVED,
+        MENTION
     }
 }

@@ -42,7 +42,8 @@ public class TaskService {
             telegramNotificationService.sendTaskNotification(
                 createdTask.getAssignee(),
                 createdTask,
-                message
+                message,
+                TelegramNotificationService.NotificationType.TASK_ASSIGNED
             );
         }
         
@@ -75,7 +76,8 @@ public class TaskService {
             telegramNotificationService.sendTaskNotification(
                 updatedTask.getAssignee(),
                 updatedTask,
-                message
+                message,
+                TelegramNotificationService.NotificationType.TASK_UPDATED
             );
         }
         
@@ -112,7 +114,8 @@ public class TaskService {
             telegramNotificationService.sendTaskNotification(
                 movedTask.getAssignee(),
                 movedTask,
-                message
+                message,
+                TelegramNotificationService.NotificationType.TASK_MOVED
             );
         }
         
