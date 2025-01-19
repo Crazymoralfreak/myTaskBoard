@@ -2,6 +2,7 @@ package com.yourapp.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -23,7 +24,36 @@ public class Board {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User owner;
-    
+
+    public void addColumn(Column column) {
+        if (columns == null) {
+            columns = new ArrayList<>();
+        }
+        column.setPosition(columns.size());
+        columns.add(column);
+    }
+
+    public void removeColumn(Column column) {
+        if (columns != null) {
+            columns.remove(column);
+            updateColumnPositions();
+        }
+    }
+
+    public void moveColumn(Column column, int newPosition) {
+        if (columns != null && columns.contains(column)) {
+            columns.remove(column);
+            columns.add(newPosition, column);
+            updateColumnPositions();
+        }
+    }
+
+    private void updateColumnPositions() {
+        for (int i = 0; i < columns.size(); i++) {
+            columns.get(i).setPosition(i);
+        }
+    }
+
     public int getColumnCount() {
         return columns != null ? columns.size() : 0;
     }
