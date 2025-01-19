@@ -29,6 +29,16 @@ public class BoardController {
         return boardService.updateBoard(id, board);
     }
 
+    @PatchMapping("/{id}/archive")
+    public Board archiveBoard(@PathVariable Long id) {
+        return boardService.archiveBoard(id);
+    }
+
+    @PatchMapping("/{id}/restore")
+    public Board restoreBoard(@PathVariable Long id) {
+        return boardService.restoreBoard(id);
+    }
+
     @DeleteMapping("/{id}")
     public void deleteBoard(@PathVariable Long id) {
         boardService.deleteBoard(id);
