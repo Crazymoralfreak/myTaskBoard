@@ -1,9 +1,6 @@
 package com.yourapp.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -24,4 +21,18 @@ public class User {
     private String password;
     private String email;
     private Long telegramChatId;
+
+    @Embedded
+    private NotificationPreferences notificationPreferences = new NotificationPreferences();
+}
+
+@Embeddable
+@Getter
+@Setter
+class NotificationPreferences {
+    private boolean globalNotificationsEnabled = true;
+    private boolean taskAssignedNotifications = true;
+    private boolean taskUpdatedNotifications = true;
+    private boolean taskMovedNotifications = true;
+    private boolean mentionNotifications = true;
 }
