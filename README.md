@@ -99,3 +99,120 @@ docker-compose down
 ```bash
 ./mvnw spring-boot:run
 ```
+## Notification Preferences API
+
+### Get User Notification Preferences
+`GET /api/notifications/preferences?userId={userId}`
+
+**Rate Limit:** 100 requests per hour per user
+
+**Success Response (200 OK):**
+```json
+{
+  "globalNotificationsEnabled": true,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: Invalid or missing authentication token
+- `403 Forbidden`: User not authorized to access these preferences
+- `404 Not Found`: User not found
+
+**Example Request:**
+```bash
+curl -X GET "https://api.taskboard.com/api/notifications/preferences?userId=123" \
+  -H "Authorization: Bearer {token}"
+```
+
+### Update Notification Preferences
+`PUT /api/notifications/preferences?userId={userId}`
+
+**Rate Limit:** 10 requests per minute per user
+
+**Request Body:**
+```json
+{
+  "globalNotificationsEnabled": true,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Preferences updated successfully",
+  "preferences": {
+    "globalNotificationsEnabled": true,
+    "taskAssignedNotifications": true,
+    "taskUpdatedNotifications": true,
+    "taskMovedNotifications": true,
+    "mentionNotifications": true
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid request body
+- `401 Unauthorized`: Invalid or missing authentication token
+- `403 Forbidden`: User not authorized to update these preferences
+- `404 Not Found`: User not found
+
+**Example Request:**
+```bash
+curl -X PUT "https://api.taskboard.com/api/notifications/preferences?userId=123" \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "globalNotificationsEnabled": true,
+    "taskAssignedNotifications": true,
+    "taskUpdatedNotifications": true,
+    "taskMovedNotifications": true,
+    "mentionNotifications": true
+  }'
+```
+
+### Toggle Global Notifications
+`PATCH /api/notifications/global?userId={userId}&enabled={true|false}`
+
+**Rate Limit:** 10 requests per minute per user
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Global notifications updated successfully",
+  "preferences": {
+    "globalNotificationsEnabled": false,
+    "taskAssignedNotifications": true,
+    "taskUpdatedNotifications": true,
+    "taskMovedNotifications": true,
+    "mentionNotifications": true
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid enabled parameter
+- `401 Unauthorized`: Invalid or missing authentication token
+- `403 Forbidden`: User not authorized to update these preferences
+- `404 Not Found`: User not found
+
+**Example Request:**
+```bash
+curl -X PATCH "https://api.taskboard.com/api/notifications/global?userId=123&enabled=false" \
+  -H "Authorization: Bearer {token}"
+```
+
+### Rate Limiting
+- All notification endpoints are rate limited
+- Exceeding limits will result in `429 Too Many Requests` response
+- Rate limit headers are included in all responses:
+  - `X-RateLimit-Limit`: Total allowed requests
+  - `X-RateLimit-Remaining`: Remaining requests
+  - `X-RateLimit-Reset`: Time when limit resets (UTC timestamp)
