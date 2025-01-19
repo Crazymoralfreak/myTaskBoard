@@ -99,3 +99,46 @@ docker-compose down
 ```bash
 ./mvnw spring-boot:run
 ```
+## Notification Preferences API
+
+### Get User Notification Preferences
+`GET /api/notifications/preferences?userId={userId}`
+
+**Response:**
+```json
+{
+  "globalNotificationsEnabled": true,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
+
+### Update Notification Preferences
+`PUT /api/notifications/preferences?userId={userId}`
+
+**Request Body:**
+```json
+{
+  "globalNotificationsEnabled": true,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
+
+### Toggle Global Notifications
+`PATCH /api/notifications/global?userId={userId}&enabled={true|false}`
+
+**Response:**
+```json
+{
+  "globalNotificationsEnabled": false,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
