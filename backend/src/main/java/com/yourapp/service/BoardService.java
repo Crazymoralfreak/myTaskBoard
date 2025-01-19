@@ -27,6 +27,21 @@ public class BoardService {
         
         board.setName(boardDetails.getName());
         board.setDescription(boardDetails.getDescription());
+        board.setArchived(boardDetails.isArchived());
+        return boardRepository.save(board);
+    }
+
+    public Board archiveBoard(Long id) {
+        Board board = boardRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Board not found"));
+        board.setArchived(true);
+        return boardRepository.save(board);
+    }
+
+    public Board restoreBoard(Long id) {
+        Board board = boardRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Board not found"));
+        board.setArchived(false);
         return boardRepository.save(board);
     }
 

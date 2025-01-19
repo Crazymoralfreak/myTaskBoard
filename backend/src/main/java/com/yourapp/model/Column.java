@@ -12,7 +12,10 @@ public class Column {
     private Long id;
     
     private String name;
+    private String description;
     private int position;
+    private int taskLimit;
+    private boolean isCollapsed;
     
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "column_id")
@@ -21,4 +24,12 @@ public class Column {
     @ManyToOne
     @JoinColumn(name = "board_id")
     private Board board;
+    
+    public boolean isFull() {
+        return taskLimit > 0 && tasks.size() >= taskLimit;
+    }
+    
+    public boolean canAcceptTask() {
+        return taskLimit == 0 || tasks.size() < taskLimit;
+    }
 }
