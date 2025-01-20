@@ -21,6 +21,7 @@
 /workspace/myTaskBoard/backend/src/main/java/com/yourapp/controller/UserController.java
 /workspace/myTaskBoard/backend/src/main/java/com/yourapp/service/NoteService.java
 /workspace/myTaskBoard/backend/src/main/java/com/yourapp/controller/FileController.java
+/workspace/myTaskBoard/backend/src/main/java/com/yourapp/model/NotificationPreferences.java
 /workspace/myTaskBoard/backend/src/main/java/com/yourapp/model/Column.java
 /workspace/myTaskBoard/backend/src/main/java/com/yourapp/service/TelegramWebAppService.java
 /workspace/myTaskBoard/backend/src/main/java/com/yourapp/repository/TaskRepository.java
