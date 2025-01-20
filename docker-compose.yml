@@ -1,8 +1,8 @@
 services:
   app:
-    image: openjdk:17-jre-slim
+    image: openjdk:17-oracle
     build: ./backend
-    container_name: taskboard-app
+    container_name: my-task-board-backend
     ports:
       - "${APP_PORT}:8080"
     env_file:

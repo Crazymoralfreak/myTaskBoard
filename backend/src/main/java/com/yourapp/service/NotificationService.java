@@ -1,7 +1,7 @@
 package com.yourapp.service;
 
-import com.yourapp.model.User;
 import com.yourapp.model.NotificationPreferences;
+import com.yourapp.model.User;
 import com.yourapp.repository.UserRepository;
 import org.springframework.stereotype.Service;
 

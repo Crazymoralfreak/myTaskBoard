@@ -5,6 +5,7 @@ import com.yourapp.model.User;
 import com.yourapp.service.TelegramWebAppService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.telegram.telegrambots.meta.api.objects.webapp.WebAppData;
 
 @RestController
 @RequestMapping("/api/telegram")
@@ -17,7 +18,7 @@ public class TelegramController {
     public String handleWebAppData(@RequestBody String webAppData, @RequestHeader("X-User-Id") Long userId) {
         User user = new User();
         user.setId(userId);
-        return telegramWebAppService.processWebAppData(webAppData, user);
+        return telegramWebAppService.processWebAppData(new WebAppData(), user);
     }
 
     @GetMapping("/task/{taskId}/share")

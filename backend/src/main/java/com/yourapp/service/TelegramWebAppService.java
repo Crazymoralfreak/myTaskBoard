@@ -3,7 +3,8 @@ package com.yourapp.service;
 import com.yourapp.model.Task;
 import com.yourapp.model.User;
 import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.objects.WebAppData;
+import org.telegram.telegrambots.meta.api.objects.webapp.WebAppData;
+
 
 @Service
 public class TelegramWebAppService {

@@ -5,6 +5,8 @@ import com.yourapp.model.User;
 import com.yourapp.repository.TaskHistoryRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 public class TaskHistoryService {
     private final TaskHistoryRepository taskHistoryRepository;
@@ -15,7 +17,7 @@ public class TaskHistoryService {
 
     public void logTaskChange(Long taskId, User changedBy, String fieldName, String oldValue, String newValue) {
         TaskHistory history = new TaskHistory();
-        history.setTaskId(taskId);
+        history.setId(taskId);
         history.setChangedBy(changedBy);
         history.setFieldChanged(fieldName);
         history.setOldValue(oldValue);
