@@ -1,0 +1,11 @@
+--2025-01-20 14:14:31--  https://repo.maven.apache.org/maven2/io/takari/maven-wrapper/0.5.6/maven-wrapper-0.5.6.jar
+Resolving repo.maven.apache.org (repo.maven.apache.org)... 151.101.128.215, 151.101.0.215, 151.101.192.215, ...
+Connecting to repo.maven.apache.org (repo.maven.apache.org)|151.101.128.215|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 50710 (50K) [application/java-archive]
+Saving to: ‘/workspace/myTaskBoard/backend/.mvn/wrapper/maven-wrapper.jar’
+
+     0K .......... .......... .......... .......... ......... 100% 1.11M=0.04s
+
+2025-01-20 14:14:31 (1.11 MB/s) - ‘/workspace/myTaskBoard/backend/.mvn/wrapper/maven-wrapper.jar’ saved [50710/50710]
+
