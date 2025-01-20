@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   app:
+    image: openjdk:17-jdk-slim
     build: ./backend
     container_name: taskboard-app
     ports:
@@ -41,6 +42,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  frontend:
+    build: ./frontend
+    container_name: taskboard-frontend
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    env_file:
+      - .env
+    environment:
+      - VITE_API_URL=http://localhost:${APP_PORT}
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   postgres_data:
