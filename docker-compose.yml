@@ -1,6 +1,6 @@
 services:
   app:
-    image: openjdk:17-jre-slim
+    image: openjdk:17-jdk-slim
     build: ./backend
     container_name: taskboard-app
     ports:

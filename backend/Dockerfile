@@ -1,5 +1,5 @@
 # Use an official Maven image as the build stage
-FROM maven:3.8.6-jdk-11 AS build
+FROM maven:3.8.6-jdk-17 AS build
 WORKDIR /app
 
 # Copy the pom.xml and source code
