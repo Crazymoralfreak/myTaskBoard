@@ -60,6 +60,32 @@ export const sendTelegramNotification = async (userId: string, message: string) 
 };
 
 // Получение истории изменений задачи
+export const fetchTask = async (taskId: string) => {
+  try {
+    const response = await axios.get(`${API_URL}/tasks/${taskId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching task:', error);
+    throw error;
+  }
+};
+
+export const updateTaskPosition = async (taskData: {
+  taskId: string;
+  sourceColumnId: string;
+  destinationColumnId: string;
+  sourceIndex: number;
+  destinationIndex: number;
+}) => {
+  try {
+    const response = await axios.post(`${API_URL}/tasks/update-position`, taskData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating task position:', error);
+    throw error;
+  }
+};
+
 export const fetchTaskHistory = async (taskId: string) => {
   try {
     const response = await axios.get(`${API_URL}/tasks/${taskId}/history`);

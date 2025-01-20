@@ -1,50 +1,43 @@
-# React + TypeScript + Vite
+# MyTaskBoard - Task Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+MyTaskBoard is a task management system designed to help teams organize and track their work efficiently. The system provides a user-friendly interface for managing tasks, boards, and task history.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Task Boards**: Create and manage multiple task boards.
+- **Task Management**: Add, edit, and move tasks between columns.
+- **Task Details**: View detailed information about each task, including description, status, and due date.
+- **Task History**: Track changes made to tasks over time.
+- **Filters and Sorting**: Filter and sort tasks based on various criteria.
+- **Telegram Integration**: Receive notifications about task updates via Telegram.
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-- Configure the top-level `parserOptions` property like this:
+2. **Run the Development Server**:
+   ```bash
+   npm run dev
+   ```
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+3. **Access the Application**:
+   Open your browser and navigate to `http://localhost:5173`.
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Project Structure
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+- `src/api/`: API service layer for interacting with the backend.
+- `src/components/`: Reusable UI components.
+- `src/hooks/`: Custom React hooks.
+- `src/pages/`: Application pages.
+- `src/styles/`: Global styles and themes.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## Contributing
+
+Contributions are welcome! Please follow the guidelines in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
