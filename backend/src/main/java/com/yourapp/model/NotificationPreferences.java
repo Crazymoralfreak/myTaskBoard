@@ -1,22 +1,16 @@
 package com.yourapp.model;
 
+import jakarta.persistence.Embeddable;
+import lombok.Getter;
+import lombok.Setter;
+
+@Embeddable
+@Getter
+@Setter
 public class NotificationPreferences {
-    private boolean emailEnabled;
-    private boolean telegramEnabled;
-
-    public boolean isEmailEnabled() {
-        return emailEnabled;
-    }
-
-    public void setEmailEnabled(boolean emailEnabled) {
-        this.emailEnabled = emailEnabled;
-    }
-
-    public boolean isTelegramEnabled() {
-        return telegramEnabled;
-    }
-
-    public void setTelegramEnabled(boolean telegramEnabled) {
-        this.telegramEnabled = telegramEnabled;
-    }
+    private boolean globalNotificationsEnabled = true;
+    private boolean taskAssignedNotifications = true;
+    private boolean taskUpdatedNotifications = true;
+    private boolean taskMovedNotifications = true;
+    private boolean mentionNotifications = true;
 }

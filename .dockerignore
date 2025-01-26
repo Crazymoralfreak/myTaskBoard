@@ -2,9 +2,6 @@
 *
 
 # Allow specific files and directories
-!backend/pom.xml
-!backend/src
-!backend/Dockerfile
 !docker-compose.yml
 
 # Ignore specific patterns

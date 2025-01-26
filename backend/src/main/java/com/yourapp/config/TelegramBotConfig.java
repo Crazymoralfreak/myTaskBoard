@@ -13,8 +13,8 @@ public class TelegramBotConfig {
     @Value("${telegram.bot.username}")
     private String botUsername;
 
-    @Bean
-    public TelegramNotificationService telegramNotificationService() {
-        return new TelegramNotificationService();
-    }
+//    @Bean
+//    public TelegramNotificationService telegramNotificationService() {
+//        return new TelegramNotificationService();
+//    }
 }

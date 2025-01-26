@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(name = "`app_user`")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,13 +27,3 @@ public class User {
     private NotificationPreferences notificationPreferences = new NotificationPreferences();
 }
 
-@Embeddable
-@Getter
-@Setter
-class NotificationPreferences {
-    private boolean globalNotificationsEnabled = true;
-    private boolean taskAssignedNotifications = true;
-    private boolean taskUpdatedNotifications = true;
-    private boolean taskMovedNotifications = true;
-    private boolean mentionNotifications = true;
-}

@@ -1,5 +1,6 @@
 package com.yourapp.service;
 
+import com.yourapp.model.NotificationPreferences;
 import com.yourapp.model.Task;
 import com.yourapp.model.User;
 import org.springframework.beans.factory.annotation.Value;
