@@ -55,11 +55,11 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- TelegramBots (проверьте совместимость с Spring Boot 3.x!) -->
+        <!-- TelegramBots (совместимость с Spring Boot 3.x!) -->
         <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots-spring-boot-starter</artifactId>
-            <version>6.9.7.1</version>
+            <version>6.9.7.1</version>  <!--(совместимость с Spring Boot 3.x!)-->
             <!-- Добавляем исключение для конфликтующих зависимостей -->
             <exclusions>
                 <exclusion>
@@ -86,6 +86,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Postgresql -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.6.0</version>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 

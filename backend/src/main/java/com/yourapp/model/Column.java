@@ -6,6 +6,7 @@ import java.util.List;
 
 @Entity
 @Data
+@Table(name = "board_column")
 public class Column {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
