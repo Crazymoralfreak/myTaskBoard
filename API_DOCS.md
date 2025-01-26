@@ -1,150 +1,13 @@
 # Task Board API Documentation
 
 ## Table of Contents
-1. [Authentication](#authentication)
-2. [Users](#users)
-3. [Tasks](#tasks)
-4. [Boards](#boards)
-5. [Columns](#columns)
-6. [Comments](#comments)
-7. [Attachments](#attachments)
-8. [Notifications](#notifications)
-9. [Search](#search)
-10. [Rate Limiting](#rate-limiting)
-11. [Error Handling](#error-handling)
-
-## Authentication
-
-### Login
-`POST /api/auth/login`
-
-**Request:**
-```json
-{
-  "username": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 86400
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid request format
-- `401 Unauthorized`: Invalid credentials
-- `429 Too Many Requests`: Too many login attempts
-
-## Users
-
-### Get Current User
-`GET /api/users/me`
-
-**Success Response (200 OK):**
-```json
-{
-  "id": 123,
-  "username": "user@example.com",
-  "name": "John Doe",
-  "role": "USER",
-  "notificationPreferences": {
-    "globalNotificationsEnabled": true,
-    "taskAssignedNotifications": true,
-    "taskUpdatedNotifications": true,
-    "taskMovedNotifications": true,
-    "mentionNotifications": true
-  }
-}
-```
-
-### Update User Profile
-`PUT /api/users/me`
-
-**Request:**
-```json
-{
-  "name": "John Smith",
-  "email": "john.smith@example.com"
-}
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "message": "Profile updated successfully"
-}
-```
-
-## Tasks
-
-### Create Task
-`POST /api/tasks`
-
-**Request:**
-```json
-{
-  "title": "Implement API documentation",
-  "description": "Create comprehensive API docs",
-  "dueDate": "2025-01-31",
-  "priority": "HIGH",
-  "assigneeId": 123,
-  "columnId": 456
-}
-```
-
-**Success Response (201 Created):**
-```json
-{
-  "id": 789,
-  "title": "Implement API documentation",
-  "status": "TODO",
-  "createdAt": "2025-01-19T18:00:00Z"
-}
-```
-
-### Get Task Details
-`GET /api/tasks/{id}`
-
-**Success Response (200 OK):**
-```json
-{
-  "id": 789,
-  "title": "Implement API documentation",
-  "description": "Create comprehensive API docs",
-  "status": "TODO",
-  "priority": "HIGH",
-  "dueDate": "2025-01-31",
-  "createdAt": "2025-01-19T18:00:00Z",
-  "updatedAt": "2025-01-19T18:00:00Z",
-  "assignee": {
-    "id": 123,
-    "name": "John Doe"
-  },
-  "comments": [
-    {
-      "id": 111,
-      "text": "Please add examples",
-      "author": {
-        "id": 123,
-        "name": "John Doe"
-      },
-      "createdAt": "2025-01-19T18:05:00Z"
-    }
-  ],
-  "attachments": [
-    {
-      "id": 222,
-      "filename": "spec.pdf",
-      "size": 123456,
-      "uploadedAt": "2025-01-19T18:10:00Z"
-    }
-  ]
-}
-```
+1. [Boards](#boards)
+2. [Tasks](#tasks)
+3. [Users](#users)
+4. [Notifications](#notifications)
+5. [Files](#files)
+6. [Notes](#notes)
+7. [Telegram Integration](#telegram-integration)
 
 ## Boards
 
@@ -168,34 +31,42 @@
 }
 ```
 
-### Get Board Details
-`GET /api/boards/{id}`
+### Get User Boards
+`GET /api/boards/user/{userId}`
+
+**Success Response (200 OK):**
+```json
+[
+  {
+    "id": 123,
+    "name": "Development Board",
+    "createdAt": "2025-01-19T18:00:00Z"
+  }
+]
+```
+
+### Update Board
+`PUT /api/boards/{id}`
+
+**Request:**
+```json
+{
+  "name": "Updated Board Name",
+  "description": "Updated description"
+}
+```
 
 **Success Response (200 OK):**
 ```json
 {
   "id": 123,
-  "name": "Development Board",
-  "description": "Board for tracking development tasks",
-  "columns": [
-    {
-      "id": 456,
-      "name": "TODO",
-      "tasks": [
-        {
-          "id": 789,
-          "title": "Implement API documentation",
-          "status": "TODO"
-        }
-      ]
-    }
-  ]
+  "name": "Updated Board Name",
+  "description": "Updated description",
+  "createdAt": "2025-01-19T18:00:00Z"
 }
 ```
 
-## Columns
-
-### Create Column
+### Add Column to Board
 `POST /api/boards/{boardId}/columns`
 
 **Request:**
@@ -206,178 +77,81 @@
 }
 ```
 
-**Success Response (201 Created):**
-```json
-{
-  "id": 789,
-  "name": "In Progress",
-  "order": 2
-}
-```
-
-## Comments
-
-### Add Comment to Task
-`POST /api/tasks/{taskId}/comments`
-
-**Request:**
-```json
-{
-  "text": "Please add more details to the description"
-}
-```
-
-**Success Response (201 Created):**
-```json
-{
-  "id": 111,
-  "text": "Please add more details to the description",
-  "author": {
-    "id": 123,
-    "name": "John Doe"
-  },
-  "createdAt": "2025-01-19T18:05:00Z"
-}
-```
-
-## Attachments
-
-### Upload Attachment
-`POST /api/tasks/{taskId}/attachments`
-
-**Request:**
-```bash
-curl -X POST "https://api.taskboard.com/api/tasks/789/attachments" \
-  -H "Authorization: Bearer {token}" \
-  -F "file=@spec.pdf"
-```
-
-**Success Response (201 Created):**
-```json
-{
-  "id": 222,
-  "filename": "spec.pdf",
-  "size": 123456,
-  "uploadedAt": "2025-01-19T18:10:00Z"
-}
-```
-
-## Notifications
-
-### Get Notification Preferences
-`GET /api/notifications/preferences`
-
 **Success Response (200 OK):**
 ```json
 {
-  "globalNotificationsEnabled": true,
-  "taskAssignedNotifications": true,
-  "taskUpdatedNotifications": true,
-  "taskMovedNotifications": true,
-  "mentionNotifications": true
-}
-```
-
-## Search
-
-### Search Tasks
-`GET /api/search/tasks?query=api&status=TODO`
-
-**Success Response (200 OK):**
-```json
-{
-  "results": [
+  "id": 123,
+  "name": "Development Board",
+  "columns": [
     {
-      "id": 789,
-      "title": "Implement API documentation",
-      "status": "TODO",
-      "board": {
-        "id": 123,
-        "name": "Development Board"
-      }
+      "id": 456,
+      "name": "In Progress",
+      "order": 2
     }
-  ],
-  "total": 1
+  ]
 }
 ```
 
-## Rate Limiting
-
-- Default rate limits:
-  - Authentication: 10 requests/minute
-  - API endpoints: 100 requests/hour
-- Response headers:
-  - `X-RateLimit-Limit`: Total allowed requests
-  - `X-RateLimit-Remaining`: Remaining requests
-  - `X-RateLimit-Reset`: Time when limit resets (UTC timestamp)
-
-## Error Handling
-
-### Common Error Responses
-- `400 Bad Request`: Invalid request data
-- `401 Unauthorized`: Missing or invalid authentication
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found
-- `429 Too Many Requests`: Rate limit exceeded
-- `500 Internal Server Error`: Server error
-
-**Error Response Format:**
-```json
-{
-  "timestamp": "2025-01-19T18:00:00Z",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Invalid request data",
-  "path": "/api/tasks"
-}
-```
-
-## Authentication
-
-### Login
-`POST /api/auth/login`
-
-**Request:**
-```json
-{
-  "username": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 86400
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid request format
-- `401 Unauthorized`: Invalid credentials
-- `429 Too Many Requests`: Too many login attempts
-
-## Users
-
-### Get Current User
-`GET /api/users/me`
+### Remove Column from Board
+`DELETE /api/boards/{boardId}/columns/{columnId}`
 
 **Success Response (200 OK):**
 ```json
 {
   "id": 123,
-  "username": "user@example.com",
-  "name": "John Doe",
-  "role": "USER",
-  "notificationPreferences": {
-    "globalNotificationsEnabled": true,
-    "taskAssignedNotifications": true,
-    "taskUpdatedNotifications": true,
-    "taskMovedNotifications": true,
-    "mentionNotifications": true
-  }
+  "name": "Development Board",
+  "columns": []
 }
+```
+
+### Move Column in Board
+`PATCH /api/boards/{boardId}/columns/{columnId}/move/{newPosition}`
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 123,
+  "name": "Development Board",
+  "columns": [
+    {
+      "id": 456,
+      "name": "In Progress",
+      "order": 1
+    }
+  ]
+}
+```
+
+### Archive Board
+`PATCH /api/boards/{id}/archive`
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 123,
+  "name": "Development Board",
+  "archived": true
+}
+```
+
+### Restore Board
+`PATCH /api/boards/{id}/restore`
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 123,
+  "name": "Development Board",
+  "archived": false
+}
+```
+
+### Delete Board
+`DELETE /api/boards/{id}`
+
+**Success Response (204 No Content):**
+```json
+{}
 ```
 
 ## Tasks
@@ -407,36 +181,133 @@ curl -X POST "https://api.taskboard.com/api/tasks/789/attachments" \
 }
 ```
 
-## Boards
+### Update Task
+`PUT /api/tasks/{id}`
 
-### Get Board
-`GET /api/boards/{id}`
+**Request:**
+```json
+{
+  "title": "Updated Task Title",
+  "description": "Updated description"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 789,
+  "title": "Updated Task Title",
+  "description": "Updated description",
+  "createdAt": "2025-01-19T18:00:00Z"
+}
+```
+
+### Move Task
+`PATCH /api/tasks/{taskId}/move/{newColumnId}`
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 789,
+  "title": "Implement API documentation",
+  "columnId": 789,
+  "createdAt": "2025-01-19T18:00:00Z"
+}
+```
+
+### Delete Task
+`DELETE /api/tasks/{id}`
+
+**Success Response (204 No Content):**
+```json
+{}
+```
+
+## Users
+
+### Get All Users
+`GET /api/users`
+
+**Success Response (200 OK):**
+```json
+[
+  {
+    "id": 123,
+    "username": "user@example.com",
+    "name": "John Doe",
+    "role": "USER"
+  }
+]
+```
+
+### Get User by ID
+`GET /api/users/{id}`
 
 **Success Response (200 OK):**
 ```json
 {
   "id": 123,
-  "name": "Development Board",
-  "columns": [
-    {
-      "id": 456,
-      "name": "TODO",
-      "tasks": [
-        {
-          "id": 789,
-          "title": "Implement API documentation",
-          "status": "TODO"
-        }
-      ]
-    }
-  ]
+  "username": "user@example.com",
+  "name": "John Doe",
+  "role": "USER"
 }
+```
+
+### Create User
+`POST /api/users`
+
+**Request:**
+```json
+{
+  "username": "user@example.com",
+  "name": "John Doe",
+  "role": "USER"
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "id": 123,
+  "username": "user@example.com",
+  "name": "John Doe",
+  "role": "USER"
+}
+```
+
+### Update User
+`PUT /api/users/{id}`
+
+**Request:**
+```json
+{
+  "username": "updated@example.com",
+  "name": "John Smith"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 123,
+  "username": "updated@example.com",
+  "name": "John Smith",
+  "role": "USER"
+}
+```
+
+### Delete User
+`DELETE /api/users/{id}`
+
+**Success Response (204 No Content):**
+```json
+{}
 ```
 
 ## Notifications
 
-### Get Notification Preferences
-`GET /api/notifications/preferences`
+### Get User Notification Preferences
+`GET /api/notifications/preferences?userId=123`
 
 **Success Response (200 OK):**
 ```json
@@ -449,33 +320,232 @@ curl -X POST "https://api.taskboard.com/api/tasks/789/attachments" \
 }
 ```
 
-## Rate Limiting
+### Update Notification Preferences
+`PUT /api/notifications/preferences?userId=123`
 
-- Default rate limits:
-  - Authentication: 10 requests/minute
-  - API endpoints: 100 requests/hour
-- Response headers:
-  - `X-RateLimit-Limit`: Total allowed requests
-  - `X-RateLimit-Remaining`: Remaining requests
-  - `X-RateLimit-Reset`: Time when limit resets (UTC timestamp)
-
-## Error Handling
-
-### Common Error Responses
-- `400 Bad Request`: Invalid request data
-- `401 Unauthorized`: Missing or invalid authentication
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found
-- `429 Too Many Requests`: Rate limit exceeded
-- `500 Internal Server Error`: Server error
-
-**Error Response Format:**
+**Request:**
 ```json
 {
-  "timestamp": "2025-01-19T18:00:00Z",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Invalid request data",
-  "path": "/api/tasks"
+  "globalNotificationsEnabled": false,
+  "taskAssignedNotifications": true
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "globalNotificationsEnabled": false,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
+
+### Toggle Global Notifications
+`PATCH /api/notifications/global?userId=123&enabled=false`
+
+**Success Response (200 OK):**
+```json
+{
+  "globalNotificationsEnabled": false,
+  "taskAssignedNotifications": true,
+  "taskUpdatedNotifications": true,
+  "taskMovedNotifications": true,
+  "mentionNotifications": true
+}
+```
+
+## Files
+
+### Get All Files
+`GET /api/files`
+
+**Success Response (200 OK):**
+```json
+[
+  {
+    "id": 222,
+    "filename": "spec.pdf",
+    "size": 123456,
+    "uploadedAt": "2025-01-19T18:10:00Z"
+  }
+]
+```
+
+### Get File by ID
+`GET /api/files/{id}`
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 222,
+  "filename": "spec.pdf",
+  "size": 123456,
+  "uploadedAt": "2025-01-19T18:10:00Z"
+}
+```
+
+### Create File
+`POST /api/files`
+
+**Request:**
+```json
+{
+  "filename": "spec.pdf",
+  "size": 123456
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "id": 222,
+  "filename": "spec.pdf",
+  "size": 123456,
+  "uploadedAt": "2025-01-19T18:10:00Z"
+}
+```
+
+### Update File
+`PUT /api/files/{id}`
+
+**Request:**
+```json
+{
+  "filename": "updated.pdf",
+  "size": 654321
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 222,
+  "filename": "updated.pdf",
+  "size": 654321,
+  "uploadedAt": "2025-01-19T18:10:00Z"
+}
+```
+
+### Delete File
+`DELETE /api/files/{id}`
+
+**Success Response (204 No Content):**
+```json
+{}
+```
+
+## Notes
+
+### Get All Notes
+`GET /api/notes`
+
+**Success Response (200 OK):**
+```json
+[
+  {
+    "id": 111,
+    "text": "This is a note",
+    "createdAt": "2025-01-19T18:05:00Z"
+  }
+]
+```
+
+### Get Note by ID
+`GET /api/notes/{id}`
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 111,
+  "text": "This is a note",
+  "createdAt": "2025-01-19T18:05:00Z"
+}
+```
+
+### Create Note
+`POST /api/notes`
+
+**Request:**
+```json
+{
+  "text": "This is a note",
+  "taskId": 789
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "id": 111,
+  "text": "This is a note",
+  "createdAt": "2025-01-19T18:05:00Z"
+}
+```
+
+### Update Note
+`PUT /api/notes/{id}`
+
+**Request:**
+```json
+{
+  "text": "Updated note text"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 111,
+  "text": "Updated note text",
+  "createdAt": "2025-01-19T18:05:00Z"
+}
+```
+
+### Delete Note
+`DELETE /api/notes/{id}`
+
+**Success Response (204 No Content):**
+```json
+{}
+```
+
+## Telegram Integration
+
+### Handle Web App Data
+`POST /api/telegram/webapp`
+
+**Request:**
+```json
+{
+  "data": "example_data"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "WebApp data processed successfully"
+}
+```
+
+### Get Task Share Link
+`GET /api/telegram/task/{taskId}/share`
+
+**Success Response (200 OK):**
+```json
+{
+  "link": "https://t.me/share/url?url=task/789"
+}
+```
+
+### Get Telegram Auth URL
+`GET /api/telegram/auth/url`
+
+**Success Response (200 OK):**
+```json
+{
+  "url": "https://t.me/your_bot?start=123456"
 }
 ```
