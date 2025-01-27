@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import axios from 'axios';
 import { Task } from '../types';
 import { useParams } from 'react-router-dom';
 import { useTelegram } from '../hooks/useTelegram';
@@ -25,7 +26,7 @@ export const TaskPage = () => {
 
   const onSubmit: SubmitHandler<Task> = async (data) => {
     try {
-      const response = await axios.put(`${API_URL}/tasks/${taskId}`, data);
+      const response = await axios.put(`${import.meta.env.VITE_API_URL}/tasks/${taskId}`, data);
       setTask(response.data);
       setIsEditing(false);
     } catch (error) {
@@ -77,28 +78,4 @@ export const TaskPage = () => {
     </div>
   );
 };
-  const { taskId } = useParams();
-  const { user, WebApp } = useTelegram();
-  const [task, setTask] = useState<any>(null);
-
-  useEffect(() => {
-    WebApp.ready();
-    if (taskId && user) {
-      fetchTask(taskId).then((data) => setTask(data));
-    }
-  }, [taskId, user, WebApp]);
-
-  if (!task) {
-    return <div>Загрузка...</div>;
-  }
-
-  return (
-    <div>
-      <h1>{task.title}</h1>
-      <p>{task.description}</p>
-      <p>Статус: {task.status}</p>
-      <p>Срок: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Не указан'}</p>
-      <TaskHistory taskId={taskId!} />
-    </div>
-  );
-};
+  
