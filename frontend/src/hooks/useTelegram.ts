@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { WebApp } from '@twa-dev/sdk';
+import WebApp from '@twa-dev/sdk';
 
 export const useTelegram = () => {
-  const [user, setUser] = useState<WebAppUser | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
