@@ -1,5 +1,5 @@
 # Use an official Node.js image as the build stage
-FROM node:16 AS build
+FROM node:22 AS build
 WORKDIR /app
 
 # Copy package.json and install dependencies
