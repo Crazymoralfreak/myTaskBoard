@@ -8,12 +8,12 @@ import { BoardPage } from './pages/BoardPage';
 import { TaskPage } from './pages/TaskPage';
 import './index.css';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+console.log('Mounting React app...'); ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Router>
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<AuthPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/board/:boardId" element={<BoardPage />} />
         <Route path="/task/:taskId" element={<TaskPage />} />
