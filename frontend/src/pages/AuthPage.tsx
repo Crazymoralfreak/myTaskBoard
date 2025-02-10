@@ -1,58 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useTelegram } from '../hooks/useTelegram';
-import { TelegramLogin } from '../components/TelegramLogin';
-import { sendAuthData } from '../api/api';
-import { useNavigate } from 'react-router-dom';
-import './AuthPage.css'; // Добавим стили для вкладок
+import React, { useState } from 'react';
+import './AuthPage.css';
 
 export const AuthPage = () => {
-  const { user, WebApp } = useTelegram();
-  const [authData, setAuthData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '', name: '' });
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    WebApp.ready();
-    if (user) {
-      // Если пользователь уже авторизован через Telegram, перенаправляем на главную страницу
-      navigate('/');
-    }
-  }, [user, WebApp, navigate]);
-
-  const handleAuth = async (userData: any) => {
-    try {
-      const response = await sendAuthData(userData);
-      setAuthData(response);
-      navigate('/');
-    } catch (error) {
-      console.error('Auth failed:', error);
-    }
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert('Вход выполнен: ' + JSON.stringify(loginData));
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      // Отправляем данные для входа
-      const response = await sendAuthData(loginData);
-      setAuthData(response);
-      navigate('/');
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      // Отправляем данные для регистрации
-      const response = await sendAuthData(registerData);
-      setAuthData(response);
-      navigate('/');
-    } catch (error) {
-      console.error('Registration failed:', error);
-    }
+    alert('Регистрация выполнена: ' + JSON.stringify(registerData));
   };
 
   return (
@@ -117,13 +78,6 @@ export const AuthPage = () => {
           <button type="submit">Зарегистрироваться</button>
         </form>
       )}
-      <div className="telegram-login">
-        <p>Или войдите через Telegram:</p>
-        <TelegramLogin
-          botName={import.meta.env.VITE_BOT_NAME}
-          onAuth={handleAuth}
-        />
-      </div>
     </div>
   );
 };
