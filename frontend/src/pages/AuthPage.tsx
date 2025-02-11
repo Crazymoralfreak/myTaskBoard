@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './AuthPage.css';
 
+
 export const AuthPage = () => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [loginData, setLoginData] = useState({ email: '', password: '' });
