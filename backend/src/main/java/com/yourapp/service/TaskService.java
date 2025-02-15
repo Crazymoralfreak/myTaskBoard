@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,11 +21,17 @@ public class TaskService {
     private final UserRepository userRepository;
     
     @Transactional
-    public Task createTask(Task task, Long columnId) {
-        Column column = columnRepository.findById(columnId)
-                .orElseThrow(() -> new RuntimeException("Column not found"));
+    public Task createTask(Task task, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
         
-        task.setColumn(column);
+        if (task.getColumn() != null && task.getColumn().getId() != null) {
+            Column column = columnRepository.findById(task.getColumn().getId())
+                    .orElseThrow(() -> new RuntimeException("Column not found"));
+            task.setColumn(column);
+        }
+        
+        task.setAssignee(user);
         return taskRepository.save(task);
     }
     

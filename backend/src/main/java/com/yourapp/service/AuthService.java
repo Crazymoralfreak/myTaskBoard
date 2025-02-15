@@ -1,17 +1,20 @@
 package com.yourapp.service;
 
-import com.yourapp.model.*;
+import com.yourapp.dto.AuthRequest;
+import com.yourapp.dto.AuthResponse;
+import com.yourapp.dto.RegisterRequest;
+import com.yourapp.model.TelegramAuthRequest;
+import com.yourapp.model.User;
+import com.yourapp.repository.UserRepository;
+import com.yourapp.security.JwtService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import lombok.RequiredArgsConstructor;
-import com.yourapp.dto.RegisterRequest;
-import com.yourapp.dto.AuthResponse;
-import com.yourapp.dto.UserDto;
-import com.yourapp.repository.UserRepository;
-import com.yourapp.service.JwtService;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class AuthService {
     
     private final UserRepository userRepository;
@@ -19,54 +22,49 @@ public class AuthService {
     private final JwtService jwtService;
     
     public AuthResponse register(RegisterRequest request) {
-        // Проверяем, не существует ли уже пользователь с таким email
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("User with this email already exists");
         }
         
-        // Создаем нового пользователя
-        var user = User.builder()
+        User user = User.builder()
                 .email(request.getEmail())
                 .username(request.getUsername() != null ? request.getUsername() : request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .build();
         
-        // Сохраняем пользователя
         user = userRepository.save(user);
-        
-        // Генерируем токен
         String token = jwtService.generateToken(user);
         
-        // Создаем DTO пользователя
-        UserDto userDto = UserDto.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .username(user.getUsername())
-                .build();
-        
-        // Возвращаем ответ
         return AuthResponse.builder()
                 .token(token)
-                .user(userDto)
+                .user(user.toDto())
                 .message("User registered successfully")
                 .build();
     }
 
     public AuthResponse login(AuthRequest request) {
-        // TODO: Implement login logic
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        String token = jwtService.generateToken(user);
+        
         return AuthResponse.builder()
-            .token("temp_token")
-            .username(request.getEmail())
-            .userId("temp_id")
-            .build();
+                .token(token)
+                .user(user.toDto())
+                .message("Login successful")
+                .build();
     }
 
     public AuthResponse telegramAuth(TelegramAuthRequest request) {
-        // TODO: Implement Telegram auth logic
+        User user = userRepository.findByTelegramId(request.getTelegramId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        String token = jwtService.generateToken(user);
+        
         return AuthResponse.builder()
-            .token("temp_token")
-            .username(request.getUsername())
-            .userId(request.getTelegramId())
-            .build();
+                .token(token)
+                .user(user.toDto())
+                .message("Telegram auth successful")
+                .build();
     }
 } 

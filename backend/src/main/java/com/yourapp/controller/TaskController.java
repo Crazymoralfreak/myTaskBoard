@@ -18,7 +18,17 @@ public class TaskController {
 
     @PostMapping
     public Task createTask(@RequestBody Task task, @AuthenticationPrincipal User user) {
-        return taskService.createTask(task, user);
+        return taskService.createTask(task, user.getId());
+    }
+
+    @GetMapping("/{id}")
+    public Task getTask(@PathVariable Long id) {
+        return taskService.getTask(id);
+    }
+
+    @GetMapping("/column/{columnId}")
+    public List<Task> getTasksByColumn(@PathVariable Long columnId) {
+        return taskService.getTasksByColumn(columnId);
     }
 
     @PutMapping("/{id}")
@@ -27,16 +37,24 @@ public class TaskController {
         @RequestBody Task task,
         @AuthenticationPrincipal User user
     ) {
-        return taskService.updateTask(id, task, user);
+        task.setAssignee(user);
+        return taskService.updateTask(id, task);
     }
 
     @PatchMapping("/{taskId}/move/{newColumnId}")
     public Task moveTask(
         @PathVariable Long taskId,
-        @PathVariable Long newColumnId,
-        @AuthenticationPrincipal User user
+        @PathVariable Long newColumnId
     ) {
-        return taskService.moveTask(taskId, newColumnId, user);
+        return taskService.moveTask(taskId, newColumnId);
+    }
+
+    @PatchMapping("/{taskId}/assign/{userId}")
+    public Task assignTask(
+        @PathVariable Long taskId,
+        @PathVariable Long userId
+    ) {
+        return taskService.assignTask(taskId, userId);
     }
 
     @DeleteMapping("/{id}")

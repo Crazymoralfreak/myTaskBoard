@@ -17,18 +17,15 @@ public class NotificationController {
     public NotificationPreferences getUserPreferences(
         @RequestParam Long userId
     ) {
-        return notificationService.getUserNotificationPreferences(userId);
+        return notificationService.getNotificationPreferences(userId);
     }
 
     @PutMapping("/preferences")
     public NotificationPreferences updatePreferences(
         @RequestParam Long userId,
-        @RequestBody NotificationPreferences preferences
+        @RequestParam boolean enabled
     ) {
-        return notificationService.updateUserNotificationPreferences(
-            userId, 
-            preferences
-        );
+        return notificationService.updateNotificationPreferences(userId, enabled);
     }
 
     @PatchMapping("/global")
@@ -36,9 +33,6 @@ public class NotificationController {
         @RequestParam Long userId,
         @RequestParam boolean enabled
     ) {
-        return notificationService.updateGlobalNotificationSettings(
-            userId, 
-            enabled
-        );
+        return notificationService.updateNotificationPreferences(userId, enabled);
     }
 }

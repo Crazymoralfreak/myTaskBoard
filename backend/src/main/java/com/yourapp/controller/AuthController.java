@@ -1,8 +1,8 @@
 package com.yourapp.controller;
 
-import com.yourapp.model.AuthRequest;
-import com.yourapp.model.AuthResponse;
-import com.yourapp.model.RegisterRequest;
+import com.yourapp.dto.AuthRequest;
+import com.yourapp.dto.AuthResponse;
+import com.yourapp.dto.RegisterRequest;
 import com.yourapp.model.TelegramAuthRequest;
 import com.yourapp.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +18,7 @@ public class AuthController {
     
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(authService.register(request));
     }
     
     @PostMapping("/login")

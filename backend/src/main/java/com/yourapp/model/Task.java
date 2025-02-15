@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
 @Data
@@ -21,8 +22,12 @@ public class Task {
     
     private String title;
     private String description;
-    private Integer priority;
+    private String priority;
     private LocalDateTime dueDate;
+    
+    @ElementCollection
+    @Builder.Default
+    private Set<String> tags = new HashSet<>();
     
     @ManyToOne
     @JoinColumn(name = "column_id")
@@ -31,9 +36,4 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "assignee_id")
     private User assignee;
-    
-    @ElementCollection
-    @CollectionTable(name = "task_tags", joinColumns = @JoinColumn(name = "task_id"))
-    @Column(name = "tag")
-    private Set<String> tags;
 }

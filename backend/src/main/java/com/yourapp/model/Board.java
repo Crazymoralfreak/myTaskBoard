@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -18,26 +19,36 @@ public class Board {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String title;
+    private String name;
+    private String description;
+    private boolean archived;
     
     @ManyToOne
     @JoinColumn(name = "owner_id")
     private User owner;
     
-    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
-    private List<Column> columns;
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Column> columns = new ArrayList<>();
     
     public void addColumn(Column column) {
-        columns.add(column);
         column.setBoard(this);
-        column.setPosition(columns.size() - 1);
+        column.setPosition(columns.size());
+        columns.add(column);
     }
     
     public void removeColumn(Column column) {
         columns.remove(column);
         column.setBoard(null);
-        
-        // Пересчитываем позиции оставшихся колонок
+    }
+    
+    public void moveColumn(Column column, int newPosition) {
+        columns.remove(column);
+        columns.add(newPosition, column);
+        reorderColumns();
+    }
+    
+    private void reorderColumns() {
         for (int i = 0; i < columns.size(); i++) {
             columns.get(i).setPosition(i);
         }

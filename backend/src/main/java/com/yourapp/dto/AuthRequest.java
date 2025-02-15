@@ -1,4 +1,4 @@
-package com.yourapp.model;
+package com.yourapp.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TelegramAuthRequest {
-    private String username;
-    private String telegramId;
+public class AuthRequest {
+    private String email;
+    private String password;
 } 

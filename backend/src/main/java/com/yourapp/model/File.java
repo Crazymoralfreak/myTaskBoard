@@ -22,6 +22,6 @@ public class File {
     private String fileType;
     
     @ManyToOne
-    @JoinColumn(name = "task_id")
-    private Task task;
+    @JoinColumn(name = "uploaded_by_id")
+    private User uploadedBy;
 }

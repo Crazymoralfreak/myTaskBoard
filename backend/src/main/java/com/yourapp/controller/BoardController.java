@@ -3,6 +3,7 @@ package com.yourapp.controller;
 import com.yourapp.model.Board;
 import com.yourapp.model.Column;
 import com.yourapp.service.BoardService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -55,8 +56,8 @@ public class BoardController {
     }
 
     @PatchMapping("/{id}/restore")
-    public Board restoreBoard(@PathVariable Long id) {
-        return boardService.restoreBoard(id);
+    public ResponseEntity<Board> restoreBoard(@PathVariable Long id) {
+        return ResponseEntity.ok(boardService.unarchiveBoard(id));
     }
 
     @DeleteMapping("/{id}")
