@@ -1,64 +1,45 @@
 package com.yourapp.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import java.util.ArrayList;
+import lombok.NoArgsConstructor;
 import java.util.List;
 
-@Entity
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "boards")
 public class Board {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String name;
-    private String description;
-    private boolean isArchived;
-    
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "board_id")
-    @OrderBy("position ASC")
-    private List<Column> columns;
+    private String title;
     
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "owner_id")
     private User owner;
-
+    
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
+    private List<Column> columns;
+    
     public void addColumn(Column column) {
-        if (columns == null) {
-            columns = new ArrayList<>();
-        }
-        column.setPosition(columns.size());
         columns.add(column);
+        column.setBoard(this);
+        column.setPosition(columns.size() - 1);
     }
-
+    
     public void removeColumn(Column column) {
-        if (columns != null) {
-            columns.remove(column);
-            updateColumnPositions();
-        }
-    }
-
-    public void moveColumn(Column column, int newPosition) {
-        if (columns != null && columns.contains(column)) {
-            columns.remove(column);
-            columns.add(newPosition, column);
-            updateColumnPositions();
-        }
-    }
-
-    private void updateColumnPositions() {
+        columns.remove(column);
+        column.setBoard(null);
+        
+        // Пересчитываем позиции оставшихся колонок
         for (int i = 0; i < columns.size(); i++) {
             columns.get(i).setPosition(i);
         }
-    }
-
-    public int getColumnCount() {
-        return columns != null ? columns.size() : 0;
-    }
-    
-    public boolean hasColumns() {
-        return columns != null && !columns.isEmpty();
     }
 }

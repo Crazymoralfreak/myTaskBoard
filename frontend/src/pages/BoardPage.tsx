@@ -1,154 +1,138 @@
-import { useEffect, useState } from 'react';
-import { TaskFilters } from '../components/TaskFilters';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { useTelegram } from '../hooks/useTelegram';
-import { fetchBoards, updateTaskPosition, sendTelegramNotification } from '../api/api';
+import { 
+    Container, 
+    Typography, 
+    Box, 
+    IconButton, 
+    CircularProgress,
+    Button
+} from '@mui/material';
+import { 
+    ArrowBack as ArrowBackIcon,
+    Add as AddIcon,
+    Settings as SettingsIcon 
+} from '@mui/icons-material';
+import { Board } from '../types/board';
+import { boardService } from '../services/boardService';
+import { BoardColumn } from '../components/BoardColumn';
+import { Column } from '../types/column';
 
-export const BoardPage = () => {
-  const { boardId } = useParams();
-  const { user, WebApp } = useTelegram();
-  const [board, setBoard] = useState<any>(null);
-  const [filteredColumns, setFilteredColumns] = useState<any[]>([]);
-  const navigate = useNavigate();
+export const BoardPage: React.FC = () => {
+    const { boardId } = useParams<{ boardId: string }>();
+    const [board, setBoard] = useState<Board | null>(null);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    WebApp.ready();
-    if (boardId && user) {
-      fetchBoards(boardId).then((data) => {
-        setBoard(data);
-        setFilteredColumns(data.columns);
-      });
-    }
-  }, [boardId, user, WebApp]);
-
-  const handleFilter = (filters: { status: string; dueDate: string }) => {
-    const filtered = board.columns.map((column: any) => ({
-      ...column,
-      tasks: column.tasks.filter((task: any) => {
-        const matchesStatus = filters.status ? task.status === filters.status : true;
-        const matchesDueDate = filters.dueDate ? task.dueDate === filters.dueDate : true;
-        return matchesStatus && matchesDueDate;
-      }),
-    }));
-    setFilteredColumns(filtered);
-  };
-
-  const handleSort = (sortBy: string) => {
-    const sorted = board.columns.map((column: any) => ({
-      ...column,
-      tasks: column.tasks.sort((a: any, b: any) => {
-        if (sortBy === 'dueDate') {
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        } else if (sortBy === 'status') {
-          return a.status.localeCompare(b.status);
-        } else {
-          return a.title.localeCompare(b.title);
+    useEffect(() => {
+        if (boardId) {
+            loadBoard();
         }
-      }),
-    }));
-    setFilteredColumns(sorted);
-  };
+    }, [boardId]);
 
-  const onDragEnd = async (result: any) => {
-    const { source, destination, draggableId } = result;
+    const loadBoard = async () => {
+        if (!boardId) return;
+        try {
+            setLoading(true);
+            const boardData = await boardService.getBoard(boardId);
+            setBoard(boardData);
+        } catch (error) {
+            console.error('Failed to load board:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    if (!destination) return;
+    const handleAddColumn = async () => {
+        if (!board || !boardId) return;
+        const columnName = prompt('Введите название колонки:');
+        if (columnName) {
+            try {
+                const updatedBoard = await boardService.addColumn(boardId, { name: columnName });
+                setBoard(updatedBoard);
+            } catch (error) {
+                console.error('Failed to add column:', error);
+            }
+        }
+    };
 
-    const sourceColumn = board.columns.find((col: any) => col.id === source.droppableId);
-    const destinationColumn = board.columns.find((col: any) => col.id === destination.droppableId);
-    const task = sourceColumn.tasks.find((t: any) => t.id === draggableId);
+    const handleColumnMove = async (columnId: string, newPosition: number): Promise<void> => {
+        if (!boardId) return;
+        try {
+            const updatedBoard = await boardService.moveColumn(boardId, columnId, newPosition);
+            setBoard(updatedBoard);
+        } catch (error) {
+            console.error('Failed to move column:', error);
+        }
+    };
 
-    if (source.droppableId === destination.droppableId) {
-      const newTasks = Array.from(sourceColumn.tasks);
-      newTasks.splice(source.index, 1);
-      newTasks.splice(destination.index, 0, task);
-
-      const newColumn = { ...sourceColumn, tasks: newTasks };
-      const newColumns = board.columns.map((col: any) =>
-        col.id === newColumn.id ? newColumn : col
-      );
-
-      setBoard({ ...board, columns: newColumns });
-    } else {
-      const sourceTasks = Array.from(sourceColumn.tasks);
-      sourceTasks.splice(source.index, 1);
-      const newSourceColumn = { ...sourceColumn, tasks: sourceTasks };
-
-      const destinationTasks = Array.from(destinationColumn.tasks);
-      destinationTasks.splice(destination.index, 0, task);
-      const newDestinationColumn = { ...destinationColumn, tasks: destinationTasks };
-
-      const newColumns = board.columns.map((col: any) => {
-        if (col.id === newSourceColumn.id) return newSourceColumn;
-        if (col.id === newDestinationColumn.id) return newDestinationColumn;
-        return col;
-      });
-
-      setBoard({ ...board, columns: newColumns });
+    if (loading) {
+        return (
+            <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <CircularProgress />
+            </Container>
+        );
     }
 
-    await updateTaskPosition({
-      taskId: draggableId,
-      sourceColumnId: source.droppableId,
-      destinationColumnId: destination.droppableId,
-      sourceIndex: source.index,
-      destinationIndex: destination.index,
-    });
+    if (!board) {
+        return (
+            <Container>
+                <Typography>Доска не найдена</Typography>
+            </Container>
+        );
+    }
 
-    const message = `Задача "${task.title}" перемещена из "${sourceColumn.title}" в "${destinationColumn.title}".`;
-    await sendTelegramNotification(user.id, message);
-  };
+    return (
+        <Container maxWidth={false}>
+            <Box sx={{ mt: 2, mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <IconButton onClick={() => navigate('/')}>
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <Typography variant="h5">{board.name}</Typography>
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleAddColumn}
+                    >
+                        Добавить колонку
+                    </Button>
+                    <IconButton>
+                        <SettingsIcon />
+                    </IconButton>
+                </Box>
+                {board.description && (
+                    <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ mt: 1, ml: 6 }}
+                    >
+                        {board.description}
+                    </Typography>
+                )}
+            </Box>
 
-  if (!board) {
-    return <div>Загрузка...</div>;
-  }
-
-  return (
-    <div>
-      <TaskFilters onFilter={handleFilter} onSort={handleSort} />
-      <DragDropContext onDragEnd={onDragEnd}>
-        <h1>{board.title}</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {filteredColumns.map((column: any) => (
-            <Droppable key={column.id} droppableId={column.id}>
-              {(provided) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '5px', width: '200px' }}
-                >
-                  <h3>{column.title}</h3>
-                  {column.tasks.map((task: any, index: number) => (
-                    <Draggable key={task.id} draggableId={task.id} index={index}>
-                      {(provided) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          style={{
-                            marginBottom: '10px',
-                            padding: '5px',
-                            background: '#f0f0f0',
-                            borderRadius: '3px',
-                            ...provided.draggableProps.style,
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => navigate(`/task/${task.id}`)}
-                        >
-                          <p>{task.title}</p>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          ))}
-        </div>
-      </DragDropContext>
-    </div>
-  );
+            <Box 
+                sx={{ 
+                    display: 'flex', 
+                    gap: 2, 
+                    overflowX: 'auto', 
+                    pb: 2, 
+                    px: 2 
+                }}
+            >
+                {board.columns.map((column: Column, index: number) => (
+                    <BoardColumn
+                        key={column.id}
+                        column={column}
+                        onMove={(position: number) => handleColumnMove(column.id, position)}
+                        canMoveLeft={index > 0}
+                        canMoveRight={index < board.columns.length - 1}
+                    />
+                ))}
+            </Box>
+        </Container>
+    );
 };
   

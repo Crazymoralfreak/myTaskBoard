@@ -1,81 +1,90 @@
+import React from 'react';
 import { useEffect, useState } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
-import axios from 'axios';
+import { useForm } from 'react-hook-form';
 import { Task } from '../types';
 import { useParams } from 'react-router-dom';
 import { useTelegram } from '../hooks/useTelegram';
 import { fetchTask } from '../api/api';
-import { TaskHistory } from '../components/TaskHistory';
+import { TextField, Button, Box, Typography } from '@mui/material';
 
-export const TaskPage = () => {
-  const { taskId } = useParams();
-  const { user, WebApp } = useTelegram();
-  const [task, setTask] = useState<Task | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const { register, handleSubmit, reset } = useForm<Task>();
+interface TaskFormData {
+    title: string;
+    description: string;
+    priority: number;
+    dueDate: string;
+}
 
-  useEffect(() => {
-    WebApp.ready();
-    if (taskId && user) {
-      fetchTask(taskId).then((data) => {
-        setTask(data);
-        reset(data);
-      });
+export const TaskPage: React.FC = () => {
+    const { taskId } = useParams<{ taskId: string }>();
+    const [task, setTask] = useState<Task | null>(null);
+    const { register, handleSubmit } = useForm<TaskFormData>();
+
+    useEffect(() => {
+        const loadTask = async () => {
+            if (taskId) {
+                const taskData = await fetchTask(taskId);
+                setTask(taskData);
+            }
+        };
+        loadTask();
+    }, [taskId]);
+
+    const onSubmit = async (data: TaskFormData) => {
+        // Implement task creation/update logic
+        console.log(data);
+    };
+
+    if (!task) {
+        return <div>Загрузка...</div>;
     }
-  }, [taskId, user, WebApp, reset]);
 
-  const onSubmit: SubmitHandler<Task> = async (data) => {
-    try {
-      const response = await axios.put(`${import.meta.env.VITE_API_URL}/tasks/${taskId}`, data);
-      setTask(response.data);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating task:', error);
-    }
-  };
-
-  if (!task) {
-    return <div>Загрузка...</div>;
-  }
-
-  return (
-    <div>
-      {isEditing ? (
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <label>Название:</label>
-            <input {...register('title')} defaultValue={task.title} />
-          </div>
-          <div>
-            <label>Описание:</label>
-            <textarea {...register('description')} defaultValue={task.description} />
-          </div>
-          <div>
-            <label>Статус:</label>
-            <select {...register('status')} defaultValue={task.status}>
-              <option value="todo">To Do</option>
-              <option value="in_progress">In Progress</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
-          <div>
-            <label>Срок:</label>
-            <input type="date" {...register('dueDate')} defaultValue={task.dueDate} />
-          </div>
-          <button type="submit">Сохранить</button>
-          <button type="button" onClick={() => setIsEditing(false)}>Отмена</button>
-        </form>
-      ) : (
-        <>
-          <h1>{task.title}</h1>
-          <p>{task.description}</p>
-          <p>Статус: {task.status}</p>
-          <p>Срок: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Не указан'}</p>
-          <button onClick={() => setIsEditing(true)}>Редактировать</button>
-          <TaskHistory taskId={taskId!} />
-        </>
-      )}
-    </div>
-  );
+    return (
+        <Box sx={{ p: 3 }}>
+            <Typography variant="h4" gutterBottom>
+                Создание задачи
+            </Typography>
+            <form onSubmit={handleSubmit(onSubmit)}>
+                <TextField
+                    fullWidth
+                    label="Название"
+                    {...register('title')}
+                    margin="normal"
+                />
+                <TextField
+                    fullWidth
+                    label="Описание"
+                    {...register('description')}
+                    margin="normal"
+                    multiline
+                    rows={4}
+                />
+                <TextField
+                    fullWidth
+                    label="Приоритет"
+                    type="number"
+                    {...register('priority')}
+                    margin="normal"
+                />
+                <TextField
+                    fullWidth
+                    label="Срок выполнения"
+                    type="date"
+                    {...register('dueDate')}
+                    margin="normal"
+                    InputLabelProps={{
+                        shrink: true,
+                    }}
+                />
+                <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    sx={{ mt: 2 }}
+                >
+                    Сохранить
+                </Button>
+            </form>
+        </Box>
+    );
 };
   

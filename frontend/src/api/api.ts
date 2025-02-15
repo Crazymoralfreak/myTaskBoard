@@ -1,11 +1,37 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
+export const api = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor for JWT
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/auth';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Авторизация через Telegram
 export const sendAuthData = async (authData: any) => {
   try {
-    const response = await axios.post(`${API_URL}/auth`, authData);
+    const response = await api.post('/auth', authData);
     return response.data;
   } catch (error) {
     console.error('Error sending auth data:', error);
@@ -16,7 +42,7 @@ export const sendAuthData = async (authData: any) => {
 // Получение списка досок пользователя
 export const fetchBoards = async (userId: string) => {
   try {
-    const response = await axios.get(`${API_URL}/boards`, {
+    const response = await api.get('/boards', {
       params: { userId },
     });
     return response.data;
@@ -29,7 +55,7 @@ export const fetchBoards = async (userId: string) => {
 // Создание новой доски
 export const createBoard = async (boardData: { title: string; userId: string }) => {
   try {
-    const response = await axios.post(`${API_URL}/boards`, boardData);
+    const response = await api.post('/boards', boardData);
     return response.data;
   } catch (error) {
     console.error('Error creating board:', error);
@@ -40,7 +66,7 @@ export const createBoard = async (boardData: { title: string; userId: string }) 
 // Получение данных пользователя
 export const fetchUserProfile = async (userId: string) => {
   try {
-    const response = await axios.get(`${API_URL}/users/${userId}`);
+    const response = await api.get(`/users/${userId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -51,7 +77,7 @@ export const fetchUserProfile = async (userId: string) => {
 // Отправка уведомления через Telegram Bot API
 export const sendTelegramNotification = async (userId: string, message: string) => {
   try {
-    const response = await axios.post(`${API_URL}/notify`, { userId, message });
+    const response = await api.post('/notify', { userId, message });
     return response.data;
   } catch (error) {
     console.error('Error sending notification:', error);
@@ -62,7 +88,7 @@ export const sendTelegramNotification = async (userId: string, message: string) 
 // Получение истории изменений задачи
 export const fetchTask = async (taskId: string) => {
   try {
-    const response = await axios.get(`${API_URL}/tasks/${taskId}`);
+    const response = await api.get(`/tasks/${taskId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching task:', error);
@@ -78,7 +104,7 @@ export const updateTaskPosition = async (taskData: {
   destinationIndex: number;
 }) => {
   try {
-    const response = await axios.post(`${API_URL}/tasks/update-position`, taskData);
+    const response = await api.post('/tasks/update-position', taskData);
     return response.data;
   } catch (error) {
     console.error('Error updating task position:', error);
@@ -88,7 +114,7 @@ export const updateTaskPosition = async (taskData: {
 
 export const fetchTaskHistory = async (taskId: string) => {
   try {
-    const response = await axios.get(`${API_URL}/tasks/${taskId}/history`);
+    const response = await api.get(`/tasks/${taskId}/history`);
     return response.data;
   } catch (error) {
     console.error('Error fetching task history:', error);

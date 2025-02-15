@@ -4,23 +4,36 @@ services:
     build: ./backend
     container_name: my-task-board-backend
     ports:
-      - "${APP_PORT}:8080"
+      - "${APP_PORT}:8081"
     env_file:
       - .env
     environment:
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
-      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO}
-      - JAVA_OPTS=${JAVA_OPTS}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_SHOW_SQL=true
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
+      - SPRING_FLYWAY_VALIDATE_ON_MIGRATE=true
+      - SPRING_FLYWAY_CLEAN_ON_VALIDATION_ERROR=true
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: ${HEALTHCHECK_INTERVAL}
-      timeout: ${HEALTHCHECK_TIMEOUT}
-      retries: ${HEALTHCHECK_RETRIES}
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - app-network
 
   db:
     image: postgres:15-alpine
@@ -28,31 +41,42 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "${DB_PORT}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
 
   frontend:
     build: ./frontend
     container_name: taskboard-frontend
     ports:
-      - "${FRONTEND_PORT}:5173"
+      - "${FRONTEND_PORT}:80"
     env_file:
       - .env
     environment:
       - VITE_API_URL=http://localhost:${APP_PORT}
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       app:
         condition: service_healthy
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

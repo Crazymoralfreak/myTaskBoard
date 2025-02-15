@@ -1,202 +1,90 @@
 package com.yourapp.service;
 
-import com.yourapp.model.*;
+import com.yourapp.model.Task;
+import com.yourapp.model.Column;
+import com.yourapp.model.User;
 import com.yourapp.repository.TaskRepository;
+import com.yourapp.repository.ColumnRepository;
+import com.yourapp.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
+import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class TaskService {
+    
     private final TaskRepository taskRepository;
-    private final TaskHistoryService taskHistoryService;
-    private final TelegramNotificationService telegramNotificationService;
-
-    public TaskService(
-        TaskRepository taskRepository,
-        TaskHistoryService taskHistoryService,
-        TelegramNotificationService telegramNotificationService
-    ) {
-        this.taskRepository = taskRepository;
-        this.taskHistoryService = taskHistoryService;
-        this.telegramNotificationService = telegramNotificationService;
+    private final ColumnRepository columnRepository;
+    private final UserRepository userRepository;
+    
+    @Transactional
+    public Task createTask(Task task, Long columnId) {
+        Column column = columnRepository.findById(columnId)
+                .orElseThrow(() -> new RuntimeException("Column not found"));
+        
+        task.setColumn(column);
+        return taskRepository.save(task);
     }
-
-    public Task createTask(Task task, User createdBy) {
-        Task createdTask = taskRepository.save(task);
-        taskHistoryService.logTaskChange(
-            createdTask.getId(),
-            createdBy,
-            "created",
-            null,
-            createdTask.toString()
-        );
+    
+    @Transactional
+    public Task updateTask(Long taskId, Task updatedTask) {
+        Task existingTask = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
         
-        String message = String.format(
-            "New task created: %s\nDescription: %s\nCreated by: %s",
-            createdTask.getTitle(),
-            createdTask.getDescription(),
-            createdBy.getUsername()
-        );
-        
-        if (createdTask.getAssignee() != null) {
-            telegramNotificationService.sendTaskNotification(
-                createdTask.getAssignee(),
-                createdTask,
-                message,
-                TelegramNotificationService.NotificationType.TASK_ASSIGNED
-            );
-        }
-        
-        return createdTask;
-    }
-
-    public Task updateTask(Long id, Task taskDetails, User changedBy) {
-        Task task = taskRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Task not found"));
-        
-        trackChanges(task, taskDetails, changedBy);
-        
-        task.setTitle(taskDetails.getTitle());
-        task.setDescription(taskDetails.getDescription());
-        task.setDueDate(taskDetails.getDueDate());
-        task.setPriority(taskDetails.getPriority());
-        task.setTags(taskDetails.getTags());
-        task.setAssignee(taskDetails.getAssignee());
-        
-        Task updatedTask = taskRepository.save(task);
+        existingTask.setTitle(updatedTask.getTitle());
+        existingTask.setDescription(updatedTask.getDescription());
+        existingTask.setPriority(updatedTask.getPriority());
+        existingTask.setDueDate(updatedTask.getDueDate());
+        existingTask.setTags(updatedTask.getTags());
         
         if (updatedTask.getAssignee() != null) {
-            String message = String.format(
-                "Task updated: %s\nUpdated by: %s\nChanges: %s",
-                updatedTask.getTitle(),
-                changedBy.getUsername(),
-                getChangeSummary(task, taskDetails)
-            );
-            
-            telegramNotificationService.sendTaskNotification(
-                updatedTask.getAssignee(),
-                updatedTask,
-                message,
-                TelegramNotificationService.NotificationType.TASK_UPDATED
-            );
+            User assignee = userRepository.findById(updatedTask.getAssignee().getId())
+                    .orElseThrow(() -> new RuntimeException("Assignee not found"));
+            existingTask.setAssignee(assignee);
         }
         
-        return updatedTask;
+        return taskRepository.save(existingTask);
     }
-
-    public Task moveTask(Long taskId, Long newColumnId, User movedBy) {
+    
+    @Transactional
+    public void deleteTask(Long taskId) {
+        taskRepository.deleteById(taskId);
+    }
+    
+    public Task getTask(Long taskId) {
+        return taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+    }
+    
+    public List<Task> getTasksByColumn(Long columnId) {
+        return taskRepository.findByColumnId(columnId);
+    }
+    
+    @Transactional
+    public Task moveTask(Long taskId, Long targetColumnId) {
         Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new RuntimeException("Task not found"));
         
-        Column newColumn = new Column();
-        newColumn.setId(newColumnId);
+        Column targetColumn = columnRepository.findById(targetColumnId)
+                .orElseThrow(() -> new RuntimeException("Target column not found"));
         
-        taskHistoryService.logTaskChange(
-            taskId,
-            movedBy,
-            "column",
-            task.getColumn() != null ? task.getColumn().getId().toString() : "null",
-            newColumnId.toString()
-        );
-        
-        task.setColumn(newColumn);
-        
-        Task movedTask = taskRepository.save(task);
-        
-        if (movedTask.getAssignee() != null) {
-            String message = String.format(
-                "Task moved: %s\nMoved to: Column %d\nMoved by: %s",
-                movedTask.getTitle(),
-                newColumnId,
-                movedBy.getUsername()
-            );
-            
-            telegramNotificationService.sendTaskNotification(
-                movedTask.getAssignee(),
-                movedTask,
-                message,
-                TelegramNotificationService.NotificationType.TASK_MOVED
-            );
-        }
-        
-        return movedTask;
+        task.setColumn(targetColumn);
+        return taskRepository.save(task);
     }
-
-    public void deleteTask(Long id) {
-        taskRepository.deleteById(id);
-    }
-
-    private void trackChanges(Task original, Task updated, User changedBy) {
-        if (!original.getTitle().equals(updated.getTitle())) {
-            taskHistoryService.logTaskChange(
-                original.getId(),
-                changedBy,
-                "title",
-                original.getTitle(),
-                updated.getTitle()
-            );
-        }
-        if (!original.getDescription().equals(updated.getDescription())) {
-            taskHistoryService.logTaskChange(
-                original.getId(),
-                changedBy,
-                "description",
-                original.getDescription(),
-                updated.getDescription()
-            );
-        }
-        if (original.getPriority() != updated.getPriority()) {
-            taskHistoryService.logTaskChange(
-                original.getId(),
-                changedBy,
-                "priority",
-                String.valueOf(original.getPriority()),
-                String.valueOf(updated.getPriority())
-            );
-        }
-        if (!original.getTags().equals(updated.getTags())) {
-            taskHistoryService.logTaskChange(
-                original.getId(),
-                changedBy,
-                "tags",
-                original.getTags().toString(),
-                updated.getTags().toString()
-            );
-        }
-        if (!original.getAssignee().equals(updated.getAssignee())) {
-            taskHistoryService.logTaskChange(
-                original.getId(),
-                changedBy,
-                "assignee",
-                original.getAssignee() != null ? original.getAssignee().getId().toString() : "null",
-                updated.getAssignee() != null ? updated.getAssignee().getId().toString() : "null"
-            );
-        }
-    }
-
-    private String getChangeSummary(Task original, Task updated) {
-        StringBuilder changes = new StringBuilder();
+    
+    @Transactional
+    public Task assignTask(Long taskId, Long userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
         
-        if (!original.getTitle().equals(updated.getTitle())) {
-            changes.append(String.format("\n- Title: %s → %s", original.getTitle(), updated.getTitle()));
-        }
-        if (!original.getDescription().equals(updated.getDescription())) {
-            changes.append("\n- Description updated");
-        }
-        if (original.getPriority() != updated.getPriority()) {
-            changes.append(String.format("\n- Priority: %d → %d", original.getPriority(), updated.getPriority()));
-        }
-        if (!original.getTags().equals(updated.getTags())) {
-            changes.append("\n- Tags updated");
-        }
-        if (!original.getAssignee().equals(updated.getAssignee())) {
-            changes.append(String.format(
-                "\n- Assignee: %s → %s",
-                original.getAssignee() != null ? original.getAssignee().getUsername() : "Unassigned",
-                updated.getAssignee() != null ? updated.getAssignee().getUsername() : "Unassigned"
-            ));
-        }
+        User assignee = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
         
-        return changes.toString();
+        task.setAssignee(assignee);
+        return taskRepository.save(task);
     }
 }

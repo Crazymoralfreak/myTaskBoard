@@ -1,29 +1,27 @@
 package com.yourapp.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
-@ToString
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "`app_user`")
+@Table(name = "users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(unique = true)
+    private String email;
+    
     private String username;
     private String password;
-    private String email;
-    private Long telegramChatId;
-
-    @Embedded
-    private NotificationPreferences notificationPreferences = new NotificationPreferences();
+    private String telegramId;
 }
 

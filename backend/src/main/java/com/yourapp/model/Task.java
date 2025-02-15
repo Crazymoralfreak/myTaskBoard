@@ -1,12 +1,19 @@
 package com.yourapp.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
-@Entity
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "tasks")
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,11 +21,8 @@ public class Task {
     
     private String title;
     private String description;
+    private Integer priority;
     private LocalDateTime dueDate;
-    private int priority;
-    
-    @ElementCollection
-    private List<String> tags;
     
     @ManyToOne
     @JoinColumn(name = "column_id")
@@ -28,15 +32,8 @@ public class Task {
     @JoinColumn(name = "assignee_id")
     private User assignee;
     
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "task_id")
-    private List<Attachment> attachments;
-    
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "task_id")
-    private List<Comment> comments;
-    
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "task_id")
-    private List<TaskHistory> history;
+    @ElementCollection
+    @CollectionTable(name = "task_tags", joinColumns = @JoinColumn(name = "task_id"))
+    @Column(name = "tag")
+    private Set<String> tags;
 }
