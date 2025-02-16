@@ -1,7 +1,7 @@
 package com.yourapp.service;
 
 import com.yourapp.model.Task;
-import com.yourapp.model.Column;
+import com.yourapp.model.BoardColumn;
 import com.yourapp.model.User;
 import com.yourapp.repository.TaskRepository;
 import com.yourapp.repository.ColumnRepository;
@@ -26,7 +26,7 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
         if (task.getColumn() != null && task.getColumn().getId() != null) {
-            Column column = columnRepository.findById(task.getColumn().getId())
+            BoardColumn column = columnRepository.findById(task.getColumn().getId())
                     .orElseThrow(() -> new RuntimeException("Column not found"));
             task.setColumn(column);
         }
@@ -74,7 +74,7 @@ public class TaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
         
-        Column targetColumn = columnRepository.findById(targetColumnId)
+        BoardColumn targetColumn = columnRepository.findById(targetColumnId)
                 .orElseThrow(() -> new RuntimeException("Target column not found"));
         
         task.setColumn(targetColumn);

@@ -1,60 +1,75 @@
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255),
-    username VARCHAR(255),
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
     telegram_id VARCHAR(255),
     telegram_chat_id VARCHAR(255)
 );
 
 CREATE TABLE notification_preferences (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT UNIQUE REFERENCES users(id),
-    global_notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    task_assigned_notifications BOOLEAN NOT NULL DEFAULT TRUE,
-    task_updated_notifications BOOLEAN NOT NULL DEFAULT TRUE,
-    task_moved_notifications BOOLEAN NOT NULL DEFAULT TRUE,
-    mention_notifications BOOLEAN NOT NULL DEFAULT TRUE
+    user_id BIGINT NOT NULL,
+    global_notifications_enabled BOOLEAN DEFAULT TRUE,
+    task_assigned_notifications BOOLEAN DEFAULT TRUE,
+    task_moved_notifications BOOLEAN DEFAULT TRUE,
+    task_updated_notifications BOOLEAN DEFAULT TRUE,
+    mention_notifications BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE boards (
     id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255),
-    description VARCHAR(255),
-    archived BOOLEAN NOT NULL DEFAULT FALSE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    archived BOOLEAN DEFAULT FALSE,
     owner_id BIGINT REFERENCES users(id)
+);
+
+CREATE TABLE task_statuses (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    position INTEGER NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    is_custom BOOLEAN DEFAULT TRUE,
+    board_id BIGINT REFERENCES boards(id)
 );
 
 CREATE TABLE columns (
     id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255),
+    name VARCHAR(255) NOT NULL,
     position INTEGER NOT NULL,
     board_id BIGINT REFERENCES boards(id)
 );
 
 CREATE TABLE tasks (
     id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(255),
-    description VARCHAR(255),
-    priority VARCHAR(255),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    position INTEGER,
     due_date TIMESTAMP,
+    system_status VARCHAR(50),
+    priority VARCHAR(50),
     column_id BIGINT REFERENCES columns(id),
-    assignee_id BIGINT REFERENCES users(id)
+    assignee_id BIGINT REFERENCES users(id),
+    status_id BIGINT REFERENCES task_statuses(id)
 );
 
 CREATE TABLE task_tags (
     task_id BIGINT REFERENCES tasks(id),
-    tags VARCHAR(255)
+    tags VARCHAR(255),
+    PRIMARY KEY (task_id, tags)
 );
 
 CREATE TABLE task_history (
     id BIGSERIAL PRIMARY KEY,
-    task_id BIGINT REFERENCES tasks(id),
-    field_changed VARCHAR(255),
-    old_value VARCHAR(255),
-    new_value VARCHAR(255),
     changed_by_id BIGINT REFERENCES users(id),
-    changed_at TIMESTAMP
+    field_changed VARCHAR(255) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    changed_at TIMESTAMP NOT NULL,
+    task_id BIGINT REFERENCES tasks(id)
 );
 
 CREATE TABLE task_comment (
@@ -75,10 +90,10 @@ CREATE TABLE attachment (
 
 CREATE TABLE files (
     id BIGSERIAL PRIMARY KEY,
-    file_name VARCHAR(255),
-    file_path VARCHAR(255),
-    file_type VARCHAR(255),
-    uploaded_by_id BIGINT REFERENCES users(id)
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50),
+    task_id BIGINT REFERENCES tasks(id)
 );
 
 CREATE TABLE notes (

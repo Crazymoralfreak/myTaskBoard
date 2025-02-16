@@ -5,6 +5,7 @@ import com.yourapp.dto.AuthResponse;
 import com.yourapp.dto.RegisterRequest;
 import com.yourapp.model.TelegramAuthRequest;
 import com.yourapp.service.AuthService;
+import com.yourapp.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ public class AuthController {
     
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final AuthService authService;
+    private final JwtService jwtService;
     
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
@@ -45,5 +47,17 @@ public class AuthController {
     @PostMapping("/telegram")
     public ResponseEntity<AuthResponse> telegramAuth(@RequestBody TelegramAuthRequest request) {
         return ResponseEntity.ok(authService.telegramAuth(request));
+    }
+    
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, String>> refreshToken(
+        @RequestHeader("Authorization") String token
+    ) {
+        try {
+            String refreshedToken = jwtService.refreshToken(token.substring(7));
+            return ResponseEntity.ok(Map.of("token", refreshedToken));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 } 

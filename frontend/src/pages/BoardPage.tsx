@@ -17,11 +17,13 @@ import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
 import { BoardColumn } from '../components/BoardColumn';
 import { Column } from '../types/column';
+import { AddColumnModal } from '../components/AddColumnModal';
 
 export const BoardPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>();
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -43,16 +45,13 @@ export const BoardPage: React.FC = () => {
         }
     };
 
-    const handleAddColumn = async () => {
-        if (!board || !boardId) return;
-        const columnName = prompt('Введите название колонки:');
-        if (columnName) {
-            try {
-                const updatedBoard = await boardService.addColumn(boardId, { name: columnName });
-                setBoard(updatedBoard);
-            } catch (error) {
-                console.error('Failed to add column:', error);
-            }
+    const handleAddColumn = async (columnName: string) => {
+        try {
+            if (!board || !boardId) return;
+            const updatedBoard = await boardService.addColumn(boardId, { name: columnName });
+            setBoard(updatedBoard);
+        } catch (error) {
+            console.error('Failed to add column:', error);
         }
     };
 
@@ -94,7 +93,7 @@ export const BoardPage: React.FC = () => {
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
-                        onClick={handleAddColumn}
+                        onClick={() => setIsAddColumnModalOpen(true)}
                     >
                         Добавить колонку
                     </Button>
@@ -146,7 +145,7 @@ export const BoardPage: React.FC = () => {
                         <Button
                             variant="contained"
                             startIcon={<AddIcon />}
-                            onClick={handleAddColumn}
+                            onClick={() => setIsAddColumnModalOpen(true)}
                             sx={{ mt: 2 }}
                         >
                             Создать первую колонку
@@ -154,6 +153,11 @@ export const BoardPage: React.FC = () => {
                     </Box>
                 )}
             </Box>
+            <AddColumnModal
+                open={isAddColumnModalOpen}
+                onClose={() => setIsAddColumnModalOpen(false)}
+                onSubmit={handleAddColumn}
+            />
         </Container>
     );
 };

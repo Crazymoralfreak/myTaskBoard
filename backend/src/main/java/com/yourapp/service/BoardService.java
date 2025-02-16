@@ -1,7 +1,8 @@
 package com.yourapp.service;
 
 import com.yourapp.model.Board;
-import com.yourapp.model.Column;
+import com.yourapp.model.BoardColumn;
+import com.yourapp.model.TaskStatus;
 import com.yourapp.exception.ResourceNotFoundException;
 import com.yourapp.repository.BoardRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Arrays;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,33 @@ public class BoardService {
         if (board.getOwner() == null) {
             throw new IllegalArgumentException("Board must have an owner");
         }
+        
+        // Добавляем дефолтные статусы
+        List<TaskStatus> defaultStatuses = Arrays.asList(
+            TaskStatus.builder()
+                .name("To Do")
+                .color("#E5E5E5")
+                .isDefault(true)
+                .position(0)
+                .build(),
+            TaskStatus.builder()
+                .name("In Progress")
+                .color("#FFD700")
+                .isDefault(true)
+                .position(1)
+                .build(),
+            TaskStatus.builder()
+                .name("Completed")
+                .color("#90EE90")
+                .isDefault(true)
+                .position(2)
+                .build()
+        );
+        
+        defaultStatuses.forEach(status -> {
+            status.setBoard(board);
+            board.getTaskStatuses().add(status);
+        });
         
         return boardRepository.save(board);
     }
@@ -75,7 +104,7 @@ public class BoardService {
         return boardRepository.findByOwnerId(userId);
     }
 
-    public Board addColumnToBoard(Long boardId, Column column) {
+    public Board addColumnToBoard(Long boardId, BoardColumn column) {
         Board board = boardRepository.findById(boardId)
             .orElseThrow(() -> new RuntimeException("Board not found"));
         board.addColumn(column);
@@ -85,7 +114,7 @@ public class BoardService {
     public Board removeColumnFromBoard(Long boardId, Long columnId) {
         Board board = boardRepository.findById(boardId)
             .orElseThrow(() -> new RuntimeException("Board not found"));
-        Column column = board.getColumns().stream()
+        BoardColumn column = board.getColumns().stream()
             .filter(c -> c.getId().equals(columnId))
             .findFirst()
             .orElseThrow(() -> new RuntimeException("Column not found"));
@@ -96,7 +125,7 @@ public class BoardService {
     public Board moveColumnInBoard(Long boardId, Long columnId, int newPosition) {
         Board board = boardRepository.findById(boardId)
             .orElseThrow(() -> new RuntimeException("Board not found"));
-        Column column = board.getColumns().stream()
+        BoardColumn column = board.getColumns().stream()
             .filter(c -> c.getId().equals(columnId))
             .findFirst()
             .orElseThrow(() -> new RuntimeException("Column not found"));
@@ -107,5 +136,15 @@ public class BoardService {
     public Board getBoardById(Long id) {
         return boardRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Board not found with id: " + id));
+    }
+
+    private TaskStatus createDefaultStatus(Board board) {
+        return TaskStatus.builder()
+                .name("To Do")
+                .color("#E5E5E5")
+                .isDefault(true)
+                .board(board)
+                .position(0)
+                .build();
     }
 }

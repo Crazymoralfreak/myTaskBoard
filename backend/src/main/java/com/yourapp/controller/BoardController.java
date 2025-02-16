@@ -1,7 +1,7 @@
 package com.yourapp.controller;
 
 import com.yourapp.model.Board;
-import com.yourapp.model.Column;
+import com.yourapp.model.BoardColumn;
 import com.yourapp.service.BoardService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,8 +58,21 @@ public class BoardController {
     }
 
     @PostMapping("/{boardId}/columns")
-    public Board addColumn(@PathVariable Long boardId, @RequestBody Column column) {
-        return boardService.addColumnToBoard(boardId, column);
+    public ResponseEntity<Board> addColumn(
+        @PathVariable Long boardId,
+        @RequestBody Map<String, String> payload,
+        @AuthenticationPrincipal User user
+    ) {
+        BoardColumn column = new BoardColumn();
+        column.setName(payload.get("name"));
+        column.setPosition(0); // Позиция по умолчанию
+
+        Board board = boardService.getBoardById(boardId);
+        if (!board.getOwner().getId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        return ResponseEntity.ok(boardService.addColumnToBoard(boardId, column));
     }
 
     @DeleteMapping("/{boardId}/columns/{columnId}")

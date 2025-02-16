@@ -1,32 +1,33 @@
 package com.yourapp.model;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.ArrayList;
-import java.util.List;
 
+@Entity
+@Table(name = "task_statuses")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "columns")
-public class Column {
+public class TaskStatusEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
     private String name;
-    private int position;
+    @Column(nullable = false)
+    private String color;
+    @Column(nullable = false)
+    private Integer position;
+    @Column(name = "is_default")
+    private boolean isDefault;
+    private boolean isCustom;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id")
     private Board board;
-    
-    @OneToMany(mappedBy = "column", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Task> tasks = new ArrayList<>();
-}
+} 

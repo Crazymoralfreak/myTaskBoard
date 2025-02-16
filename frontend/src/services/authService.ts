@@ -38,4 +38,9 @@ export const authService = {
     logout() {
         localStorage.removeItem('token');
     }
+};
+
+export const refreshToken = async (): Promise<string> => {
+    const response = await axiosInstance.post('/auth/refresh');
+    return response.data.token;
 }; 

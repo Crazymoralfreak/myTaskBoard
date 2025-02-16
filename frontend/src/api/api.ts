@@ -1,10 +1,14 @@
 import axios from 'axios';
+import { refreshToken } from '../services/authService';
 
 export const api = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
+  withCredentials: true,
+  timeout: 10000
 });
 
 // Add request interceptor for JWT
@@ -19,10 +23,25 @@ api.interceptors.request.use((config) => {
 // Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/auth';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Если ошибка 401 и это не повторный запрос после обновления токена
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        // Пробуем обновить токен
+        const newToken = await refreshToken();
+        localStorage.setItem('token', newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        // Повторяем исходный запрос с новым токеном
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Если не удалось обновить токен, перенаправляем на страницу входа
+        localStorage.removeItem('token');
+        window.location.href = '/auth';
+        return Promise.reject(refreshError);
+      }
     }
     return Promise.reject(error);
   }

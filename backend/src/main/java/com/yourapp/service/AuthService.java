@@ -5,7 +5,9 @@ import com.yourapp.dto.AuthResponse;
 import com.yourapp.dto.RegisterRequest;
 import com.yourapp.model.TelegramAuthRequest;
 import com.yourapp.model.User;
+import com.yourapp.model.NotificationPreferences;
 import com.yourapp.repository.UserRepository;
+import com.yourapp.repository.NotificationPreferencesRepository;
 import com.yourapp.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -23,6 +25,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final NotificationPreferencesRepository notificationPreferencesRepository;
     
     public AuthResponse register(RegisterRequest request) {
         try {
@@ -31,12 +34,24 @@ public class AuthService {
             }
             
             User user = User.builder()
+                    .username(request.getUsername())
                     .email(request.getEmail())
-                    .username(request.getUsername() != null ? request.getUsername() : request.getEmail())
                     .password(passwordEncoder.encode(request.getPassword()))
                     .build();
             
             user = userRepository.save(user);
+            
+            NotificationPreferences preferences = NotificationPreferences.builder()
+                    .user(user)
+                    .globalNotificationsEnabled(true)
+                    .taskAssignedNotifications(true)
+                    .taskMovedNotifications(true)
+                    .taskUpdatedNotifications(true)
+                    .mentionNotifications(true)
+                    .build();
+            
+            user.setNotificationPreferences(preferences);
+            
             String token = jwtService.generateToken(user);
             
             return AuthResponse.builder()

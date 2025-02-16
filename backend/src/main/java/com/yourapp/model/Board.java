@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Data
 @Builder
@@ -23,26 +25,28 @@ public class Board {
     private String description;
     private boolean archived;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")
     private User owner;
     
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Column> columns = new ArrayList<>();
+    private List<BoardColumn> columns = new ArrayList<>();
     
-    public void addColumn(Column column) {
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
+    private List<TaskStatus> taskStatuses = new ArrayList<>();
+    
+    public void addColumn(BoardColumn column) {
         column.setBoard(this);
         column.setPosition(columns.size());
         columns.add(column);
     }
     
-    public void removeColumn(Column column) {
+    public void removeColumn(BoardColumn column) {
         columns.remove(column);
         column.setBoard(null);
     }
     
-    public void moveColumn(Column column, int newPosition) {
+    public void moveColumn(BoardColumn column, int newPosition) {
         columns.remove(column);
         columns.add(newPosition, column);
         reorderColumns();

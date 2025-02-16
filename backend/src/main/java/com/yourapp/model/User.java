@@ -16,7 +16,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import com.yourapp.dto.UserDto;
 import java.util.Collection;
-import java.util.Collections;
+
+import java.util.List;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @Data
 @Builder
@@ -37,13 +39,12 @@ public class User implements UserDetails {
     private String telegramId;
     private String telegramChatId;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private NotificationPreferences notificationPreferences = new NotificationPreferences();
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private NotificationPreferences notificationPreferences;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.emptyList();
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
     @Override

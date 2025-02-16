@@ -7,6 +7,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
@@ -22,6 +23,12 @@ public class JwtService {
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    private final UserDetailsService userDetailsService;
+
+    public JwtService(UserDetailsService userDetailsService) {
+        this.userDetailsService = userDetailsService;
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -75,5 +82,11 @@ public class JwtService {
 
     private Key getSignInKey() {
         return SIGNING_KEY;
+    }
+
+    public String refreshToken(String token) {
+        final String userEmail = extractUsername(token);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+        return generateToken(userDetails);
     }
 } 
