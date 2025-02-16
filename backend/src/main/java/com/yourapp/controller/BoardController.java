@@ -3,22 +3,48 @@ package com.yourapp.controller;
 import com.yourapp.model.Board;
 import com.yourapp.model.Column;
 import com.yourapp.service.BoardService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.yourapp.model.User;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/boards")
+@RequiredArgsConstructor
 public class BoardController {
+    private static final Logger logger = LoggerFactory.getLogger(BoardController.class);
     private final BoardService boardService;
 
-    public BoardController(BoardService boardService) {
-        this.boardService = boardService;
-    }
-
     @PostMapping
-    public Board createBoard(@RequestBody Board board) {
-        return boardService.createBoard(board);
+    public ResponseEntity<?> createBoard(
+        @RequestBody Board board,
+        @AuthenticationPrincipal User currentUser
+    ) {
+        try {
+            if (currentUser == null) {
+                logger.error("Current user is null");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("message", "User not authenticated")
+                );
+            }
+            
+            logger.debug("Creating board: {} for user: {}", board.getName(), currentUser.getEmail());
+            board.setOwner(currentUser);
+            Board createdBoard = boardService.createBoard(board);
+            return ResponseEntity.ok(createdBoard);
+        } catch (Exception e) {
+            logger.error("Failed to create board", e);
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 
     @GetMapping("/user/{userId}")

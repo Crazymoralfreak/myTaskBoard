@@ -4,6 +4,8 @@ import com.yourapp.model.Board;
 import com.yourapp.model.Column;
 import com.yourapp.repository.BoardRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,12 +13,20 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class BoardService {
-    
+    private static final Logger logger = LoggerFactory.getLogger(BoardService.class);
     private final BoardRepository boardRepository;
     
-    @Transactional
     public Board createBoard(Board board) {
+        if (board.getName() == null || board.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Board name cannot be empty");
+        }
+        
+        if (board.getOwner() == null) {
+            throw new IllegalArgumentException("Board must have an owner");
+        }
+        
         return boardRepository.save(board);
     }
     

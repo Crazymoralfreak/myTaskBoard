@@ -1,5 +1,6 @@
 package com.yourapp.security;
 
+import com.yourapp.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -17,8 +18,7 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
+    private static final Key SIGNING_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
@@ -33,7 +33,13 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        Map<String, Object> claims = new HashMap<>();
+        if (userDetails instanceof User) {
+            User user = (User) userDetails;
+            claims.put("id", user.getId());
+            claims.put("email", user.getEmail());
+        }
+        return generateToken(claims, userDetails);
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
@@ -68,6 +74,6 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        return Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        return SIGNING_KEY;
     }
 } 

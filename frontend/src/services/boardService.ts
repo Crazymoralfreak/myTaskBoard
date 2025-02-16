@@ -1,29 +1,57 @@
-import axiosInstance from '../api/axiosConfig';
+import axios from 'axios';
 import { Board } from '../types/board';
 
+const API_URL = '/api/boards';
+
+const axiosInstance = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    withCredentials: true
+});
+
+// Добавляем интерцептор для установки токена
+axiosInstance.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log('Token set:', token); // Для отладки
+    } else {
+        console.warn('No token found'); // Для отладки
+    }
+    return config;
+});
+
 export const boardService = {
-    async getUserBoards(): Promise<Board[]> {
-        const response = await axiosInstance.get('/boards');
+    async createBoard(board: Partial<Board>): Promise<Board> {
+        const response = await axiosInstance.post('', board);
         return response.data;
     },
 
-    async createBoard(data: { name: string; description?: string }): Promise<Board> {
-        const response = await axiosInstance.post('/boards', data);
+    async getUserBoards(userId: number): Promise<Board[]> {
+        const response = await axiosInstance.get(`/user/${userId}`);
         return response.data;
     },
 
-    async getBoard(id: string): Promise<Board> {
-        const response = await axiosInstance.get(`/boards/${id}`);
+    async updateBoard(id: number, board: Partial<Board>): Promise<Board> {
+        const response = await axiosInstance.put(`/${id}`, board);
         return response.data;
     },
 
-    async updateBoard(id: string, data: { name?: string; description?: string }): Promise<Board> {
-        const response = await axiosInstance.put(`/boards/${id}`, data);
+    async deleteBoard(id: number): Promise<void> {
+        await axiosInstance.delete(`/${id}`);
+    },
+
+    async archiveBoard(id: number): Promise<Board> {
+        const response = await axiosInstance.patch(`/${id}/archive`);
         return response.data;
     },
 
-    async deleteBoard(id: string): Promise<void> {
-        await axiosInstance.delete(`/boards/${id}`);
+    async restoreBoard(id: number): Promise<Board> {
+        const response = await axiosInstance.patch(`/${id}/restore`);
+        return response.data;
     },
 
     async addColumn(boardId: string, data: { name: string }): Promise<Board> {

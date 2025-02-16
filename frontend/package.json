@@ -17,6 +17,7 @@
     "@mui/material": "^5.14.5",
     "@twa-dev/sdk": "^6.9.1",
     "axios": "^1.4.0",
+    "jwt-decode": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.45.4",
@@ -35,4 +36,4 @@
     "typescript": "^5.1.6",
     "vite": "^4.4.9"
   }
-} 
+}
