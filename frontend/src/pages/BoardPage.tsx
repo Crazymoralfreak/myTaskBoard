@@ -122,15 +122,37 @@ export const BoardPage: React.FC = () => {
                     px: 2 
                 }}
             >
-                {board.columns.map((column: Column, index: number) => (
-                    <BoardColumn
-                        key={column.id}
-                        column={column}
-                        onMove={(position: number) => handleColumnMove(column.id, position)}
-                        canMoveLeft={index > 0}
-                        canMoveRight={index < board.columns.length - 1}
-                    />
-                ))}
+                {board.columns && board.columns.length > 0 ? (
+                    board.columns.map((column: Column, index: number) => (
+                        <BoardColumn
+                            key={column.id}
+                            column={column}
+                            onMove={(position: number) => handleColumnMove(column.id, position)}
+                            canMoveLeft={index > 0}
+                            canMoveRight={index < board.columns.length - 1}
+                        />
+                    ))
+                ) : (
+                    <Box sx={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center',
+                        width: '100%',
+                        mt: 4 
+                    }}>
+                        <Typography variant="h6" color="text.secondary">
+                            На этой доске пока нет колонок
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={handleAddColumn}
+                            sx={{ mt: 2 }}
+                        >
+                            Создать первую колонку
+                        </Button>
+                    </Box>
+                )}
             </Box>
         </Container>
     );

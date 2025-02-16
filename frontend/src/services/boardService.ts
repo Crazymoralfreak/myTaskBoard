@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { Board } from '../types/board';
+import { Column } from '../types/column';
+import { api } from '../api/api';
 
 const API_URL = '/api/boards';
 
@@ -26,12 +28,12 @@ axiosInstance.interceptors.request.use((config) => {
 
 export const boardService = {
     async createBoard(board: Partial<Board>): Promise<Board> {
-        const response = await axiosInstance.post('', board);
+        const response = await api.post('/boards', board);
         return response.data;
     },
 
     async getUserBoards(userId: number): Promise<Board[]> {
-        const response = await axiosInstance.get(`/user/${userId}`);
+        const response = await api.get(`/boards/user/${userId}`);
         return response.data;
     },
 
@@ -54,8 +56,8 @@ export const boardService = {
         return response.data;
     },
 
-    async addColumn(boardId: string, data: { name: string }): Promise<Board> {
-        const response = await axiosInstance.post(`/boards/${boardId}/columns`, data);
+    async addColumn(boardId: string, column: Partial<Column>): Promise<Board> {
+        const response = await api.post<Board>(`/boards/${boardId}/columns`, column);
         return response.data;
     },
 
@@ -65,9 +67,15 @@ export const boardService = {
     },
 
     async moveColumn(boardId: string, columnId: string, newPosition: number): Promise<Board> {
-        const response = await axiosInstance.patch(
-            `/boards/${boardId}/columns/${columnId}/move/${newPosition}`
+        const response = await api.put<Board>(
+            `/boards/${boardId}/columns/${columnId}/position`,
+            { position: newPosition }
         );
+        return response.data;
+    },
+
+    async getBoard(boardId: string): Promise<Board> {
+        const response = await api.get<Board>(`/boards/${boardId}`);
         return response.data;
     }
 }; 

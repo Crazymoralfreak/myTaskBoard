@@ -2,6 +2,7 @@ package com.yourapp.service;
 
 import com.yourapp.model.Board;
 import com.yourapp.model.Column;
+import com.yourapp.exception.ResourceNotFoundException;
 import com.yourapp.repository.BoardRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -101,5 +102,10 @@ public class BoardService {
             .orElseThrow(() -> new RuntimeException("Column not found"));
         board.moveColumn(column, newPosition);
         return boardRepository.save(board);
+    }
+
+    public Board getBoardById(Long id) {
+        return boardRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Board not found with id: " + id));
     }
 }

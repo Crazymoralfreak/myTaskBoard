@@ -90,4 +90,16 @@ public class BoardController {
     public void deleteBoard(@PathVariable Long id) {
         boardService.deleteBoard(id);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Board> getBoard(@PathVariable Long id, @AuthenticationPrincipal User user) {
+        Board board = boardService.getBoardById(id);
+        
+        // Проверяем, является ли пользователь владельцем доски
+        if (!board.getOwner().getId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        return ResponseEntity.ok(board);
+    }
 }
