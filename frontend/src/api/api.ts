@@ -30,7 +30,10 @@ api.interceptors.response.use(
     if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        // Пробуем обновить токен
+        const oldToken = localStorage.getItem('token');
+        if (!oldToken) {
+          throw new Error('No token found');
+        }
         const newToken = await refreshToken();
         localStorage.setItem('token', newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;

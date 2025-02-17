@@ -87,11 +87,10 @@ public class TaskController {
     @PutMapping("/{id}")
     public Task updateTask(
         @PathVariable Long id,
-        @RequestBody Task task,
+        @RequestBody Map<String, Object> updates,
         @AuthenticationPrincipal User user
     ) {
-        task.setAssignee(user);
-        return taskService.updateTask(id, task);
+        return taskService.updateTask(id, updates);
     }
 
     @PatchMapping("/{taskId}/move/{newColumnId}")

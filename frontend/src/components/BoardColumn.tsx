@@ -13,9 +13,10 @@ interface BoardColumnProps {
     onMove: (position: number) => void;
     canMoveLeft: boolean;
     canMoveRight: boolean;
+    boardStatuses: Array<{id: number; name: string; color: string}>;
 }
 
-export const BoardColumn: React.FC<BoardColumnProps> = ({ column, onMove, canMoveLeft, canMoveRight }) => {
+export const BoardColumn: React.FC<BoardColumnProps> = ({ column, onMove, canMoveLeft, canMoveRight, boardStatuses }) => {
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
 
     const handleAddTask = async (title: string) => {
@@ -26,6 +27,18 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({ column, onMove, canMov
         } catch (error) {
             console.error('Failed to add task:', error);
         }
+    };
+
+    const handleStatusChange = async (taskId: number, newStatusId: number) => {
+        const updatedTasks = column.tasks.map(task => 
+            task.id === taskId 
+                ? { 
+                    ...task, 
+                    customStatus: boardStatuses.find(status => status.id === newStatusId) 
+                }
+                : task
+        );
+        column.tasks = updatedTasks;
     };
 
     return (
@@ -53,7 +66,12 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({ column, onMove, canMov
             {/* Список задач */}
             <Box sx={{ minHeight: 100 }}>
                 {column.tasks?.map((task) => (
-                    <TaskCard key={task.id} task={task} />
+                    <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        boardStatuses={boardStatuses}
+                        onStatusChange={handleStatusChange}
+                    />
                 ))}
             </Box>
             

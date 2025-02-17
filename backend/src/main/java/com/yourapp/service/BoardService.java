@@ -104,9 +104,14 @@ public class BoardService {
         return boardRepository.findByOwnerId(userId);
     }
 
+    @Transactional
     public Board addColumnToBoard(Long boardId, BoardColumn column) {
         Board board = boardRepository.findById(boardId)
             .orElseThrow(() -> new RuntimeException("Board not found"));
+        // Инициализируем коллекции, чтобы избежать LazyInitializationException
+        board.getColumns().forEach(existingColumn -> {
+            existingColumn.getTasks().size(); // Принудительная инициализация задач
+        });
         board.addColumn(column);
         return boardRepository.save(board);
     }
@@ -136,15 +141,5 @@ public class BoardService {
     public Board getBoardById(Long id) {
         return boardRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Board not found with id: " + id));
-    }
-
-    private TaskStatus createDefaultStatus(Board board) {
-        return TaskStatus.builder()
-                .name("To Do")
-                .color("#E5E5E5")
-                .isDefault(true)
-                .board(board)
-                .position(0)
-                .build();
     }
 }

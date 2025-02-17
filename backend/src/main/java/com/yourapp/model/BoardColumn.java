@@ -30,6 +30,6 @@ public class BoardColumn {
     private Board board;
     
     @JsonManagedReference("column-tasks")
-    @OneToMany(mappedBy = "column", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "column", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Task> tasks = new ArrayList<>();
 } 

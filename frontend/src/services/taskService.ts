@@ -16,7 +16,11 @@ export const taskService = {
     },
 
     async updateTask(taskId: number, updates: Partial<Task>): Promise<Task> {
-        const response = await api.put(`/api/tasks/${taskId}`, updates);
+        const response = await api.put(`/api/tasks/${taskId}`, updates, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         return response.data;
     },
 

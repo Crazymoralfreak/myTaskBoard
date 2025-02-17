@@ -129,6 +129,7 @@ export const BoardPage: React.FC = () => {
                             onMove={(position: number) => handleColumnMove(column.id, position)}
                             canMoveLeft={index > 0}
                             canMoveRight={index < board.columns.length - 1}
+                            boardStatuses={board.taskStatuses}
                         />
                     ))
                 ) : (

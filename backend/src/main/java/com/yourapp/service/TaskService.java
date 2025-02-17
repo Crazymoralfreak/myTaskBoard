@@ -6,11 +6,16 @@ import com.yourapp.model.User;
 import com.yourapp.repository.TaskRepository;
 import com.yourapp.repository.ColumnRepository;
 import com.yourapp.repository.UserRepository;
+import com.yourapp.repository.TaskStatusRepository;
+import com.yourapp.model.TaskStatus;
+import com.yourapp.model.TaskPriority;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final ColumnRepository columnRepository;
     private final UserRepository userRepository;
+    private final TaskStatusRepository taskStatusRepository;
     
     @Transactional
     public Task createTask(Task task, Long userId) {
@@ -36,23 +42,25 @@ public class TaskService {
     }
     
     @Transactional
-    public Task updateTask(Long taskId, Task updatedTask) {
-        Task existingTask = taskRepository.findById(taskId)
+    public Task updateTask(Long id, Map<String, Object> updates) {
+        Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
         
-        existingTask.setTitle(updatedTask.getTitle());
-        existingTask.setDescription(updatedTask.getDescription());
-        existingTask.setPriority(updatedTask.getPriority());
-        existingTask.setDueDate(updatedTask.getDueDate());
-        existingTask.setTags(updatedTask.getTags());
-        
-        if (updatedTask.getAssignee() != null) {
-            User assignee = userRepository.findById(updatedTask.getAssignee().getId())
-                    .orElseThrow(() -> new RuntimeException("Assignee not found"));
-            existingTask.setAssignee(assignee);
+        if (updates.containsKey("customStatus")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> statusDetails = updates.get("customStatus") instanceof Map ? 
+                (Map<String, Object>) updates.get("customStatus") : 
+                new HashMap<>();
+            TaskStatus status = taskStatusRepository.findById(((Number) statusDetails.get("id")).longValue())
+                .orElseThrow(() -> new RuntimeException("Status not found"));
+            task.setCustomStatus(status);
         }
         
-        return taskRepository.save(existingTask);
+        if (updates.containsKey("priority")) {
+            task.setPriority(TaskPriority.valueOf((String) updates.get("priority")));
+        }
+        
+        return taskRepository.save(task);
     }
     
     @Transactional

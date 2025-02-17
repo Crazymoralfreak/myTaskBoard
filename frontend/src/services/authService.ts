@@ -1,10 +1,10 @@
 import axios from 'axios';
 import { AuthResponse, TelegramAuthRequest } from '../types/auth';
 
-const API_URL = '/api/auth';
+const API_URL = 'http://localhost:8081/api/auth';
 
 const axiosInstance = axios.create({
-    baseURL: API_URL,
+    baseURL: 'http://localhost:8081',
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -14,7 +14,7 @@ const axiosInstance = axios.create({
 
 export const authService = {
     async register(email: string, password: string, username: string): Promise<AuthResponse> {
-        const response = await axiosInstance.post('/register', {
+        const response = await axiosInstance.post(`${API_URL}/register`, {
             email,
             password,
             username
@@ -23,7 +23,7 @@ export const authService = {
     },
 
     async login(email: string, password: string): Promise<AuthResponse> {
-        const response = await axiosInstance.post('/login', { 
+        const response = await axiosInstance.post(`${API_URL}/login`, { 
             email, 
             password 
         });
@@ -31,7 +31,7 @@ export const authService = {
     },
 
     async telegramAuth(data: TelegramAuthRequest): Promise<AuthResponse> {
-        const response = await axiosInstance.post('/telegram', data);
+        const response = await axiosInstance.post(`${API_URL}/telegram`, data);
         return response.data;
     },
 
@@ -41,6 +41,11 @@ export const authService = {
 };
 
 export const refreshToken = async (): Promise<string> => {
-    const response = await axiosInstance.post('/auth/refresh');
+    const oldToken = localStorage.getItem('token');
+    const response = await axiosInstance.post(`${API_URL}/refresh`, null, {
+        headers: {
+            Authorization: `Bearer ${oldToken}`
+        }
+    });
     return response.data.token;
 }; 

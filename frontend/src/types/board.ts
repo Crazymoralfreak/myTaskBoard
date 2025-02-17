@@ -5,6 +5,14 @@ export interface Board {
     createdAt: string;
     updatedAt: string;
     columns: Column[];
+    taskStatuses: Array<{
+        id: number;
+        name: string;
+        color: string;
+        isDefault: boolean;
+        isCustom: boolean;
+        position: number;
+    }>;
 }
 
 export interface Column {
