@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import io.jsonwebtoken.ExpiredJwtException;
+
 @Service
 public class JwtService {
 
@@ -85,8 +87,17 @@ public class JwtService {
     }
 
     public String refreshToken(String token) {
-        final String userEmail = extractUsername(token);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
-        return generateToken(userDetails);
+        try {
+            final String userEmail = extractUsername(token);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            return generateToken(userDetails);
+        } catch (ExpiredJwtException e) {
+            if (e.getClaims() != null && 
+                System.currentTimeMillis() - e.getClaims().getExpiration().getTime() < 86400000) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(e.getClaims().getSubject());
+                return generateToken(userDetails);
+            }
+            throw e;
+        }
     }
 } 
