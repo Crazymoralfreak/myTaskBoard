@@ -1,3 +1,5 @@
+import { Task } from './task';
+
 export interface Board {
     id: string;
     name: string;
@@ -20,13 +22,4 @@ export interface Column {
     name: string;
     position: number;
     tasks: Task[];
-}
-
-export interface Task {
-    id: string;
-    title: string;
-    description?: string;
-    status: 'todo' | 'in_progress' | 'completed';
-    priority: 'low' | 'medium' | 'high';
-    dueDate?: string;
 } 

@@ -1,7 +1,10 @@
 package com.yourapp.controller;
 
+import com.yourapp.dto.TaskResponse;
+import com.yourapp.mapper.TaskMapper;
 import com.yourapp.model.Task;
 import com.yourapp.model.User;
+import com.yourapp.model.TaskPriority;
 import com.yourapp.service.TaskService;
 import com.yourapp.repository.ColumnRepository;
 import com.yourapp.repository.TaskStatusRepository;
@@ -29,84 +32,70 @@ public class TaskController {
     private final ColumnRepository columnRepository;
     private final TaskStatusRepository taskStatusRepository;
     private final UserRepository userRepository;
+    private final TaskMapper taskMapper;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Task createTask(@RequestBody CreateTaskRequest request, @AuthenticationPrincipal User currentUser) {
+    public TaskResponse createTask(@RequestBody Map<String, Object> request, @AuthenticationPrincipal User currentUser) {
         logger.debug("Received task creation request: {}", request);
 
-        Map<String, String> errors = new HashMap<>();
-
-        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
-            errors.put("title", "Title is required");
-        }
-
-        if (request.getDescription() == null || request.getDescription().trim().isEmpty()) {
-            errors.put("description", "Description is required");
-        }
-
-        if (!errors.isEmpty()) {
-            logger.warn("Task validation failed: {}", errors);
-            throw new ValidationException(errors);
-        }
-
         Task task = new Task();
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
-        task.setDueDate(request.getDueDate());
-        task.setPriority(request.getPriority());
-        task.setTags(request.getTags());
-        
-        if (request.getColumnId() != null) {
-            task.setColumn(columnRepository.findById(request.getColumnId())
+        task.setTitle((String) request.get("title"));
+        task.setDescription((String) request.get("description"));
+        task.setPriority(TaskPriority.valueOf((String) request.get("priority")));
+
+        // Обработка column.id или columnId
+        Object columnObj = request.get("column");
+        Long columnId = null;
+        if (columnObj instanceof Map) {
+            columnId = Long.valueOf((String) ((Map<?, ?>) columnObj).get("id"));
+        } else {
+            columnId = Long.valueOf((String) request.get("columnId"));
+        }
+
+        if (columnId != null) {
+            task.setColumn(columnRepository.findById(columnId)
                 .orElseThrow(() -> new RuntimeException("Column not found")));
         }
-        
-        if (request.getStatusId() != null) {
-            task.setCustomStatus(taskStatusRepository.findById(request.getStatusId())
-                .orElseThrow(() -> new RuntimeException("Status not found")));
-        }
-        
-        if (request.getAssigneeId() != null) {
-            task.setAssignee(userRepository.findById(request.getAssigneeId())
-                .orElseThrow(() -> new RuntimeException("User not found")));
-        }
-        
-        return taskService.createTask(task, currentUser.getId());
+
+        Task createdTask = taskService.createTask(task, currentUser.getId());
+        return taskMapper.toResponse(createdTask);
     }
 
     @GetMapping("/{id}")
-    public Task getTask(@PathVariable Long id) {
-        return taskService.getTask(id);
+    public TaskResponse getTask(@PathVariable Long id) {
+        return taskMapper.toResponse(taskService.getTask(id));
     }
 
     @GetMapping("/column/{columnId}")
-    public List<Task> getTasksByColumn(@PathVariable Long columnId) {
-        return taskService.getTasksByColumn(columnId);
+    public List<TaskResponse> getTasksByColumn(@PathVariable Long columnId) {
+        return taskService.getTasksByColumn(columnId).stream()
+            .map(taskMapper::toResponse)
+            .toList();
     }
 
     @PutMapping("/{id}")
-    public Task updateTask(
+    public TaskResponse updateTask(
         @PathVariable Long id,
         @RequestBody Map<String, Object> updates,
         @AuthenticationPrincipal User user
     ) {
-        return taskService.updateTask(id, updates);
+        return taskMapper.toResponse(taskService.updateTask(id, updates));
     }
 
     @PatchMapping("/{taskId}/move/{newColumnId}")
-    public Task moveTask(
+    public TaskResponse moveTask(
         @PathVariable Long taskId,
         @PathVariable Long newColumnId
     ) {
-        return taskService.moveTask(taskId, newColumnId);
+        return taskMapper.toResponse(taskService.moveTask(taskId, newColumnId));
     }
 
     @PatchMapping("/{taskId}/assign/{userId}")
-    public Task assignTask(
+    public TaskResponse assignTask(
         @PathVariable Long taskId,
         @PathVariable Long userId
     ) {
-        return taskService.assignTask(taskId, userId);
+        return taskMapper.toResponse(taskService.assignTask(taskId, userId));
     }
 
     @DeleteMapping("/{id}")

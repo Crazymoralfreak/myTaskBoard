@@ -7,19 +7,21 @@ export interface Task {
     id: number;
     title: string;
     description: string;
-    position: number;
-    dueDate: string;
-    customStatus: {
-      id: number;
-      name: string;
-      color: string;
-      isDefault: boolean;
-      isCustom: boolean;
-      position: number;
+    position: number | null;
+    dueDate: string | null;
+    customStatus?: {
+        id: number;
+        name: string;
+        color: string;
+        isDefault: boolean;
+        isCustom: boolean;
+        position: number;
     };
-    columnId: string;
-    status: 'todo' | 'in_progress' | 'completed';
+    columnId?: string;
+    status?: 'todo' | 'in_progress' | 'completed';
     priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+    tags?: string[];
+    comments?: any[];
 }
 
 export interface CreateTaskRequest {

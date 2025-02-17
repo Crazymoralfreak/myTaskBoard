@@ -10,7 +10,7 @@ export const taskService = {
     }): Promise<Task> {
         const response = await api.post('/api/tasks', {
             ...taskData,
-            column: { id: columnId },
+            column: { id: columnId }
         });
         return response.data;
     },

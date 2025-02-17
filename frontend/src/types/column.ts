@@ -1,4 +1,4 @@
-import { Task } from './board';
+import { Task } from './task';
 
 export interface Column {
     id: string;

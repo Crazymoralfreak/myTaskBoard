@@ -15,9 +15,10 @@ import {
 } from '@mui/icons-material';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
-import { BoardColumn } from '../components/BoardColumn';
+import { BoardColumn } from '../components/BoardColumn/BoardColumn';
 import { Column } from '../types/column';
 import { AddColumnModal } from '../components/AddColumnModal';
+import { Task } from '../types/task';
 
 export const BoardPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>();
@@ -63,6 +64,24 @@ export const BoardPage: React.FC = () => {
         } catch (error) {
             console.error('Failed to move column:', error);
         }
+    };
+
+    const handleTasksChange = async (columnId: string, tasks: Task[]) => {
+        if (!board) return;
+        
+        const updatedColumns = board.columns.map(col => 
+            col.id === columnId 
+                ? { ...col, tasks }
+                : col
+        );
+        
+        setBoard({
+            ...board,
+            columns: updatedColumns
+        });
+
+        // Опционально: обновляем всю доску с сервера
+        loadBoard();
     };
 
     if (loading) {
@@ -130,6 +149,7 @@ export const BoardPage: React.FC = () => {
                             canMoveLeft={index > 0}
                             canMoveRight={index < board.columns.length - 1}
                             boardStatuses={board.taskStatuses}
+                            onTasksChange={handleTasksChange}
                         />
                     ))
                 ) : (
