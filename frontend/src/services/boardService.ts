@@ -43,9 +43,8 @@ export const boardService = {
     },
 
     async moveColumn(boardId: string, columnId: string, newPosition: number): Promise<Board> {
-        const response = await api.put<Board>(
-            `/api/boards/${boardId}/columns/${columnId}/position`,
-            { position: newPosition }
+        const response = await api.patch<Board>(
+            `/api/boards/${boardId}/columns/${columnId}/move/${newPosition}`
         );
         return response.data;
     },

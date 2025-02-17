@@ -35,6 +35,22 @@ public class TaskService {
             BoardColumn column = columnRepository.findById(task.getColumn().getId())
                     .orElseThrow(() -> new RuntimeException("Column not found"));
             task.setColumn(column);
+            
+            // Устанавливаем позицию как последнюю в колонке
+            int maxPosition = column.getTasks().stream()
+                    .mapToInt(Task::getPosition)
+                    .max()
+                    .orElse(-1);
+            task.setPosition(maxPosition + 1);
+            
+            // Устанавливаем дефолтный статус из доски
+            if (task.getCustomStatus() == null && column.getBoard() != null) {
+                TaskStatus defaultStatus = column.getBoard().getTaskStatuses().stream()
+                        .filter(TaskStatus::isDefault)
+                        .findFirst()
+                        .orElse(null);
+                task.setCustomStatus(defaultStatus);
+            }
         }
         
         task.setAssignee(user);

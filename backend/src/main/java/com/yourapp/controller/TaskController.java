@@ -5,6 +5,7 @@ import com.yourapp.mapper.TaskMapper;
 import com.yourapp.model.Task;
 import com.yourapp.model.User;
 import com.yourapp.model.TaskPriority;
+import com.yourapp.model.TaskStatus;
 import com.yourapp.service.TaskService;
 import com.yourapp.repository.ColumnRepository;
 import com.yourapp.repository.TaskStatusRepository;
@@ -22,6 +23,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.yourapp.exception.ValidationException;
+import java.util.HashSet;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -55,6 +58,25 @@ public class TaskController {
         if (columnId != null) {
             task.setColumn(columnRepository.findById(columnId)
                 .orElseThrow(() -> new RuntimeException("Column not found")));
+        }
+
+        // Обработка дополнительных полей
+        if (request.containsKey("tags") && request.get("tags") instanceof List) {
+            task.setTags(new HashSet<>((List<String>) request.get("tags")));
+        }
+
+        if (request.containsKey("dueDate")) {
+            String dueDateStr = (String) request.get("dueDate");
+            if (dueDateStr != null && !dueDateStr.isEmpty()) {
+                task.setDueDate(LocalDateTime.parse(dueDateStr));
+            }
+        }
+
+        if (request.containsKey("statusId")) {
+            Long statusId = Long.valueOf(request.get("statusId").toString());
+            TaskStatus status = taskStatusRepository.findById(statusId)
+                .orElseThrow(() -> new RuntimeException("Status not found"));
+            task.setCustomStatus(status);
         }
 
         Task createdTask = taskService.createTask(task, currentUser.getId());

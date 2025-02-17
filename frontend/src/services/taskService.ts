@@ -1,17 +1,15 @@
 import { api } from '../api/api';
-import { Task, TaskPriority } from '../types/task';
+import { Task, TaskPriority, CreateTaskRequest } from '../types/task';
 
 export const taskService = {
-    async createTask(columnId: string, taskData: {
-        title: string;
-        description: string;
-        status: string;
-        priority: TaskPriority;
-    }): Promise<Task> {
-        const response = await api.post('/api/tasks', {
-            ...taskData,
-            column: { id: columnId }
-        });
+    async createTask(columnId: string, taskData: CreateTaskRequest): Promise<Task> {
+        const response = await api.post<Task>(
+            `/api/tasks`,
+            {
+                ...taskData,
+                column: { id: columnId }
+            }
+        );
         return response.data;
     },
 

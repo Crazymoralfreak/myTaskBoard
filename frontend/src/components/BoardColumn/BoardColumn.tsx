@@ -69,12 +69,15 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
 
     const handleAddTask = async (taskData: CreateTaskRequest) => {
         try {
+            const defaultStatus = boardStatuses.find(status => status.isDefault);
             const newTask = await taskService.createTask(
                 String(column.id),
                 {
                     ...taskData,
                     status: 'todo',
-                    priority: 'MEDIUM'
+                    priority: 'MEDIUM',
+                    statusId: defaultStatus?.id,
+                    tags: []
                 }
             );
             

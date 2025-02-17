@@ -27,10 +27,9 @@ export interface Task {
 export interface CreateTaskRequest {
     title: string;
     description: string;
-    dueDate?: string;
-    columnId?: number;
+    status: string;
+    priority: TaskPriority;
     statusId?: number;
-    assigneeId?: number;
-    priority?: TaskPriority;
     tags?: string[];
+    dueDate?: string;
 } 
