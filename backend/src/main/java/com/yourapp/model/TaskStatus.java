@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import java.util.List;
 
 @Entity
 @Table(name = "task_statuses")
@@ -26,7 +29,12 @@ public class TaskStatus {
     private boolean isDefault;
     private boolean isCustom;
     
+    @JsonBackReference("board-statuses")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id")
     private Board board;
+    
+    @JsonManagedReference("task-status")
+    @OneToMany(mappedBy = "customStatus")
+    private List<Task> tasks;
 } 

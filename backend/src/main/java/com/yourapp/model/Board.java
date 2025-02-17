@@ -25,13 +25,16 @@ public class Board {
     private String description;
     private boolean archived;
     
+    @JsonBackReference("board-owner")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")
     private User owner;
     
+    @JsonManagedReference("board-columns")
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BoardColumn> columns = new ArrayList<>();
     
+    @JsonManagedReference("board-statuses")
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
     private List<TaskStatus> taskStatuses = new ArrayList<>();
     

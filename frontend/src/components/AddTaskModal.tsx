@@ -5,45 +5,107 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    Button
+    Button,
+    MenuItem,
+    Stack
 } from '@mui/material';
+import { CreateTaskRequest, TaskPriority } from '../types/task';
+import { DatePicker } from '@mui/x-date-pickers';
 
 interface AddTaskModalProps {
     open: boolean;
     onClose: () => void;
-    onSubmit: (title: string) => void;
+    onSubmit: (task: CreateTaskRequest) => Promise<void>;
+    columnId?: number;
 }
 
-export const AddTaskModal: React.FC<AddTaskModalProps> = ({ open, onClose, onSubmit }) => {
-    const [title, setTitle] = useState('');
+export const AddTaskModal = ({ open, onClose, onSubmit, columnId }: AddTaskModalProps) => {
+    const [date, setDate] = useState<Date | null>(null);
+    const [formData, setFormData] = useState<Omit<Partial<CreateTaskRequest>, 'dueDate'>>({});
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const handleSubmit = () => {
-        if (title.trim()) {
-            onSubmit(title);
-            setTitle('');
+    const handleSubmit = async () => {
+        if (!formData.title?.trim() || !formData.description?.trim()) {
+            setErrors({
+                ...((!formData.title?.trim()) && { title: 'Title is required' }),
+                ...((!formData.description?.trim()) && { description: 'Description is required' })
+            });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await onSubmit({ 
+                ...formData, 
+                columnId,
+                dueDate: date?.toISOString()
+            } as CreateTaskRequest);
+            setFormData({});
             onClose();
+        } catch (error: any) {
+            if (error.response?.data?.errors) {
+                setErrors(error.response.data.errors);
+            }
+            console.error('Failed to add task:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <Dialog open={open} onClose={onClose}>
-            <DialogTitle>Создание новой карточки</DialogTitle>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+            <DialogTitle>Add New Task</DialogTitle>
             <DialogContent>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Название карточки"
-                    fullWidth
-                    multiline
-                    rows={3}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                />
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    <TextField
+                        label="Title"
+                        fullWidth
+                        value={formData.title || ''}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        error={!!errors.title}
+                        helperText={errors.title}
+                        required
+                    />
+                    <TextField
+                        label="Description"
+                        fullWidth
+                        multiline
+                        rows={4}
+                        value={formData.description || ''}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        error={!!errors.description}
+                        helperText={errors.description}
+                        required
+                    />
+                    <DatePicker
+                        label="Due Date"
+                        value={date}
+                        onChange={(newDate: Date | null) => setDate(newDate)}
+                        slotProps={{ textField: { fullWidth: true } }}
+                    />
+                    <TextField
+                        select
+                        label="Priority"
+                        fullWidth
+                        value={formData.priority || 'NONE'}
+                        onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
+                    >
+                        <MenuItem value="NONE">None</MenuItem>
+                        <MenuItem value="LOW">Low</MenuItem>
+                        <MenuItem value="MEDIUM">Medium</MenuItem>
+                        <MenuItem value="HIGH">High</MenuItem>
+                    </TextField>
+                </Stack>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Отмена</Button>
-                <Button onClick={handleSubmit} variant="contained" color="primary">
-                    Создать
+                <Button onClick={onClose}>Cancel</Button>
+                <Button 
+                    onClick={handleSubmit} 
+                    variant="contained" 
+                    disabled={loading}
+                >
+                    Create
                 </Button>
             </DialogActions>
         </Dialog>

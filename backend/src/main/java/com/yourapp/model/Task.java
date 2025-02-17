@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-import com.yourapp.model.enums.TaskStatus;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import java.util.List;
 
 @Data
 @Builder
@@ -29,15 +31,11 @@ public class Task {
     @Column(name = "due_date")
     private LocalDateTime dueDate;
     
-    // Системный статус
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private TaskStatus systemStatus = TaskStatus.TODO;
-    
     // Кастомный статус
+    @JsonBackReference("task-status")
     @ManyToOne
     @JoinColumn(name = "status_id")
-    private TaskStatusEntity customStatus;
+    private TaskStatus customStatus;
     
     @Enumerated(EnumType.STRING)
     private TaskPriority priority;
@@ -47,11 +45,17 @@ public class Task {
     @Column(name = "tags")
     private Set<String> tags = new HashSet<>();
     
+    @JsonBackReference("column-tasks")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "column_id")
     private BoardColumn column;
     
+    @JsonBackReference("task-assignee")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
     private User assignee;
+    
+    @JsonManagedReference("task-comments")
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
+    private List<Comment> comments;
 }

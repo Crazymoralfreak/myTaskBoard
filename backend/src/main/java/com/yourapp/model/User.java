@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,9 +17,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import com.yourapp.dto.UserDto;
 import java.util.Collection;
-
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Data
 @Builder
@@ -41,6 +42,18 @@ public class User implements UserDetails {
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private NotificationPreferences notificationPreferences;
+
+    @JsonManagedReference
+    @OneToMany(mappedBy = "owner")
+    private List<Board> boards;
+    
+    @JsonManagedReference
+    @OneToMany(mappedBy = "assignee")
+    private List<Task> assignedTasks;
+    
+    @JsonManagedReference
+    @OneToMany(mappedBy = "author")
+    private List<Comment> comments;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Data
 @Builder
@@ -22,10 +24,12 @@ public class BoardColumn {
     private String name;
     private Integer position;
     
+    @JsonBackReference("board-columns")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id")
     private Board board;
     
+    @JsonManagedReference("column-tasks")
     @OneToMany(mappedBy = "column", cascade = CascadeType.ALL)
     private List<Task> tasks = new ArrayList<>();
 } 

@@ -1,14 +1,34 @@
 export type DefaultTaskStatus = 'todo' | 'in_progress' | 'completed';
-export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'completed';
 
 export interface Task {
-    id: string;
+    id: number;
     title: string;
-    description?: string;
+    description: string;
     position: number;
+    dueDate: string;
+    customStatus: {
+      id: number;
+      name: string;
+      color: string;
+      isDefault: boolean;
+      isCustom: boolean;
+      position: number;
+    };
     columnId: string;
     status: 'todo' | 'in_progress' | 'completed';
-    priority: 'low' | 'medium' | 'high';
+    priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export interface CreateTaskRequest {
+    title: string;
+    description: string;
+    dueDate?: string;
+    columnId?: number;
+    statusId?: number;
+    assigneeId?: number;
+    priority?: TaskPriority;
+    tags?: string[];
 } 

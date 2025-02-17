@@ -2,12 +2,11 @@ import axios from 'axios';
 import { refreshToken } from '../services/authService';
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: 'http://localhost:8081',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  withCredentials: true,
   timeout: 10000
 });
 
@@ -16,6 +15,7 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    config.headers['Content-Type'] = 'application/json';
   }
   return config;
 });

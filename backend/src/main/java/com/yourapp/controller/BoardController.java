@@ -14,17 +14,23 @@ import java.util.HashMap;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.yourapp.model.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import com.yourapp.dto.CreateBoardRequest;
 
 @RestController
-@RequestMapping("/api/boards")
+@RequestMapping(
+    value = "/api/boards",
+    produces = MediaType.APPLICATION_JSON_VALUE
+)
 @RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:5173")
 public class BoardController {
     private static final Logger logger = LoggerFactory.getLogger(BoardController.class);
     private final BoardService boardService;
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> createBoard(
-        @RequestBody Board board,
+        @RequestBody CreateBoardRequest request,
         @AuthenticationPrincipal User currentUser
     ) {
         try {
@@ -35,7 +41,10 @@ public class BoardController {
                 );
             }
             
-            logger.debug("Creating board: {} for user: {}", board.getName(), currentUser.getEmail());
+            logger.debug("Creating board: {} for user: {}", request.getName(), currentUser.getEmail());
+            Board board = new Board();
+            board.setName(request.getName());
+            board.setDescription(request.getDescription());
             board.setOwner(currentUser);
             Board createdBoard = boardService.createBoard(board);
             return ResponseEntity.ok(createdBoard);
