@@ -11,11 +11,13 @@ public class TaskResponse {
     private String title;
     private String description;
     private Integer position;
-    private LocalDateTime dueDate;
-    private TaskPriority priority;
-    private Set<String> tags;
+    private LocalDateTime startDate;
+    private LocalDateTime endDate;
+    private Long daysRemaining;
     private Long columnId;
     private Long assigneeId;
+    private TaskPriority priority;
+    private Set<String> tags;
     private TaskStatusResponse customStatus;
 
     @Data

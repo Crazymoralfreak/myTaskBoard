@@ -15,13 +15,16 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "columns")
+@Table(name = "board_columns")
 public class BoardColumn {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(nullable = false)
     private String name;
+    
+    @Column(nullable = false)
     private Integer position;
     
     @JsonBackReference("board-columns")
@@ -30,6 +33,6 @@ public class BoardColumn {
     private Board board;
     
     @JsonManagedReference("column-tasks")
-    @OneToMany(mappedBy = "column", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "column", cascade = CascadeType.ALL)
     private List<Task> tasks = new ArrayList<>();
 } 

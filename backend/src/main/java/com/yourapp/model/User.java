@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -35,10 +36,20 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String email;
     
+    @Column(nullable = false)
     private String username;
+    
+    @Column(name = "password_hash", nullable = false)
     private String password;
+    
     private String telegramId;
     private String telegramChatId;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private NotificationPreferences notificationPreferences;

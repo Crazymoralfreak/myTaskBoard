@@ -21,12 +21,19 @@ public class TaskStatus {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(nullable = false)
     private String name;
+    
+    @Column(nullable = false)
     private String color;
+    
+    @Column(nullable = false)
     private Integer position;
     
     @Column(name = "is_default")
     private boolean isDefault;
+    
+    @Column(name = "is_custom")
     private boolean isCustom;
     
     @JsonBackReference("board-statuses")

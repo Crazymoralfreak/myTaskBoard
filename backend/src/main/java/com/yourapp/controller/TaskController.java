@@ -25,6 +25,9 @@ import org.slf4j.LoggerFactory;
 import com.yourapp.exception.ValidationException;
 import java.util.HashSet;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.ZoneId;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -39,48 +42,169 @@ public class TaskController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public TaskResponse createTask(@RequestBody Map<String, Object> request, @AuthenticationPrincipal User currentUser) {
-        logger.debug("Received task creation request: {}", request);
+        // Логируем входящий запрос со всеми полями
+        logger.debug("Начало обработки запроса на создание задачи. Данные запроса: {}", request);
 
+        // Создаем новый объект задачи и заполняем основные поля
         Task task = new Task();
-        task.setTitle((String) request.get("title"));
-        task.setDescription((String) request.get("description"));
-        task.setPriority(TaskPriority.valueOf((String) request.get("priority")));
+        String title = (String) request.get("title");
+        String description = (String) request.get("description");
+        String priority = (String) request.get("priority");
+        
+        logger.debug("Установка основных полей задачи: title={}, description={}, priority={}", 
+            title, description, priority);
+        
+        task.setTitle(title);
+        task.setDescription(description);
+        task.setPriority(TaskPriority.valueOf(priority));
 
-        // Обработка column.id или columnId
+        // Обработка идентификатора колонки
+        // Поддерживаются два формата:
+        // 1. { "column": { "id": "1" } }
+        // 2. { "columnId": "1" }
         Object columnObj = request.get("column");
         Long columnId = null;
+        logger.debug("Начало обработки идентификатора колонки. Объект column: {}", columnObj);
+
         if (columnObj instanceof Map) {
-            columnId = Long.valueOf((String) ((Map<?, ?>) columnObj).get("id"));
-        } else {
-            columnId = Long.valueOf((String) request.get("columnId"));
-        }
-
-        if (columnId != null) {
-            task.setColumn(columnRepository.findById(columnId)
-                .orElseThrow(() -> new RuntimeException("Column not found")));
-        }
-
-        // Обработка дополнительных полей
-        if (request.containsKey("tags") && request.get("tags") instanceof List) {
-            task.setTags(new HashSet<>((List<String>) request.get("tags")));
-        }
-
-        if (request.containsKey("dueDate")) {
-            String dueDateStr = (String) request.get("dueDate");
-            if (dueDateStr != null && !dueDateStr.isEmpty()) {
-                task.setDueDate(LocalDateTime.parse(dueDateStr));
+            // Формат 1: извлекаем id из объекта column
+            Map<?, ?> columnMap = (Map<?, ?>) columnObj;
+            Object idObj = columnMap.get("id");
+            logger.debug("Обработка column.id. Значение: {}, Тип: {}", idObj, 
+                idObj != null ? idObj.getClass().getSimpleName() : "null");
+            
+            if (idObj instanceof String) {
+                columnId = Long.valueOf((String) idObj);
+            } else if (idObj instanceof Number) {
+                columnId = ((Number) idObj).longValue();
+            }
+        } else if (request.containsKey("columnId")) {
+            // Формат 2: используем прямое значение columnId
+            Object columnIdObj = request.get("columnId");
+            logger.debug("Обработка columnId. Значение: {}, Тип: {}", columnIdObj,
+                columnIdObj != null ? columnIdObj.getClass().getSimpleName() : "null");
+            
+            if (columnIdObj instanceof String) {
+                columnId = Long.valueOf((String) columnIdObj);
+            } else if (columnIdObj instanceof Number) {
+                columnId = ((Number) columnIdObj).longValue();
             }
         }
 
-        if (request.containsKey("statusId")) {
-            Long statusId = Long.valueOf(request.get("statusId").toString());
-            TaskStatus status = taskStatusRepository.findById(statusId)
-                .orElseThrow(() -> new RuntimeException("Status not found"));
-            task.setCustomStatus(status);
+        // Проверяем, что идентификатор колонки был успешно получен
+        if (columnId == null) {
+            logger.error("Не удалось получить идентификатор колонки из запроса");
+            throw new IllegalArgumentException("Column ID is required");
         }
 
-        Task createdTask = taskService.createTask(task, currentUser.getId());
-        return taskMapper.toResponse(createdTask);
+        logger.debug("Получен идентификатор колонки: {}", columnId);
+
+        // Находим колонку в базе данных и устанавливаем её для задачи
+        try {
+            task.setColumn(columnRepository.findById(columnId)
+                .orElseThrow(() -> new RuntimeException("Column not found")));
+            logger.debug("Колонка успешно найдена и установлена для задачи");
+        } catch (Exception e) {
+            logger.error("Ошибка при поиске колонки с id {}: {}", columnId, e.getMessage());
+            throw e;
+        }
+
+        // Обработка тегов (опционально)
+        if (request.containsKey("tags") && request.get("tags") instanceof List) {
+            List<String> tagsList = (List<String>) request.get("tags");
+            logger.debug("Установка тегов для задачи: {}", tagsList);
+            task.setTags(new HashSet<>(tagsList));
+        }
+
+        // Обработка дат начала и окончания (опционально)
+        if (request.containsKey("startDate")) {
+            String startDateStr = (String) request.get("startDate");
+            logger.debug("Обработка даты начала: {}", startDateStr);
+            if (startDateStr != null && !startDateStr.isEmpty()) {
+                try {
+                    Instant instant = Instant.parse(startDateStr);
+                    task.setStartDate(LocalDateTime.ofInstant(instant, ZoneId.systemDefault()));
+                    logger.debug("Дата начала успешно установлена");
+                } catch (Exception e) {
+                    logger.error("Ошибка при парсинге даты начала {}: {}", startDateStr, e.getMessage());
+                    throw new IllegalArgumentException("Invalid start date format. Expected ISO 8601 format (e.g. 2025-02-11T21:00:00.000Z)");
+                }
+            }
+        }
+
+        if (request.containsKey("endDate")) {
+            String endDateStr = (String) request.get("endDate");
+            logger.debug("Обработка даты окончания: {}", endDateStr);
+            if (endDateStr != null && !endDateStr.isEmpty()) {
+                try {
+                    Instant instant = Instant.parse(endDateStr);
+                    LocalDateTime endDate = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+                    task.setEndDate(endDate);
+                    logger.debug("Дата окончания успешно установлена");
+
+                    // Проверяем, что дата окончания позже даты начала
+                    if (task.getStartDate() != null && task.getStartDate().isAfter(endDate)) {
+                        throw new IllegalArgumentException("End date must be after start date");
+                    }
+
+                    // Рассчитываем оставшееся время, если указаны обе даты
+                    if (task.getStartDate() != null) {
+                        long daysRemaining = java.time.Duration.between(
+                            LocalDateTime.now(),
+                            endDate
+                        ).toDays();
+                        task.setDaysRemaining(daysRemaining);
+                        logger.debug("Установлено оставшееся время: {} дней", daysRemaining);
+                    }
+                } catch (IllegalArgumentException e) {
+                    throw e;
+                } catch (Exception e) {
+                    logger.error("Ошибка при парсинге даты окончания {}: {}", endDateStr, e.getMessage());
+                    throw new IllegalArgumentException("Invalid end date format. Expected ISO 8601 format (e.g. 2025-02-11T21:00:00.000Z)");
+                }
+            }
+        }
+
+        // Обработка статуса задачи (опционально)
+        if (request.containsKey("statusId")) {
+            Object statusIdObj = request.get("statusId");
+            logger.debug("Обработка statusId. Значение: {}, Тип: {}", statusIdObj,
+                statusIdObj != null ? statusIdObj.getClass().getSimpleName() : "null");
+            
+            Long statusId = null;
+            if (statusIdObj instanceof String) {
+                statusId = Long.valueOf((String) statusIdObj);
+            } else if (statusIdObj instanceof Number) {
+                statusId = ((Number) statusIdObj).longValue();
+            }
+            
+            if (statusId != null) {
+                try {
+                    TaskStatus status = taskStatusRepository.findById(statusId)
+                        .orElseThrow(() -> new RuntimeException("Status not found"));
+                    task.setCustomStatus(status);
+                    logger.debug("Статус задачи успешно установлен: {}", status.getName());
+                } catch (Exception e) {
+                    logger.error("Ошибка при установке статуса {}: {}", statusId, e.getMessage());
+                    throw e;
+                }
+            }
+        }
+
+        // Создаем задачу через сервис
+        try {
+            logger.debug("Отправка задачи в сервис для создания. UserId: {}", currentUser.getId());
+            Task createdTask = taskService.createTask(task, currentUser.getId());
+            logger.debug("Задача успешно создана с id: {}", createdTask.getId());
+            
+            // Преобразуем в DTO и возвращаем результат
+            TaskResponse response = taskMapper.toResponse(createdTask);
+            logger.debug("Задача успешно преобразована в DTO: {}", response);
+            return response;
+        } catch (Exception e) {
+            logger.error("Ошибка при создании задачи: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @GetMapping("/{id}")

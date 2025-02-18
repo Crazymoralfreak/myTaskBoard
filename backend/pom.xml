@@ -141,6 +141,7 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                    <mainClass>com.yourapp.TaskBoardApplication</mainClass>
                 </configuration>
             </plugin>
 

@@ -18,7 +18,9 @@ public class TaskMapper {
         response.setTitle(task.getTitle());
         response.setDescription(task.getDescription());
         response.setPosition(task.getPosition());
-        response.setDueDate(task.getDueDate());
+        response.setStartDate(task.getStartDate());
+        response.setEndDate(task.getEndDate());
+        response.setDaysRemaining(task.getDaysRemaining());
         response.setPriority(task.getPriority());
         response.setTags(task.getTags());
         

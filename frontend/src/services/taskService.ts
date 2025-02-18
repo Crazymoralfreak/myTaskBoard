@@ -27,7 +27,11 @@ export const taskService = {
     },
 
     async moveTask(taskId: string, newColumnId: string): Promise<Task> {
-        const response = await api.patch(`/api/tasks/${taskId}/move/${newColumnId}`);
+        console.log(`Moving task ${taskId} to column ${newColumnId}`);
+        const response = await api.patch<Task>(`/api/tasks/${taskId}/move/${newColumnId}`, {
+            columnId: newColumnId
+        });
+        console.log('Move task response:', response.data);
         return response.data;
     },
 

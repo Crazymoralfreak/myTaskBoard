@@ -24,25 +24,42 @@ public class Task {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(nullable = false)
     private String title;
+    
+    @Column(columnDefinition = "TEXT")
     private String description;
+    
+    @Column(name = "start_date")
+    private LocalDateTime startDate;
+    
+    @Column(name = "end_date")
+    private LocalDateTime endDate;
+    
+    @Column(name = "days_remaining")
+    private Long daysRemaining;
+    
+    @Column(nullable = false)
     private Integer position;
     
-    @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
     
-    // Кастомный статус
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
     @JsonBackReference("task-status")
     @ManyToOne
     @JoinColumn(name = "status_id")
     private TaskStatus customStatus;
     
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private TaskPriority priority;
     
     @ElementCollection
     @CollectionTable(name = "task_tags", joinColumns = @JoinColumn(name = "task_id"))
-    @Column(name = "tags")
+    @Column(name = "tag")
     private Set<String> tags = new HashSet<>();
     
     @JsonBackReference("column-tasks")

@@ -6,13 +6,14 @@ import { AuthPage } from './pages/AuthPage';
 import { CreateBoardPage } from './pages/CreateBoardPage';
 import { PrivateRoute } from './components/PrivateRoute';
 import { BoardPage } from './pages/BoardPage';
-import { LocalizationProvider } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ru } from 'date-fns/locale';
 
 function App() {
     return (
         <ThemeProvider theme={theme}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
                 <Router>
                     <Routes>
                         <Route path="/auth" element={<AuthPage />} />

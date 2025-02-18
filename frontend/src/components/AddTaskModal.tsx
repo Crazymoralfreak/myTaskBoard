@@ -6,108 +6,127 @@ import {
     DialogActions,
     TextField,
     Button,
-    MenuItem,
-    Stack
+    Box,
+    Typography
 } from '@mui/material';
-import { CreateTaskRequest, TaskPriority } from '../types/task';
-import { DatePicker } from '@mui/x-date-pickers';
+import { CreateTaskRequest } from '../types/task';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import ruLocale from 'date-fns/locale/ru';
 
 interface AddTaskModalProps {
     open: boolean;
     onClose: () => void;
-    onSubmit: (task: CreateTaskRequest) => Promise<void>;
-    columnId?: number;
+    onSubmit: (task: CreateTaskRequest) => void;
 }
 
-export const AddTaskModal = ({ open, onClose, onSubmit, columnId }: AddTaskModalProps) => {
-    const [date, setDate] = useState<Date | null>(null);
-    const [formData, setFormData] = useState<Omit<Partial<CreateTaskRequest>, 'dueDate'>>({});
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string>>({});
+export const AddTaskModal: React.FC<AddTaskModalProps> = ({
+    open,
+    onClose,
+    onSubmit
+}) => {
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = async () => {
-        if (!formData.title?.trim() || !formData.description?.trim()) {
-            setErrors({
-                ...((!formData.title?.trim()) && { title: 'Title is required' }),
-                ...((!formData.description?.trim()) && { description: 'Description is required' })
-            });
+    const handleSubmit = () => {
+        // Валидация
+        if (!title.trim()) {
+            setError('Название задачи обязательно');
             return;
         }
 
-        setLoading(true);
-        try {
-            await onSubmit({ 
-                ...formData, 
-                columnId,
-                dueDate: date?.toISOString()
-            } as CreateTaskRequest);
-            setFormData({});
-            onClose();
-        } catch (error: any) {
-            if (error.response?.data?.errors) {
-                setErrors(error.response.data.errors);
-            }
-            console.error('Failed to add task:', error);
-        } finally {
-            setLoading(false);
+        if (startDate && endDate && startDate > endDate) {
+            setError('Дата начала не может быть позже даты окончания');
+            return;
         }
+
+        const task: CreateTaskRequest = {
+            title: title.trim(),
+            description: description.trim(),
+            status: 'todo',
+            priority: 'MEDIUM',
+            tags: []
+        };
+
+        // Добавляем даты только если они установлены
+        if (startDate) {
+            task.startDate = startDate.toISOString();
+        }
+        if (endDate) {
+            task.endDate = endDate.toISOString();
+        }
+
+        onSubmit(task);
+        handleClose();
+    };
+
+    const handleClose = () => {
+        setTitle('');
+        setDescription('');
+        setStartDate(null);
+        setEndDate(null);
+        setError(null);
+        onClose();
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Add New Task</DialogTitle>
-            <DialogContent>
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                    <TextField
-                        label="Title"
-                        fullWidth
-                        value={formData.title || ''}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        error={!!errors.title}
-                        helperText={errors.title}
-                        required
-                    />
-                    <TextField
-                        label="Description"
-                        fullWidth
-                        multiline
-                        rows={4}
-                        value={formData.description || ''}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        error={!!errors.description}
-                        helperText={errors.description}
-                        required
-                    />
-                    <DatePicker
-                        label="Due Date"
-                        value={date}
-                        onChange={(newDate: Date | null) => setDate(newDate)}
-                        slotProps={{ textField: { fullWidth: true } }}
-                    />
-                    <TextField
-                        select
-                        label="Priority"
-                        fullWidth
-                        value={formData.priority || 'NONE'}
-                        onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
-                    >
-                        <MenuItem value="NONE">None</MenuItem>
-                        <MenuItem value="LOW">Low</MenuItem>
-                        <MenuItem value="MEDIUM">Medium</MenuItem>
-                        <MenuItem value="HIGH">High</MenuItem>
-                    </TextField>
-                </Stack>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button 
-                    onClick={handleSubmit} 
-                    variant="contained" 
-                    disabled={loading}
-                >
-                    Create
-                </Button>
-            </DialogActions>
-        </Dialog>
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ruLocale}>
+            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+                <DialogTitle>Создать задачу</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        <TextField
+                            label="Название"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            fullWidth
+                            required
+                            error={!!error && !title.trim()}
+                            helperText={error && !title.trim() ? error : ''}
+                        />
+                        <TextField
+                            label="Описание"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            fullWidth
+                            multiline
+                            rows={3}
+                        />
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <DateTimePicker
+                                label="Дата начала"
+                                value={startDate}
+                                onChange={(newValue) => setStartDate(newValue)}
+                                slotProps={{
+                                    textField: { fullWidth: true }
+                                }}
+                            />
+                            <DateTimePicker
+                                label="Дата окончания"
+                                value={endDate}
+                                onChange={(newValue) => setEndDate(newValue)}
+                                slotProps={{
+                                    textField: { 
+                                        fullWidth: true,
+                                        error: !!error && !!startDate && !!endDate && startDate > endDate,
+                                        helperText: error && startDate && endDate && startDate > endDate ? error : ''
+                                    }
+                                }}
+                            />
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleClose}>Отмена</Button>
+                    <Button onClick={handleSubmit} variant="contained">
+                        Создать
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </LocalizationProvider>
     );
 }; 

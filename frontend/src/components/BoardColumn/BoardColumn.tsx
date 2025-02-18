@@ -18,6 +18,7 @@ import { TaskCard } from '../TaskCard';
 import { AddTaskModal } from '../AddTaskModal';
 import { taskService } from '../../services/taskService';
 import { Task, CreateTaskRequest } from '../../types/task';
+import { Draggable } from 'react-beautiful-dnd';
 
 interface BoardColumnProps {
     column: Column;
@@ -32,7 +33,7 @@ interface BoardColumnProps {
         isCustom: boolean;
         position: number;
     }>;
-    onTasksChange?: (columnId: string, tasks: Task[]) => void;
+    onTasksChange?: () => void;
 }
 
 export const BoardColumn: React.FC<BoardColumnProps> = ({
@@ -56,12 +57,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
 
         try {
             await taskService.updateTask(taskId, { customStatus: newStatus });
-            const updatedTasks = column.tasks.map(task => 
-                task.id === taskId 
-                    ? { ...task, customStatus: newStatus }
-                    : task
-            ) as Task[];
-            onTasksChange?.(column.id, updatedTasks);
+            onTasksChange?.();
         } catch (error) {
             setError('Не удалось обновить статус задачи');
         }
@@ -70,7 +66,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
     const handleAddTask = async (taskData: CreateTaskRequest) => {
         try {
             const defaultStatus = boardStatuses.find(status => status.isDefault);
-            const newTask = await taskService.createTask(
+            await taskService.createTask(
                 String(column.id),
                 {
                     ...taskData,
@@ -81,9 +77,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
                 }
             );
             
-            // Обновляем список задач в колонке
-            const updatedTasks = [...column.tasks, newTask];
-            onTasksChange?.(column.id, updatedTasks);
+            // Обновляем список задач
+            onTasksChange?.();
             
             // Закрываем модальное окно
             setIsAddTaskModalOpen(false);
@@ -144,13 +139,30 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
                 flexDirection: 'column',
                 gap: 1
             }}>
-                {column.tasks.map((task) => (
-                    <TaskCard 
+                {column.tasks.map((task, index) => (
+                    <Draggable 
                         key={task.id} 
-                        task={task} 
-                        boardStatuses={boardStatuses}
-                        onStatusChange={handleStatusChange}
-                    />
+                        draggableId={task.id.toString()} 
+                        index={index}
+                    >
+                        {(provided, snapshot) => (
+                            <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                style={{
+                                    ...provided.draggableProps.style,
+                                    opacity: snapshot.isDragging ? 0.8 : 1
+                                }}
+                            >
+                                <TaskCard 
+                                    task={task} 
+                                    boardStatuses={boardStatuses}
+                                    onStatusChange={handleStatusChange}
+                                />
+                            </div>
+                        )}
+                    </Draggable>
                 ))}
             </Box>
 

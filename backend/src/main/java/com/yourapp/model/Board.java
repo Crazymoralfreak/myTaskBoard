@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -21,13 +22,22 @@ public class Board {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(nullable = false)
     private String name;
     private String description;
+    
+    @Column(name = "is_archived")
     private boolean archived;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
     
     @JsonBackReference("board-owner")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id")
+    @JoinColumn(name = "created_by")
     private User owner;
     
     @JsonManagedReference("board-columns")

@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
 @Data
-@Table(name = "task_comment")
+@Table(name = "comments")
 public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

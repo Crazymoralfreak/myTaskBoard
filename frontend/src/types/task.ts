@@ -8,7 +8,9 @@ export interface Task {
     title: string;
     description: string;
     position: number | null;
-    dueDate: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    daysRemaining: number | null;
     customStatus?: {
         id: number;
         name: string;
@@ -29,7 +31,8 @@ export interface CreateTaskRequest {
     description: string;
     status: string;
     priority: TaskPriority;
+    startDate?: string;
+    endDate?: string;
     statusId?: number;
     tags?: string[];
-    dueDate?: string;
 } 
