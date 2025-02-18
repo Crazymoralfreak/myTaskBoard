@@ -18,7 +18,8 @@ export const boardService = {
         return response.data;
     },
 
-    async deleteBoard(id: number): Promise<void> {
+    async deleteBoard(id: string): Promise<void> {
+        console.log('Deleting board:', id);
         await api.delete(`/api/boards/${id}`);
     },
 
@@ -51,6 +52,24 @@ export const boardService = {
 
     async getBoard(boardId: string): Promise<Board> {
         const response = await api.get<Board>(`/api/boards/${boardId}`);
+        return response.data;
+    },
+
+    async updateBoardDetails(boardId: string, updates: { name?: string; description?: string }): Promise<Board> {
+        console.log('Updating board details:', updates);
+        const response = await api.patch<Board>(`/api/boards/${boardId}`, updates);
+        return response.data;
+    },
+
+    async updateColumn(boardId: string, columnId: string, updates: { name: string }): Promise<Board> {
+        console.log('Updating column:', { boardId, columnId, updates });
+        const response = await api.put<Board>(`/api/boards/${boardId}/columns/${columnId}`, updates);
+        return response.data;
+    },
+
+    async deleteColumn(boardId: string, columnId: string): Promise<Board> {
+        console.log('Deleting column:', { boardId, columnId });
+        const response = await api.delete<Board>(`/api/boards/${boardId}/columns/${columnId}`);
         return response.data;
     }
 }; 

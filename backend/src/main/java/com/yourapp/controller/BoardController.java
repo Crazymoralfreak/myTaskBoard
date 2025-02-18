@@ -124,4 +124,35 @@ public class BoardController {
         
         return ResponseEntity.ok(board);
     }
+
+    @PutMapping("/{boardId}/columns/{columnId}")
+    public ResponseEntity<Board> updateColumn(
+        @PathVariable Long boardId,
+        @PathVariable Long columnId,
+        @RequestBody Map<String, String> updates,
+        @AuthenticationPrincipal User user
+    ) {
+        Board board = boardService.getBoardById(boardId);
+        if (!board.getOwner().getId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        return ResponseEntity.ok(boardService.updateColumn(boardId, columnId, updates.get("name")));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<Board> updateBoardDetails(
+        @PathVariable Long id,
+        @RequestBody Map<String, String> updates,
+        @AuthenticationPrincipal User user
+    ) {
+        Board board = boardService.getBoardById(id);
+        if (!board.getOwner().getId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        board.setName(updates.get("name"));
+        board.setDescription(updates.get("description"));
+        return ResponseEntity.ok(boardService.updateBoard(id, board));
+    }
 }

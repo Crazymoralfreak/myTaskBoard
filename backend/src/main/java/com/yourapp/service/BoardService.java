@@ -142,4 +142,16 @@ public class BoardService {
         return boardRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Board not found with id: " + id));
     }
+
+    @Transactional
+    public Board updateColumn(Long boardId, Long columnId, String newName) {
+        Board board = getBoardById(boardId);
+        BoardColumn column = board.getColumns().stream()
+            .filter(c -> c.getId().equals(columnId))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Column not found"));
+        
+        column.setName(newName);
+        return boardRepository.save(board);
+    }
 }
