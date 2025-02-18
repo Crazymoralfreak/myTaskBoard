@@ -27,8 +27,8 @@ import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
-import { BoardColumn } from '../components/BoardColumn/BoardColumn';
-import { Column } from '../types/column';
+import BoardColumn from '../components/BoardColumn/BoardColumn';
+import { Column } from '../types/board';
 import { AddColumnModal } from '../components/AddColumnModal';
 import { Task } from '../types/task';
 import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
@@ -43,6 +43,12 @@ interface HotkeyEvent {
     preventDefault(): void;
 }
 
+interface EditColumnData {
+    id: string;
+    name: string;
+    color?: string;
+}
+
 export const BoardPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>();
     const [board, setBoard] = useState<Board | null>(null);
@@ -50,7 +56,7 @@ export const BoardPage: React.FC = () => {
     const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
     const [isEditBoardModalOpen, setIsEditBoardModalOpen] = useState(false);
     const [isDeleteBoardDialogOpen, setIsDeleteBoardDialogOpen] = useState(false);
-    const [editColumnData, setEditColumnData] = useState<{ id: string; name: string } | null>(null);
+    const [editColumnData, setEditColumnData] = useState<EditColumnData | null>(null);
     const [deleteColumnData, setDeleteColumnData] = useState<{ id: string; name: string } | null>(null);
     const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
@@ -75,7 +81,7 @@ export const BoardPage: React.FC = () => {
         if (!board) return;
 
         if (!searchQuery.trim()) {
-            setFilteredColumns(board.columns);
+            setFilteredColumns([...board.columns]);
             return;
         }
 
@@ -90,7 +96,7 @@ export const BoardPage: React.FC = () => {
             )
         }));
 
-        setFilteredColumns(filtered);
+        setFilteredColumns([...filtered]);
     }, [searchQuery, board]);
 
     useEffect(() => {
@@ -130,7 +136,7 @@ export const BoardPage: React.FC = () => {
             })
         }));
 
-        setFilteredColumns(filtered);
+        setFilteredColumns([...filtered]);
     }, [searchQuery, board, selectedStatuses, selectedTags]);
 
     const loadBoard = async () => {
@@ -266,11 +272,11 @@ export const BoardPage: React.FC = () => {
         }
     };
 
-    const handleEditColumn = async (columnId: string, newName: string) => {
+    const handleEditColumn = async (columnId: string, name: string, color?: string) => {
         try {
             if (!boardId) return;
             setLoading(true);
-            const updatedBoard = await boardService.updateColumn(boardId, columnId, { name: newName });
+            const updatedBoard = await boardService.updateColumn(boardId, columnId, { name, color });
             setBoard(updatedBoard);
             setSuccess('Колонка успешно обновлена');
             setEditColumnData(null);
@@ -282,7 +288,7 @@ export const BoardPage: React.FC = () => {
         }
     };
 
-    const handleDeleteColumn = async (columnId: string) => {
+    const handleDeleteColumn = async (columnId: string, name: string) => {
         try {
             if (!boardId) return;
             setDeletingColumn(true);
@@ -582,14 +588,23 @@ export const BoardPage: React.FC = () => {
                                         {...provided.droppableProps}
                                     >
                                         <BoardColumn
+                                            key={column.id}
                                             column={column}
-                                            onMove={(position: number) => handleColumnMove(column.id.toString(), position)}
+                                            onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
                                             canMoveLeft={index > 0}
                                             canMoveRight={index < board.columns.length - 1}
                                             boardStatuses={board.taskStatuses}
-                                            onTasksChange={loadBoard}
-                                            onEdit={(columnId, name) => setEditColumnData({ id: columnId, name })}
-                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId, name })}
+                                            onTasksChange={(updatedColumn) => {
+                                                const updatedColumns = board.columns.map(col =>
+                                                    col.id === updatedColumn.id ? updatedColumn : col
+                                                );
+                                                setBoard({
+                                                    ...board,
+                                                    columns: updatedColumns
+                                                });
+                                            }}
+                                            onEdit={(columnId, name, color) => handleEditColumn(columnId.toString(), name, color)}
+                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId.toString(), name })}
                                         />
                                         {provided.placeholder}
                                     </div>
@@ -655,13 +670,14 @@ export const BoardPage: React.FC = () => {
             <EditColumnModal
                 open={!!editColumnData}
                 onClose={() => setEditColumnData(null)}
-                onSubmit={async (name) => {
+                onSubmit={async (name, color) => {
                     if (editColumnData) {
-                        await handleEditColumn(editColumnData.id, name);
+                        await handleEditColumn(editColumnData.id, name, color);
                         setEditColumnData(null);
                     }
                 }}
                 initialName={editColumnData?.name || ''}
+                initialColor={board?.columns.find(col => col.id.toString() === editColumnData?.id)?.color || '#E0E0E0'}
             />
 
             <ConfirmDialog
@@ -679,7 +695,7 @@ export const BoardPage: React.FC = () => {
                 onClose={() => setDeleteColumnData(null)}
                 onConfirm={() => {
                     if (deleteColumnData) {
-                        handleDeleteColumn(deleteColumnData.id);
+                        handleDeleteColumn(deleteColumnData.id, deleteColumnData.name);
                         setDeleteColumnData(null);
                     }
                 }}

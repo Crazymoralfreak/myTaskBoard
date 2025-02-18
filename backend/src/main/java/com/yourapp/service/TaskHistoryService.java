@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -15,7 +16,7 @@ public class TaskHistoryService {
     
     @Transactional
     public TaskHistory createHistory(TaskHistory history) {
-        history.setChangedAt(LocalDateTime.now());
+        history.setTimestamp(LocalDateTime.now());
         return taskHistoryRepository.save(history);
     }
     
@@ -24,12 +25,13 @@ public class TaskHistoryService {
         TaskHistory history = taskHistoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("History not found"));
         
-        history.setChangedBy(historyDetails.getChangedBy());
-        history.setFieldChanged(historyDetails.getFieldChanged());
-        history.setOldValue(historyDetails.getOldValue());
-        history.setNewValue(historyDetails.getNewValue());
-        history.setChangedAt(LocalDateTime.now());
+        history.setAction(historyDetails.getAction());
+        history.setTimestamp(LocalDateTime.now());
         
         return taskHistoryRepository.save(history);
+    }
+
+    public List<TaskHistory> getTaskHistory(Long taskId) {
+        return taskHistoryRepository.findByTaskIdOrderByTimestampDesc(taskId);
     }
 }

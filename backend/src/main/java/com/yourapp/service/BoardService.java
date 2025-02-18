@@ -144,7 +144,7 @@ public class BoardService {
     }
 
     @Transactional
-    public Board updateColumn(Long boardId, Long columnId, String newName) {
+    public Board updateColumn(Long boardId, Long columnId, String newName, String newColor) {
         Board board = getBoardById(boardId);
         BoardColumn column = board.getColumns().stream()
             .filter(c -> c.getId().equals(columnId))
@@ -152,6 +152,9 @@ public class BoardService {
             .orElseThrow(() -> new RuntimeException("Column not found"));
         
         column.setName(newName);
+        if (newColor != null) {
+            column.setColor(newColor);
+        }
         return boardRepository.save(board);
     }
 }

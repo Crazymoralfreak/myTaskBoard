@@ -12,6 +12,7 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import java.util.List;
+import java.util.ArrayList;
 
 @Data
 @Builder
@@ -54,7 +55,7 @@ public class Task {
     private TaskStatus customStatus;
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column
     private TaskPriority priority;
     
     @ElementCollection
@@ -73,6 +74,26 @@ public class Task {
     private User assignee;
     
     @JsonManagedReference("task-comments")
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Comment> comments = new ArrayList<>();
+    
+    @JsonManagedReference("task-attachments")
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
-    private List<Comment> comments;
+    private List<Attachment> attachments;
+    
+    @ManyToMany
+    @JoinTable(
+        name = "task_watchers",
+        joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @JsonBackReference("task-watchers")
+    private Set<User> watchers = new HashSet<>();
+    
+    @OneToMany(mappedBy = "parentTask", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("task-subtasks")
+    private List<Subtask> subtasks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TaskHistory> history = new ArrayList<>();
 }

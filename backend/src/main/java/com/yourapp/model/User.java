@@ -21,6 +21,15 @@ import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import java.time.LocalDateTime;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import java.util.Set;
+import java.util.HashSet;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Data
 @Builder
@@ -35,6 +44,9 @@ public class User implements UserDetails {
     
     @Column(unique = true, nullable = false)
     private String email;
+    
+    @Column(name = "avatar_url")
+    private String avatarUrl;
     
     @Column(nullable = false)
     private String username;
@@ -52,19 +64,45 @@ public class User implements UserDetails {
     private LocalDateTime updatedAt;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private NotificationPreferences notificationPreferences;
 
     @JsonManagedReference
     @OneToMany(mappedBy = "owner")
     private List<Board> boards;
     
-    @JsonManagedReference
+    @JsonBackReference("subtask-assignee")
     @OneToMany(mappedBy = "assignee")
     private List<Task> assignedTasks;
     
     @JsonManagedReference
     @OneToMany(mappedBy = "author")
     private List<Comment> comments;
+
+    @OneToMany(mappedBy = "createdBy")
+    private Set<TimeTracking> timeTrackings = new HashSet<>();
+
+    @OneToMany(mappedBy = "createdBy")
+    private Set<TimeEstimate> timeEstimates = new HashSet<>();
+
+    @OneToMany(mappedBy = "createdBy")
+    private Set<TaskLink> taskLinks = new HashSet<>();
+
+    @ManyToMany(mappedBy = "watchers")
+    @JsonManagedReference("task-watchers")
+    private Set<Task> watchedTasks = new HashSet<>();
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

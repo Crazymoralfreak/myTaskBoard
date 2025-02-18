@@ -61,7 +61,7 @@ export const boardService = {
         return response.data;
     },
 
-    async updateColumn(boardId: string, columnId: string, updates: { name: string }): Promise<Board> {
+    async updateColumn(boardId: string, columnId: string, updates: { name: string; color?: string }): Promise<Board> {
         console.log('Updating column:', { boardId, columnId, updates });
         const response = await api.put<Board>(`/api/boards/${boardId}/columns/${columnId}`, updates);
         return response.data;

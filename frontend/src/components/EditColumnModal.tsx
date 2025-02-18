@@ -7,32 +7,34 @@ import {
     TextField,
     Button,
     Box,
-    CircularProgress
+    CircularProgress,
+    Typography
 } from '@mui/material';
-import { ConfirmDialog } from './ConfirmDialog';
 
 interface EditColumnModalProps {
     open: boolean;
     onClose: () => void;
-    onSubmit: (name: string) => Promise<void>;
+    onSubmit: (name: string, color: string) => Promise<void>;
     initialName: string;
+    initialColor: string;
 }
 
 export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     open,
     onClose,
     onSubmit,
-    initialName
+    initialName,
+    initialColor
 }) => {
     const [name, setName] = useState(initialName);
+    const [color, setColor] = useState(initialColor);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
 
     useEffect(() => {
-        setHasChanges(name !== initialName);
-    }, [name, initialName]);
+        setName(initialName);
+        setColor(initialColor);
+    }, [initialName, initialColor]);
 
     const handleSubmit = async () => {
         if (!name.trim()) {
@@ -42,7 +44,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
 
         try {
             setLoading(true);
-            await onSubmit(name.trim());
+            await onSubmit(name.trim(), color);
             handleClose();
         } catch (error) {
             console.error('Failed to update column:', error);
@@ -53,63 +55,58 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
 
     const handleClose = () => {
         if (loading) return;
-        
-        if (hasChanges) {
-            setShowConfirm(true);
-            return;
-        }
-
-        resetAndClose();
-    };
-
-    const resetAndClose = () => {
         setName(initialName);
+        setColor(initialColor);
         setError(null);
         onClose();
     };
 
     return (
-        <>
-            <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Редактировать колонку</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ mt: 1 }}>
-                        <TextField
-                            label="Название"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            fullWidth
-                            required
-                            error={!!error && !name.trim()}
-                            helperText={error && !name.trim() ? error : ''}
-                            disabled={loading}
+        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+            <DialogTitle>Редактировать колонку</DialogTitle>
+            <DialogContent>
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                        label="Название"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        fullWidth
+                        required
+                        error={!!error && !name.trim()}
+                        helperText={error && !name.trim() ? error : ''}
+                        disabled={loading}
+                    />
+                    <Box>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Цвет колонки
+                        </Typography>
+                        <input
+                            type="color"
+                            value={color}
+                            onChange={(e) => setColor(e.target.value)}
+                            style={{ 
+                                width: '100%', 
+                                height: '40px',
+                                padding: '0',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
                         />
                     </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose} disabled={loading}>Отмена</Button>
-                    <Button 
-                        onClick={handleSubmit} 
-                        variant="contained"
-                        disabled={loading}
-                        startIcon={loading ? <CircularProgress size={20} /> : null}
-                    >
-                        {loading ? 'Сохранение...' : 'Сохранить'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <ConfirmDialog
-                open={showConfirm}
-                onClose={() => setShowConfirm(false)}
-                onConfirm={() => {
-                    setShowConfirm(false);
-                    resetAndClose();
-                }}
-                title="Несохраненные изменения"
-                message="У вас есть несохраненные изменения. Вы уверены, что хотите закрыть окно без сохранения?"
-                actionType="edit"
-            />
-        </>
+                </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={handleClose} disabled={loading}>Отмена</Button>
+                <Button 
+                    onClick={handleSubmit} 
+                    variant="contained"
+                    disabled={loading}
+                    startIcon={loading ? <CircularProgress size={20} /> : null}
+                >
+                    {loading ? 'Сохранение...' : 'Сохранить'}
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 }; 

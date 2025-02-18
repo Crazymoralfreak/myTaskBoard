@@ -27,6 +27,9 @@ public class BoardColumn {
     @Column(nullable = false)
     private Integer position;
     
+    @Column(name = "color", nullable = false)
+    private String color = "#E0E0E0"; // Цвет по умолчанию
+    
     @JsonBackReference("board-columns")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id")

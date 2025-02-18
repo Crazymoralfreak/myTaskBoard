@@ -6,6 +6,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     telegram_id VARCHAR(255),
     telegram_chat_id VARCHAR(255),
+    avatar_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -38,6 +39,7 @@ CREATE TABLE board_columns (
     name VARCHAR(255) NOT NULL,
     board_id BIGINT REFERENCES boards(id),
     position INTEGER NOT NULL,
+    color VARCHAR(7) DEFAULT '#E0E0E0',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -102,6 +104,8 @@ CREATE TABLE task_history (
     id BIGSERIAL PRIMARY KEY,
     task_id BIGINT REFERENCES tasks(id),
     changed_by_id BIGINT REFERENCES users(id),
+    username VARCHAR(255),
+    avatar_url VARCHAR(255),
     field_changed VARCHAR(255) NOT NULL,
     old_value TEXT,
     new_value TEXT,
@@ -123,6 +127,80 @@ CREATE TABLE notification_preferences (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Таблица чек-листов
+CREATE TABLE checklists (
+    id BIGSERIAL PRIMARY KEY,
+    task_id BIGINT REFERENCES tasks(id),
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица элементов чек-листа
+CREATE TABLE checklist_items (
+    id BIGSERIAL PRIMARY KEY,
+    checklist_id BIGINT REFERENCES checklists(id),
+    content TEXT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    position INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица отслеживания времени
+CREATE TABLE time_tracking (
+    id BIGSERIAL PRIMARY KEY,
+    task_id BIGINT REFERENCES tasks(id),
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    duration INTEGER,
+    created_by BIGINT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица оценок времени
+CREATE TABLE time_estimates (
+    id BIGSERIAL PRIMARY KEY,
+    task_id BIGINT REFERENCES tasks(id),
+    estimated_minutes INTEGER NOT NULL,
+    created_by BIGINT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица связей между задачами
+CREATE TABLE task_links (
+    id BIGSERIAL PRIMARY KEY,
+    source_task_id BIGINT REFERENCES tasks(id),
+    target_task_id BIGINT REFERENCES tasks(id),
+    link_type VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by BIGINT REFERENCES users(id),
+    UNIQUE (source_task_id, target_task_id)
+);
+
+-- Таблица наблюдателей задач
+CREATE TABLE task_watchers (
+    task_id BIGINT REFERENCES tasks(id),
+    user_id BIGINT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (task_id, user_id)
+);
+
+-- Таблица подзадач
+CREATE TABLE subtasks (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    completed BOOLEAN DEFAULT FALSE,
+    position INTEGER NOT NULL,
+    parent_task_id BIGINT REFERENCES tasks(id) ON DELETE CASCADE,
+    assignee_id BIGINT REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    due_date TIMESTAMP,
+    estimated_hours INTEGER
+);
+
 -- Индексы для оптимизации
 CREATE INDEX idx_tasks_column ON tasks(column_id);
 CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
@@ -137,8 +215,18 @@ CREATE INDEX idx_attachments_task ON attachments(task_id);
 CREATE INDEX idx_task_history_task ON task_history(task_id);
 CREATE INDEX idx_task_history_user ON task_history(changed_by_id);
 CREATE INDEX idx_notification_preferences_user ON notification_preferences(user_id);
+CREATE INDEX idx_checklists_task ON checklists(task_id);
+CREATE INDEX idx_checklist_items_checklist ON checklist_items(checklist_id);
+CREATE INDEX idx_time_tracking_task ON time_tracking(task_id);
+CREATE INDEX idx_time_estimates_task ON time_estimates(task_id);
+CREATE INDEX idx_task_links_source ON task_links(source_task_id);
+CREATE INDEX idx_task_links_target ON task_links(target_task_id);
+CREATE INDEX idx_task_watchers_task ON task_watchers(task_id);
+CREATE INDEX idx_task_watchers_user ON task_watchers(user_id);
+CREATE INDEX idx_subtasks_parent ON subtasks(parent_task_id);
+CREATE INDEX idx_subtasks_assignee ON subtasks(assignee_id);
 
--- Комментарии к таблицам и колонкам
+-- Комментарии к таблицам
 COMMENT ON TABLE users IS 'Таблица пользователей системы';
 COMMENT ON TABLE boards IS 'Таблица досок (проектов)';
 COMMENT ON TABLE board_columns IS 'Таблица колонок на досках';
@@ -150,9 +238,22 @@ COMMENT ON TABLE task_statuses IS 'Таблица статусов задач';
 COMMENT ON TABLE attachments IS 'Таблица вложений к задачам';
 COMMENT ON TABLE task_history IS 'Таблица истории изменений задач';
 COMMENT ON TABLE notification_preferences IS 'Таблица настроек уведомлений пользователей';
+COMMENT ON TABLE checklists IS 'Таблица чек-листов задач';
+COMMENT ON TABLE checklist_items IS 'Таблица элементов чек-листа';
+COMMENT ON TABLE time_tracking IS 'Таблица записей отслеживания времени';
+COMMENT ON TABLE time_estimates IS 'Таблица оценок времени задач';
+COMMENT ON TABLE task_links IS 'Таблица связей между задачами';
+COMMENT ON TABLE task_watchers IS 'Таблица наблюдателей задач';
+COMMENT ON TABLE subtasks IS 'Таблица подзадач';
 
+-- Комментарии к колонкам
 COMMENT ON COLUMN users.telegram_id IS 'Идентификатор пользователя в Telegram';
 COMMENT ON COLUMN users.telegram_chat_id IS 'Идентификатор чата пользователя в Telegram';
+COMMENT ON COLUMN users.avatar_url IS 'URL аватара пользователя';
 COMMENT ON COLUMN tasks.start_date IS 'Дата начала выполнения задачи';
 COMMENT ON COLUMN tasks.end_date IS 'Дата окончания выполнения задачи';
-COMMENT ON COLUMN tasks.days_remaining IS 'Оставшееся количество дней до окончания задачи'; 
+COMMENT ON COLUMN tasks.days_remaining IS 'Оставшееся количество дней до окончания задачи';
+COMMENT ON COLUMN task_history.username IS 'Имя пользователя, внесшего изменение';
+COMMENT ON COLUMN task_history.avatar_url IS 'URL аватара пользователя, внесшего изменение';
+COMMENT ON COLUMN subtasks.position IS 'Позиция подзадачи в списке';
+COMMENT ON COLUMN subtasks.estimated_hours IS 'Оценка времени в часах'; 

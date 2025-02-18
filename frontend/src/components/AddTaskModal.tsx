@@ -48,7 +48,6 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
             title: title.trim(),
             description: description.trim(),
             status: 'todo',
-            priority: 'MEDIUM',
             tags: []
         };
 

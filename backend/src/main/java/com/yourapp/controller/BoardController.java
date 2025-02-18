@@ -75,6 +75,7 @@ public class BoardController {
         BoardColumn column = new BoardColumn();
         column.setName(payload.get("name"));
         column.setPosition(0); // Позиция по умолчанию
+        column.setColor(payload.get("color") != null ? payload.get("color") : "#E0E0E0"); // Устанавливаем цвет
 
         Board board = boardService.getBoardById(boardId);
         if (!board.getOwner().getId().equals(user.getId())) {
@@ -137,7 +138,7 @@ public class BoardController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return ResponseEntity.ok(boardService.updateColumn(boardId, columnId, updates.get("name")));
+        return ResponseEntity.ok(boardService.updateColumn(boardId, columnId, updates.get("name"), updates.get("color")));
     }
 
     @PatchMapping("/{id}")

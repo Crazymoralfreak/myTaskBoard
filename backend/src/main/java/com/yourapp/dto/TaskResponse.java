@@ -4,6 +4,7 @@ import com.yourapp.model.TaskPriority;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.List;
 
 @Data
 public class TaskResponse {
@@ -15,10 +16,12 @@ public class TaskResponse {
     private LocalDateTime endDate;
     private Long daysRemaining;
     private Long columnId;
+    private String columnColor;
     private Long assigneeId;
     private TaskPriority priority;
     private Set<String> tags;
     private TaskStatusResponse customStatus;
+    private List<CommentResponse> comments;
 
     @Data
     public static class TaskStatusResponse {
@@ -28,5 +31,21 @@ public class TaskResponse {
         private Integer position;
         private boolean isDefault;
         private boolean isCustom;
+    }
+
+    @Data
+    public static class CommentResponse {
+        private Long id;
+        private String content;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+        private UserResponse author;
+    }
+
+    @Data
+    public static class UserResponse {
+        private Long id;
+        private String username;
+        private String avatarUrl;
     }
 } 

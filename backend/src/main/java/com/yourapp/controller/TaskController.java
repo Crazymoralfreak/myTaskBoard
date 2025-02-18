@@ -28,6 +28,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.Instant;
 import java.time.ZoneId;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Set;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -56,7 +59,7 @@ public class TaskController {
         
         task.setTitle(title);
         task.setDescription(description);
-        task.setPriority(TaskPriority.valueOf(priority));
+        task.setPriority(priority != null ? TaskPriority.valueOf(priority) : TaskPriority.MEDIUM);
 
         // Обработка идентификатора колонки
         // Поддерживаются два формата:
@@ -219,13 +222,22 @@ public class TaskController {
             .toList();
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{taskId}")
     public TaskResponse updateTask(
-        @PathVariable Long id,
+        @PathVariable Long taskId,
         @RequestBody Map<String, Object> updates,
         @AuthenticationPrincipal User user
     ) {
-        return taskMapper.toResponse(taskService.updateTask(id, updates));
+        logger.debug("Обновление задачи с id: {}. Данные обновления: {}", taskId, updates);
+        
+        try {
+            Task task = taskService.updateTask(taskId, updates);
+            logger.debug("Задача успешно обновлена: {}", task.getId());
+            return taskMapper.toResponse(task);
+        } catch (Exception e) {
+            logger.error("Ошибка при обновлении задачи: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @PatchMapping("/{taskId}/move/{newColumnId}")
@@ -265,5 +277,77 @@ public class TaskController {
         response.put("message", "Validation failed");
         response.put("errors", e.getErrors());
         return ResponseEntity.badRequest().body(response);
+    }
+
+    @PostMapping("/{taskId}/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TaskResponse addComment(
+        @PathVariable Long taskId,
+        @RequestBody Map<String, String> request,
+        @AuthenticationPrincipal User user
+    ) {
+        logger.debug("Добавление комментария к задаче {}. Пользователь: {}", taskId, user.getUsername());
+        
+        if (!request.containsKey("content")) {
+            throw new IllegalArgumentException("Comment content is required");
+        }
+        
+        Task task = taskService.addComment(taskId, request.get("content"), user);
+        return taskMapper.toResponse(task);
+    }
+
+    @DeleteMapping("/{taskId}/comments/{commentId}")
+    public TaskResponse deleteComment(
+        @PathVariable Long taskId,
+        @PathVariable Long commentId
+    ) {
+        Task task = taskService.deleteComment(taskId, commentId);
+        return taskMapper.toResponse(task);
+    }
+
+    @PostMapping("/{taskId}/attachments")
+    public TaskResponse addAttachment(
+        @PathVariable Long taskId,
+        @RequestParam("file") MultipartFile file,
+        @AuthenticationPrincipal User user
+    ) {
+        Task task = taskService.addAttachment(taskId, file, user);
+        return taskMapper.toResponse(task);
+    }
+
+    @DeleteMapping("/{taskId}/attachments/{attachmentId}")
+    public TaskResponse deleteAttachment(
+        @PathVariable Long taskId,
+        @PathVariable Long attachmentId
+    ) {
+        Task task = taskService.deleteAttachment(taskId, attachmentId);
+        return taskMapper.toResponse(task);
+    }
+
+    @PatchMapping("/{taskId}/tags")
+    public TaskResponse updateTags(
+        @PathVariable Long taskId,
+        @RequestBody Set<String> tags
+    ) {
+        Task task = taskService.updateTags(taskId, tags);
+        return taskMapper.toResponse(task);
+    }
+
+    @PatchMapping("/{taskId}/status")
+    public TaskResponse updateStatus(
+        @PathVariable Long taskId,
+        @RequestBody Map<String, Long> request
+    ) {
+        Task task = taskService.updateStatus(taskId, request.get("statusId"));
+        return taskMapper.toResponse(task);
+    }
+
+    @PatchMapping("/{taskId}/priority")
+    public TaskResponse updatePriority(
+        @PathVariable Long taskId,
+        @RequestBody Map<String, String> request
+    ) {
+        Task task = taskService.updatePriority(taskId, TaskPriority.valueOf(request.get("priority")));
+        return taskMapper.toResponse(task);
     }
 }

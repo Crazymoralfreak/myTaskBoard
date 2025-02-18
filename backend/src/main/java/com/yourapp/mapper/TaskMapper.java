@@ -4,6 +4,8 @@ import com.yourapp.dto.TaskResponse;
 import com.yourapp.model.Task;
 import com.yourapp.model.TaskStatus;
 import org.springframework.stereotype.Component;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class TaskMapper {
@@ -26,6 +28,7 @@ public class TaskMapper {
         
         if (task.getColumn() != null) {
             response.setColumnId(task.getColumn().getId());
+            response.setColumnColor(task.getColumn().getColor());
         }
         
         if (task.getAssignee() != null) {
@@ -41,6 +44,29 @@ public class TaskMapper {
             statusResponse.setDefault(task.getCustomStatus().isDefault());
             statusResponse.setCustom(task.getCustomStatus().isCustom());
             response.setCustomStatus(statusResponse);
+        }
+
+        if (task.getComments() != null && !task.getComments().isEmpty()) {
+            List<TaskResponse.CommentResponse> comments = task.getComments().stream()
+                .map(comment -> {
+                    TaskResponse.CommentResponse commentResponse = new TaskResponse.CommentResponse();
+                    commentResponse.setId(comment.getId());
+                    commentResponse.setContent(comment.getContent());
+                    commentResponse.setCreatedAt(comment.getCreatedAt());
+                    commentResponse.setUpdatedAt(comment.getUpdatedAt());
+                    
+                    if (comment.getAuthor() != null) {
+                        TaskResponse.UserResponse author = new TaskResponse.UserResponse();
+                        author.setId(comment.getAuthor().getId());
+                        author.setUsername(comment.getAuthor().getUsername());
+                        // Добавляем аватар, если есть
+                        commentResponse.setAuthor(author);
+                    }
+                    
+                    return commentResponse;
+                })
+                .collect(Collectors.toList());
+            response.setComments(comments);
         }
         
         return response;

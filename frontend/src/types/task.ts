@@ -1,7 +1,47 @@
+import { Subtask } from './subtask';
+
 export type DefaultTaskStatus = 'todo' | 'in_progress' | 'completed';
 export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'completed';
+
+export interface TaskComment {
+    id: number;
+    content: string;
+    createdAt: string;
+    updatedAt: string;
+    author: {
+        id: number;
+        username: string;
+        avatarUrl?: string;
+    };
+}
+
+export interface TaskAttachment {
+    id: number;
+    filename: string;
+    url: string;
+    size: number;
+    mimeType: string;
+    createdAt: string;
+    uploadedBy: {
+        id: number;
+        username: string;
+    };
+}
+
+export interface TaskHistory {
+    id: number;
+    username: string;
+    avatarUrl?: string;
+    action: 'created' | 'updated' | 'comment_added' | 'file_added';
+    timestamp: string;
+    changes?: {
+        field?: string;
+        oldValue?: string;
+        newValue?: string;
+    };
+}
 
 export interface Task {
     id: number;
@@ -23,16 +63,45 @@ export interface Task {
     status?: 'todo' | 'in_progress' | 'completed';
     priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
-    comments?: any[];
+    comments?: TaskComment[];
+    attachments?: TaskAttachment[];
+    history?: TaskHistory[];
+    checklist?: {
+        id: number;
+        title: string;
+        items: Array<{
+            id: number;
+            content: string;
+            completed: boolean;
+            createdAt: string;
+        }>;
+    }[];
+    timeTracking?: {
+        estimate: number; // в минутах
+        spent: number; // в минутах
+        lastStarted?: string;
+        isRunning: boolean;
+    };
+    linkedTasks?: Array<{
+        id: number;
+        title: string;
+        type: 'blocks' | 'blocked_by' | 'relates_to';
+    }>;
+    watchers?: Array<{
+        id: number;
+        username: string;
+        avatarUrl?: string;
+    }>;
+    subtasks?: Array<Subtask>;
 }
 
 export interface CreateTaskRequest {
     title: string;
-    description: string;
-    status: string;
-    priority: TaskPriority;
-    startDate?: string;
-    endDate?: string;
+    description?: string;
+    dueDate?: string;
+    status?: 'todo' | 'in_progress' | 'completed';
     statusId?: number;
+    priority?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
+    columnColor?: string;
 } 

@@ -17,9 +17,19 @@ export interface Board {
     }>;
 }
 
+export interface BoardStatus {
+    id: number;
+    name: string;
+    color: string;
+    isDefault: boolean;
+    isCustom: boolean;
+    position: number;
+}
+
 export interface Column {
-    id: string;
+    id: number;
     name: string;
     position: number;
     tasks: Task[];
+    color?: string;
 } 
