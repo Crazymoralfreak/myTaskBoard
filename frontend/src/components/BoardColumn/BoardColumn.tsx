@@ -199,8 +199,10 @@ const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                     flexGrow: 1,
                                     minHeight: 100,
                                     overflowY: 'auto',
-                                    bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'inherit',
-                                    transition: 'background-color 0.2s ease',
+                                    bgcolor: snapshot.isDraggingOver ? alpha(color, 0.1) : 'inherit',
+                                    transition: 'all 0.2s ease',
+                                    border: snapshot.isDraggingOver ? `2px dashed ${color}` : '2px solid transparent',
+                                    borderRadius: 1,
                                     '&::-webkit-scrollbar': {
                                         width: '8px',
                                     },
@@ -226,7 +228,13 @@ const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                                 {...provided.dragHandleProps}
                                                 sx={{
                                                     mb: 1,
-                                                    transform: snapshot.isDragging ? 'rotate(3deg)' : 'none',
+                                                    transform: snapshot.isDragging ? 'rotate(2deg)' : 'none',
+                                                    opacity: snapshot.isDragging ? 0.9 : 1,
+                                                    transition: 'all 0.2s ease',
+                                                    '&:hover': {
+                                                        transform: 'translateY(-2px)',
+                                                        boxShadow: 2
+                                                    },
                                                     '&:last-child': { mb: 0 }
                                                 }}
                                             >

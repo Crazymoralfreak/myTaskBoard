@@ -176,30 +176,29 @@ export const BoardPage: React.FC = () => {
         const { source, destination, draggableId } = result;
         console.log('Drag end event:', result);
 
-        // Если нет места назначения или место назначения то же самое, что и источник
         if (!destination || 
             (source.droppableId === destination.droppableId && 
-             source.index === destination.index)
+             source.index === destination.index) ||
+            !board
         ) {
             console.log('Invalid drop destination or same position');
             return;
         }
 
         try {
-            console.log(`Moving task ${draggableId} from column ${source.droppableId} to ${destination.droppableId}`);
-
+            // Сохраняем текущее состояние для возможного отката
+            const previousBoard = { ...board };
+            
             // Оптимистичное обновление UI
-            if (!board) return;
-            const newBoard = { ...board };
-            const sourceColumn = newBoard.columns.find(col => col.id.toString() === source.droppableId);
-            const destinationColumn = newBoard.columns.find(col => col.id.toString() === destination.droppableId);
+            const newBoard = { ...board } as Board;
+            const sourceColumn = newBoard.columns?.find(col => col.id.toString() === source.droppableId);
+            const destinationColumn = newBoard.columns?.find(col => col.id.toString() === destination.droppableId);
 
-            if (!sourceColumn || !destinationColumn) {
+            if (!sourceColumn || !destinationColumn || !newBoard.columns) {
                 console.error('Source or destination column not found');
                 return;
             }
 
-            // Находим задачу
             const taskId = draggableId.replace('task-', '');
             const task = sourceColumn.tasks.find(t => t.id.toString() === taskId);
             if (!task) {
@@ -214,27 +213,26 @@ export const BoardPage: React.FC = () => {
             const updatedTask = { ...task };
             destinationColumn.tasks.splice(destination.index, 0, updatedTask);
 
+            // Показываем индикатор синхронизации
+            setSuccess('Синхронизация...');
+            
             // Обновляем состояние для мгновенной реакции UI
             setBoard(newBoard);
 
             // Отправляем запрос на сервер
-            try {
-                await taskService.moveTask({
-                    taskId: parseInt(taskId),
-                    sourceColumnId: parseInt(source.droppableId),
-                    destinationColumnId: parseInt(destination.droppableId),
-                    newPosition: destination.index
-                });
-                console.log('Task moved successfully');
-            } catch (error) {
-                console.error('Failed to move task on server:', error);
-                // В случае ошибки отменяем оптимистичное обновление
-                await loadBoard();
-            }
+            await taskService.moveTask({
+                taskId: parseInt(taskId),
+                sourceColumnId: parseInt(source.droppableId),
+                destinationColumnId: parseInt(destination.droppableId),
+                newPosition: destination.index
+            });
+
+            setSuccess('Задача успешно перемещена');
         } catch (error) {
-            console.error('Error in handleDragEnd:', error);
-            // В случае любой ошибки перезагружаем доску
+            console.error('Failed to move task:', error);
+            // Откатываем изменения в случае ошибки
             await loadBoard();
+            setError('Не удалось переместить задачу. Изменения отменены.');
         }
     };
 
@@ -340,25 +338,69 @@ export const BoardPage: React.FC = () => {
         handleFilterClose();
     };
 
+    // Добавляем горячие клавиши
+    useHotkeys('ctrl+f, cmd+f', (e: KeyboardEvent) => {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Поиск задач..."]') as HTMLInputElement;
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }, { enableOnFormTags: true }, []);
+
+    useHotkeys('ctrl+/, cmd+/', (e: KeyboardEvent) => {
+        e.preventDefault();
+        const filterButton = document.querySelector('[aria-label="Фильтры"]') as HTMLElement;
+        if (filterButton) {
+            setFilterAnchorEl(filterButton);
+        }
+    }, { enableOnFormTags: true }, []);
+
+    useHotkeys('esc', (e: KeyboardEvent) => {
+        e.preventDefault();
+        setSearchQuery('');
+        setFilterAnchorEl(null);
+        setSelectedStatuses([]);
+        setSelectedTags([]);
+    }, { enableOnFormTags: true }, []);
+
     // Обновляем типы в хуках горячих клавиш
     useHotkeys('ctrl+n, cmd+n', (e: any) => {
         e.preventDefault();
         setIsAddColumnModalOpen(true);
     }, { enableOnFormTags: true }, []);
 
-    useHotkeys('esc', () => {
-        if (menuAnchorEl) handleBoardMenuClose();
-        if (isAddColumnModalOpen) setIsAddColumnModalOpen(false);
-        if (isEditBoardModalOpen) setIsEditBoardModalOpen(false);
-        if (editColumnData) setEditColumnData(null);
-        if (deleteColumnData) setDeleteColumnData(null);
-        if (isDeleteBoardDialogOpen) setIsDeleteBoardDialogOpen(false);
-    }, [menuAnchorEl, isAddColumnModalOpen, isEditBoardModalOpen, editColumnData, deleteColumnData, isDeleteBoardDialogOpen]);
-
     useHotkeys('ctrl+e, cmd+e', (e: any) => {
         e.preventDefault();
         setIsEditBoardModalOpen(true);
     }, { enableOnFormTags: true }, []);
+
+    // Добавляем новый компонент для индикатора синхронизации
+    const SyncIndicator = () => (
+        <Box
+            sx={{
+                position: 'fixed',
+                bottom: 16,
+                right: 16,
+                zIndex: 1000
+            }}
+        >
+            {success === 'Синхронизация...' && (
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+            )}
+            {success && (
+                <Alert 
+                    severity={success === 'Синхронизация...' ? 'info' : 'success'}
+                    sx={{ 
+                        boxShadow: 3,
+                        opacity: 0.9,
+                        '&:hover': { opacity: 1 }
+                    }}
+                >
+                    {success}
+                </Alert>
+            )}
+        </Box>
+    );
 
     if (loading) {
         return (
@@ -380,10 +422,13 @@ export const BoardPage: React.FC = () => {
         <Container maxWidth={false}>
             <Box sx={{ mt: 2, mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton onClick={() => navigate('/')}>
+                    <IconButton 
+                        onClick={() => navigate('/')}
+                        title="Вернуться к списку досок (Esc)"
+                    >
                         <ArrowBackIcon />
                     </IconButton>
-                    <Typography variant="h5">{board.name}</Typography>
+                    <Typography variant="h5">{board?.name}</Typography>
                     <Box sx={{ flexGrow: 1 }} />
                     <TextField
                         placeholder="Поиск задач..."
@@ -402,16 +447,20 @@ export const BoardPage: React.FC = () => {
                                     <IconButton
                                         size="small"
                                         onClick={() => setSearchQuery('')}
+                                        title="Очистить поиск (Esc)"
                                     >
                                         <ClearIcon />
                                     </IconButton>
                                 </InputAdornment>
                             )
                         }}
+                        title="Поиск задач (Ctrl+F)"
                     />
                     <IconButton 
                         onClick={handleFilterOpen}
                         color={selectedStatuses.length > 0 || selectedTags.length > 0 ? "primary" : "default"}
+                        aria-label="Фильтры"
+                        title="Открыть фильтры (Ctrl+/)"
                     >
                         <FilterListIcon />
                     </IconButton>
@@ -419,10 +468,14 @@ export const BoardPage: React.FC = () => {
                         variant="contained"
                         startIcon={<AddIcon />}
                         onClick={() => setIsAddColumnModalOpen(true)}
+                        title="Добавить колонку (Ctrl+N)"
                     >
                         Добавить колонку
                     </Button>
-                    <IconButton onClick={handleBoardMenuOpen}>
+                    <IconButton 
+                        onClick={handleBoardMenuOpen}
+                        title="Настройки доски (Ctrl+E)"
+                    >
                         <SettingsIcon />
                     </IconButton>
                 </Box>
@@ -739,6 +792,8 @@ export const BoardPage: React.FC = () => {
                 onClose={() => setIsAddColumnModalOpen(false)}
                 onSubmit={handleAddColumn}
             />
+
+            <SyncIndicator />
         </Container>
     );
 };
