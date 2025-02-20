@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
 import { Container, Paper, Tabs, Tab, Box, TextField, Button, Typography } from '@mui/material';
-import { TelegramLogin } from '../components/TelegramLogin';
+import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { authService } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
+
+interface TelegramAuthResponse {
+    token: string;
+    user_id: number;
+    first_name?: string;
+    username?: string;
+}
 
 export const AuthPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<number>(0);
@@ -40,9 +47,13 @@ export const AuthPage: React.FC = () => {
         }
     };
 
-    const handleTelegramAuth = (authResponse: any) => {
+    const handleTelegramAuth = (authResponse: TelegramAuthResponse) => {
+        console.log('Telegram auth response:', authResponse);
         if (authResponse.token) {
+            localStorage.setItem('token', authResponse.token);
             navigate('/');
+        } else {
+            console.error('Invalid Telegram auth response:', authResponse);
         }
     };
 

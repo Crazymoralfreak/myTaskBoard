@@ -24,12 +24,12 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import EventIcon from '@mui/icons-material/Event';
 import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
 import { alpha } from '@mui/material/styles';
-import { Column, BoardStatus } from '../../types/board';
-import { TaskCard } from '../task/TaskCard';
-import { AddTaskModal } from '../task/AddTaskModal/AddTaskModal';
-import { Task, CreateTaskRequest } from '../../types/task';
-import { taskService } from '../../services/taskService';
-import { EditColumnModal } from '../board/EditColumnModal/EditColumnModal';
+import { Column, BoardStatus } from '../../../types/board';
+import { TaskCard } from '../../task/TaskCard';
+import { AddTaskModal } from '../../task/AddTaskModal/AddTaskModal';
+import { Task, CreateTaskRequest } from '../../../types/task';
+import { taskService } from '../../../services/taskService';
+import { EditColumnModal } from '../EditColumnModal/EditColumnModal';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 
 interface BoardColumnProps {
@@ -45,7 +45,7 @@ interface BoardColumnProps {
 
 type SortType = 'priority' | 'date' | 'name';
 
-const BoardColumn: React.FC<BoardColumnProps> = (props) => {
+export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     const { column, onMove, canMoveLeft, canMoveRight, boardStatuses, onTasksChange, onEdit, onDelete } = props;
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
@@ -379,6 +379,4 @@ const BoardColumn: React.FC<BoardColumnProps> = (props) => {
             )}
         </Draggable>
     );
-};
-
-export default BoardColumn; 
+}; 

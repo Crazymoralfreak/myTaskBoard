@@ -27,15 +27,15 @@ import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
-import BoardColumn from '../components/BoardColumn/BoardColumn';
+import { BoardColumn } from '../components/board/BoardColumn';
 import { Column } from '../types/board';
-import { AddColumnModal } from '../components/AddColumnModal';
+import { AddColumnModal } from '../components/board/AddColumnModal/AddColumnModal';
 import { Task } from '../types/task';
 import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
 import { taskService } from '../services/taskService';
-import { EditBoardModal } from '../components/EditBoardModal';
-import { EditColumnModal } from '../components/EditColumnModal';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EditBoardModal } from '../components/board/EditBoardModal/EditBoardModal';
+import { EditColumnModal } from '../components/board/EditColumnModal/EditColumnModal';
+import { ConfirmDialog } from '../components/shared/ConfirmDialog/ConfirmDialog';
 import { useHotkeys } from 'react-hotkeys-hook';
 
 // Определяем тип для события горячих клавиш
@@ -47,6 +47,11 @@ interface EditColumnData {
     id: string;
     name: string;
     color?: string;
+}
+
+interface BoardUpdate {
+    name: string;
+    description: string;
 }
 
 export const BoardPage: React.FC = () => {
@@ -146,7 +151,8 @@ export const BoardPage: React.FC = () => {
             const boardData = await boardService.getBoard(boardId);
             setBoard(boardData);
         } catch (error) {
-            console.error('Failed to load board:', error);
+            console.error('Failed to load board:', error instanceof Error ? error.message : error);
+            setError('Не удалось загрузить доску');
         } finally {
             setLoading(false);
         }
@@ -158,7 +164,8 @@ export const BoardPage: React.FC = () => {
             const updatedBoard = await boardService.addColumn(boardId, { name: columnName });
             setBoard(updatedBoard);
         } catch (error) {
-            console.error('Failed to add column:', error);
+            console.error('Failed to add column:', error instanceof Error ? error.message : error);
+            setError('Не удалось добавить колонку');
         }
     };
 
@@ -168,71 +175,69 @@ export const BoardPage: React.FC = () => {
             const updatedBoard = await boardService.moveColumn(boardId, columnId, newPosition);
             setBoard(updatedBoard);
         } catch (error) {
-            console.error('Failed to move column:', error);
+            console.error('Failed to move column:', error instanceof Error ? error.message : error);
+            setError('Не удалось переместить колонку');
         }
     };
 
     const handleDragEnd = async (result: DropResult) => {
         const { source, destination, draggableId } = result;
-        console.log('Drag end event:', result);
-
+        
         if (!destination || 
             (source.droppableId === destination.droppableId && 
              source.index === destination.index) ||
             !board
         ) {
-            console.log('Invalid drop destination or same position');
             return;
         }
 
+        const taskId = parseInt(draggableId.replace('task-', ''));
+        const sourceColumnId = parseInt(source.droppableId);
+        const destinationColumnId = parseInt(destination.droppableId);
+
         try {
-            // Сохраняем текущее состояние для возможного отката
-            const previousBoard = { ...board };
+            const prevColumns = [...board.columns];
             
             // Оптимистичное обновление UI
-            const newBoard = { ...board } as Board;
-            const sourceColumn = newBoard.columns?.find(col => col.id.toString() === source.droppableId);
-            const destinationColumn = newBoard.columns?.find(col => col.id.toString() === destination.droppableId);
+            const newBoard = { ...board };
+            const sourceColumn = newBoard.columns.find(col => col.id === sourceColumnId);
+            const destinationColumn = newBoard.columns.find(col => col.id === destinationColumnId);
 
-            if (!sourceColumn || !destinationColumn || !newBoard.columns) {
+            if (!sourceColumn || !destinationColumn) {
                 console.error('Source or destination column not found');
                 return;
             }
 
-            const taskId = draggableId.replace('task-', '');
-            const task = sourceColumn.tasks.find(t => t.id.toString() === taskId);
+            const task = sourceColumn.tasks.find(t => t.id === taskId);
             if (!task) {
                 console.error('Task not found:', taskId);
                 return;
             }
 
             // Удаляем задачу из исходной колонки
-            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id.toString() !== taskId);
+            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id !== taskId);
 
             // Добавляем задачу в целевую колонку
-            const updatedTask = { ...task };
-            destinationColumn.tasks.splice(destination.index, 0, updatedTask);
+            destinationColumn.tasks.splice(destination.index, 0, task);
 
-            // Показываем индикатор синхронизации
-            setSuccess('Синхронизация...');
-            
             // Обновляем состояние для мгновенной реакции UI
             setBoard(newBoard);
 
             // Отправляем запрос на сервер
             await taskService.moveTask({
-                taskId: parseInt(taskId),
-                sourceColumnId: parseInt(source.droppableId),
-                destinationColumnId: parseInt(destination.droppableId),
+                taskId,
+                sourceColumnId,
+                destinationColumnId,
                 newPosition: destination.index
             });
-
             setSuccess('Задача успешно перемещена');
         } catch (error) {
-            console.error('Failed to move task:', error);
-            // Откатываем изменения в случае ошибки
-            await loadBoard();
+            console.error('Failed to move task:', error instanceof Error ? error.message : error);
             setError('Не удалось переместить задачу. Изменения отменены.');
+            // Откатываем изменения в состоянии
+            if (board) {
+                setBoard({ ...board, columns: board.columns });
+            }
         }
     };
 
@@ -244,7 +249,7 @@ export const BoardPage: React.FC = () => {
         setMenuAnchorEl(null);
     };
 
-    const handleEditBoard = async (updates: { name: string; description: string }) => {
+    const handleEditBoard = async (updates: BoardUpdate) => {
         try {
             if (!boardId) return;
             setLoading(true);
@@ -253,7 +258,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Доска успешно обновлена');
             setIsEditBoardModalOpen(false);
         } catch (error) {
-            console.error('Failed to update board:', error);
+            console.error('Failed to update board:', error instanceof Error ? error.message : error);
             setError('Не удалось обновить доску');
         } finally {
             setLoading(false);
@@ -268,7 +273,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Доска успешно удалена');
             navigate('/');
         } catch (error) {
-            console.error('Failed to delete board:', error);
+            console.error('Failed to delete board:', error instanceof Error ? error.message : error);
             setError('Не удалось удалить доску');
         } finally {
             setDeletingBoard(false);
@@ -285,7 +290,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Колонка успешно обновлена');
             setEditColumnData(null);
         } catch (error) {
-            console.error('Failed to update column:', error);
+            console.error('Failed to update column:', error instanceof Error ? error.message : error);
             setError('Не удалось обновить колонку');
         } finally {
             setLoading(false);
@@ -301,7 +306,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Колонка успешно удалена');
             setDeleteColumnData(null);
         } catch (error) {
-            console.error('Failed to delete column:', error);
+            console.error('Failed to delete column:', error instanceof Error ? error.message : error);
             setError('Не удалось удалить колонку');
         } finally {
             setDeletingColumn(false);
@@ -719,7 +724,7 @@ export const BoardPage: React.FC = () => {
             <EditBoardModal
                 open={isEditBoardModalOpen}
                 onClose={() => setIsEditBoardModalOpen(false)}
-                onSubmit={async (updates) => {
+                onSubmit={async (updates: BoardUpdate) => {
                     await handleEditBoard(updates);
                     setIsEditBoardModalOpen(false);
                 }}

@@ -10,7 +10,7 @@ import {
     Typography,
     FormHelperText
 } from '@mui/material';
-import { CreateTaskRequest } from '../types/task';
+import { CreateTaskRequest } from '../../../types/task';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';

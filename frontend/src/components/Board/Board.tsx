@@ -1,12 +1,11 @@
 import React from 'react';
 import { DragDropContext, DropResult } from 'react-beautiful-dnd';
 import { Box, Button } from '@mui/material';
-import BoardColumn from '../BoardColumn/BoardColumn';
-import { Column } from '../../types/board';
-import { Task } from '../../types/task';
-import { AddColumnModal } from '../AddColumnModal';
+import { BoardColumn } from './BoardColumn';
+import { Column, BoardStatus } from '@/types/board';
+import { Task } from '@/types/task';
+import { AddColumnModal } from './AddColumnModal';
 import AddIcon from '@mui/icons-material/Add';
-import { BoardStatus } from '../../types/board';
 
 interface BoardProps {
     columns: Column[];

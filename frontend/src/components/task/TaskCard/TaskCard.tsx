@@ -14,10 +14,10 @@ import EventIcon from '@mui/icons-material/Event';
 import ErrorIcon from '@mui/icons-material/Error';
 import CommentIcon from '@mui/icons-material/Comment';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { Task } from '../types/task';
+import { Task } from '../../../types/task';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { TaskDetailsModal } from './TaskDetailsModal';
+import { TaskDetailsModal } from '../TaskDetailsModal';
 
 interface TaskCardProps {
     task: Task;
