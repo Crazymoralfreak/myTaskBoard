@@ -1,31 +1,40 @@
 import { api } from '../api/api';
 import { Task, TaskPriority, CreateTaskRequest, TaskComment, TaskAttachment } from '../types/task';
 import { CreateSubtaskRequest, UpdateSubtaskRequest } from '../types/subtask';
+import { JwtService } from './jwtService';
+
+const jwtService = JwtService.getInstance();
+const axiosInstance = jwtService.getAxiosInstance();
+
+interface MoveTaskRequest {
+    taskId: number;
+    sourceColumnId: number;
+    destinationColumnId: number;
+    newPosition: number;
+}
 
 export const taskService = {
-    async createTask(columnId: string, taskData: CreateTaskRequest): Promise<Task> {
-        const response = await api.post<Task>(
-            `/api/tasks`,
-            {
-                ...taskData,
-                column: { id: columnId }
-            }
-        );
+    async getTasksByColumn(columnId: number): Promise<Task[]> {
+        const response = await axiosInstance.get(`/api/tasks/column/${columnId}`);
         return response.data;
     },
 
-    async updateTask(taskId: number, updates: Partial<Task>): Promise<Task> {
-        const response = await api.put(`/api/tasks/${taskId}`, updates);
+    async createTask(task: CreateTaskRequest): Promise<Task> {
+        const response = await axiosInstance.post('/api/tasks', task);
         return response.data;
     },
 
-    async deleteTask(taskId: string): Promise<void> {
-        await api.delete(`/api/tasks/${taskId}`);
+    async updateTask(taskId: number, task: Partial<Task>): Promise<Task> {
+        const response = await axiosInstance.put(`/api/tasks/${taskId}`, task);
+        return response.data;
     },
 
-    async moveTask(taskId: string, newColumnId: string): Promise<Task> {
-        const response = await api.patch<Task>(`/api/tasks/${taskId}/move/${newColumnId}`);
-        return response.data;
+    async deleteTask(taskId: number): Promise<void> {
+        await axiosInstance.delete(`/api/tasks/${taskId}`);
+    },
+
+    async moveTask(moveRequest: MoveTaskRequest): Promise<void> {
+        await axiosInstance.post('/api/tasks/move', moveRequest);
     },
 
     async addComment(taskId: number, content: string): Promise<Task> {

@@ -30,6 +30,7 @@ import { AddTaskModal } from '../AddTaskModal';
 import { Task, CreateTaskRequest } from '../../types/task';
 import { taskService } from '../../services/taskService';
 import { EditColumnModal } from '../EditColumnModal';
+import { Droppable, Draggable } from 'react-beautiful-dnd';
 
 interface BoardColumnProps {
     column: Column;
@@ -78,16 +79,23 @@ const BoardColumn: React.FC<BoardColumnProps> = (props) => {
         handleSortMenuClose();
     };
 
-    const handleAddTask = async (taskData: CreateTaskRequest) => {
+    const handleAddTask = async (taskData: Omit<CreateTaskRequest, 'columnId'>) => {
         try {
             const defaultStatus = boardStatuses.find(status => status.isDefault);
-            const createdTask = await taskService.createTask(column.id.toString(), {
+            console.log('Creating task with data:', {
                 ...taskData,
-                status: 'todo',
+                columnId: column.id.toString(),
                 statusId: defaultStatus?.id,
-                priority: 'MEDIUM',
                 columnColor: color
             });
+            const createdTask = await taskService.createTask({
+                ...taskData,
+                columnId: column.id.toString(),
+                statusId: defaultStatus?.id,
+                columnColor: color
+            });
+            
+            console.log('Task created successfully:', createdTask);
             
             // Обновляем состояние локально
             const updatedColumn = {
@@ -109,227 +117,259 @@ const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     };
 
     return (
-        <Paper
-            sx={{
-                width: 300,
-                maxHeight: '80vh',
-                display: 'flex',
-                flexDirection: 'column',
-                bgcolor: 'background.default',
-                borderRadius: 2,
-                boxShadow: 3,
-                border: '1px solid',
-                borderColor: 'divider',
-                overflow: 'hidden'
-            }}
-        >
-            <Box
-                sx={{
-                    p: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: '2px solid',
-                    borderColor: color,
-                    bgcolor: alpha(color, 0.1),
-                    transition: 'all 0.3s ease'
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {canMoveLeft && (
-                        <IconButton
-                            size="small"
-                            onClick={() => onMove(column.position - 1)}
-                        >
-                            <KeyboardArrowLeftIcon />
-                        </IconButton>
-                    )}
-                    <Typography variant="h6" component="div">
-                        {column.name}
-                    </Typography>
-                    {canMoveRight && (
-                        <IconButton
-                            size="small"
-                            onClick={() => onMove(column.position + 1)}
-                        >
-                            <KeyboardArrowRightIcon />
-                        </IconButton>
-                    )}
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip
-                        size="small"
-                        label={column.tasks.length}
-                        color="primary"
-                        sx={{ minWidth: 30 }}
-                    />
-                    <IconButton
-                        size="small"
-                        onClick={handleSortMenuOpen}
-                        color="inherit"
-                    >
-                        <FilterListIcon />
-                    </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={handleMenuOpen}
-                        color="inherit"
-                    >
-                        <MoreVertIcon />
-                    </IconButton>
-                </Box>
-            </Box>
-
-            <Box
-                sx={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    p: 1,
-                    '&::-webkit-scrollbar': {
-                        width: 8,
-                    },
-                    '&::-webkit-scrollbar-track': {
-                        bgcolor: 'background.paper',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                        bgcolor: 'grey.400',
-                        borderRadius: 4,
-                    },
-                }}
-            >
-                {column.tasks.map((task) => (
-                    <TaskCard
-                        key={task.id}
-                        task={task}
-                        boardStatuses={boardStatuses}
-                        onStatusChange={(status) => {
-                            console.log('Status changed:', status);
-                            onTasksChange?.(column);
-                        }}
-                        onTaskUpdate={(updatedTask) => {
-                            console.log('Task updated:', updatedTask);
-                            const updatedTasks = column.tasks.map(t => 
-                                t.id === updatedTask.id ? updatedTask : t
-                            );
-                            onTasksChange?.({
-                                ...column,
-                                tasks: updatedTasks
-                            });
-                        }}
-                        onTaskDelete={(taskId) => {
-                            console.log('Task deleted:', taskId);
-                            const updatedTasks = column.tasks.filter(t => t.id !== taskId);
-                            onTasksChange?.({
-                                ...column,
-                                tasks: updatedTasks
-                            });
-                        }}
-                    />
-                ))}
-            </Box>
-
-            <Box
-                sx={{
-                    p: 1,
-                    borderTop: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper'
-                }}
-            >
-                <Button
-                    fullWidth
-                    startIcon={<AddIcon />}
-                    onClick={() => setIsAddingTask(true)}
+        <Draggable draggableId={`column-${column.id}`} index={column.position}>
+            {(provided) => (
+                <Paper
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    elevation={1}
                     sx={{
-                        color: 'text.secondary',
-                        '&:hover': {
-                            bgcolor: alpha(color, 0.1)
-                        }
+                        width: 300,
+                        bgcolor: 'background.paper',
+                        borderRadius: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        maxHeight: '100%'
                     }}
                 >
-                    Добавить задачу
-                </Button>
-            </Box>
+                    <Box
+                        {...provided.dragHandleProps}
+                        sx={{
+                            p: 2,
+                            borderTopLeftRadius: 8,
+                            borderTopRightRadius: 8,
+                            bgcolor: color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {canMoveLeft && (
+                                <IconButton
+                                    size="small"
+                                    onClick={() => onMove(column.position - 1)}
+                                >
+                                    <KeyboardArrowLeftIcon />
+                                </IconButton>
+                            )}
+                            <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+                                {column.name}
+                            </Typography>
+                            {canMoveRight && (
+                                <IconButton
+                                    size="small"
+                                    onClick={() => onMove(column.position + 1)}
+                                >
+                                    <KeyboardArrowRightIcon />
+                                </IconButton>
+                            )}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Chip
+                                size="small"
+                                label={column.tasks.length}
+                                color="primary"
+                                sx={{ minWidth: 30 }}
+                            />
+                            <IconButton
+                                size="small"
+                                onClick={handleSortMenuOpen}
+                                color="inherit"
+                            >
+                                <FilterListIcon />
+                            </IconButton>
+                            <IconButton
+                                size="small"
+                                onClick={handleMenuOpen}
+                                color="inherit"
+                            >
+                                <MoreVertIcon />
+                            </IconButton>
+                        </Box>
+                    </Box>
 
-            <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-            >
-                <MenuItem onClick={handleEditClick}>
-                    <ListItemIcon>
-                        <EditOutlinedIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>Редактировать</ListItemText>
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
-                        handleMenuClose();
-                        onDelete?.(column.id.toString(), column.name);
-                    }}
-                    sx={{ color: 'error.main' }}
-                >
-                    <ListItemIcon>
-                        <DeleteOutlineIcon fontSize="small" color="error" />
-                    </ListItemIcon>
-                    <ListItemText>Удалить</ListItemText>
-                </MenuItem>
-            </Menu>
+                    <Droppable droppableId={column.id.toString()} type="task">
+                        {(provided, snapshot) => (
+                            <Box
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                sx={{
+                                    p: 1,
+                                    flexGrow: 1,
+                                    minHeight: 100,
+                                    overflowY: 'auto',
+                                    bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'inherit',
+                                    transition: 'background-color 0.2s ease',
+                                    '&::-webkit-scrollbar': {
+                                        width: '8px',
+                                    },
+                                    '&::-webkit-scrollbar-track': {
+                                        bgcolor: 'background.paper',
+                                    },
+                                    '&::-webkit-scrollbar-thumb': {
+                                        bgcolor: 'action.hover',
+                                        borderRadius: '4px',
+                                    },
+                                }}
+                            >
+                                {column.tasks.map((task, index) => (
+                                    <Draggable
+                                        key={task.id}
+                                        draggableId={`task-${task.id}`}
+                                        index={index}
+                                    >
+                                        {(provided, snapshot) => (
+                                            <Box
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                {...provided.dragHandleProps}
+                                                sx={{
+                                                    mb: 1,
+                                                    transform: snapshot.isDragging ? 'rotate(3deg)' : 'none',
+                                                    '&:last-child': { mb: 0 }
+                                                }}
+                                            >
+                                                <TaskCard
+                                                    task={task}
+                                                    boardStatuses={boardStatuses}
+                                                    onStatusChange={(status) => {
+                                                        console.log('Status changed:', status);
+                                                        onTasksChange?.(column);
+                                                    }}
+                                                    onTaskUpdate={(updatedTask) => {
+                                                        console.log('Task updated:', updatedTask);
+                                                        const updatedTasks = column.tasks.map(t => 
+                                                            t.id === updatedTask.id ? updatedTask : t
+                                                        );
+                                                        onTasksChange?.({
+                                                            ...column,
+                                                            tasks: updatedTasks
+                                                        });
+                                                    }}
+                                                    onTaskDelete={(taskId) => {
+                                                        console.log('Task deleted:', taskId);
+                                                        const updatedTasks = column.tasks.filter(t => t.id !== taskId);
+                                                        onTasksChange?.({
+                                                            ...column,
+                                                            tasks: updatedTasks
+                                                        });
+                                                    }}
+                                                />
+                                            </Box>
+                                        )}
+                                    </Draggable>
+                                ))}
+                                {provided.placeholder}
+                            </Box>
+                        )}
+                    </Droppable>
 
-            <Menu
-                anchorEl={sortAnchorEl}
-                open={Boolean(sortAnchorEl)}
-                onClose={handleSortMenuClose}
-            >
-                <MenuItem
-                    onClick={() => handleSortChange('priority')}
-                    selected={sortType === 'priority'}
-                >
-                    <ListItemIcon>
-                        <PriorityHighIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>По приоритету</ListItemText>
-                </MenuItem>
-                <MenuItem
-                    onClick={() => handleSortChange('date')}
-                    selected={sortType === 'date'}
-                >
-                    <ListItemIcon>
-                        <EventIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>По дате</ListItemText>
-                </MenuItem>
-                <MenuItem
-                    onClick={() => handleSortChange('name')}
-                    selected={sortType === 'name'}
-                >
-                    <ListItemIcon>
-                        <SortByAlphaIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>По названию</ListItemText>
-                </MenuItem>
-            </Menu>
+                    <Box
+                        sx={{
+                            p: 1,
+                            borderTop: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper'
+                        }}
+                    >
+                        <Button
+                            fullWidth
+                            startIcon={<AddIcon />}
+                            onClick={() => setIsAddingTask(true)}
+                            sx={{
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    bgcolor: alpha(color, 0.1)
+                                }
+                            }}
+                        >
+                            Добавить задачу
+                        </Button>
+                    </Box>
 
-            <EditColumnModal
-                open={isEditingColumn}
-                onClose={() => setIsEditingColumn(false)}
-                onSubmit={async (name, newColor) => {
-                    if (onEdit) {
-                        await onEdit(column.id.toString(), name, newColor);
-                        setColor(newColor);
-                        setIsEditingColumn(false);
-                    }
-                }}
-                initialName={column.name}
-                initialColor={color}
-            />
+                    <Menu
+                        anchorEl={anchorEl}
+                        open={Boolean(anchorEl)}
+                        onClose={handleMenuClose}
+                    >
+                        <MenuItem onClick={handleEditClick}>
+                            <ListItemIcon>
+                                <EditOutlinedIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>Редактировать</ListItemText>
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => {
+                                handleMenuClose();
+                                onDelete?.(column.id.toString(), column.name);
+                            }}
+                            sx={{ color: 'error.main' }}
+                        >
+                            <ListItemIcon>
+                                <DeleteOutlineIcon fontSize="small" color="error" />
+                            </ListItemIcon>
+                            <ListItemText>Удалить</ListItemText>
+                        </MenuItem>
+                    </Menu>
 
-            <AddTaskModal
-                open={isAddingTask}
-                onClose={() => setIsAddingTask(false)}
-                onSubmit={handleAddTask}
-            />
-        </Paper>
+                    <Menu
+                        anchorEl={sortAnchorEl}
+                        open={Boolean(sortAnchorEl)}
+                        onClose={handleSortMenuClose}
+                    >
+                        <MenuItem
+                            onClick={() => handleSortChange('priority')}
+                            selected={sortType === 'priority'}
+                        >
+                            <ListItemIcon>
+                                <PriorityHighIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>По приоритету</ListItemText>
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => handleSortChange('date')}
+                            selected={sortType === 'date'}
+                        >
+                            <ListItemIcon>
+                                <EventIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>По дате</ListItemText>
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => handleSortChange('name')}
+                            selected={sortType === 'name'}
+                        >
+                            <ListItemIcon>
+                                <SortByAlphaIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText>По названию</ListItemText>
+                        </MenuItem>
+                    </Menu>
+
+                    <EditColumnModal
+                        open={isEditingColumn}
+                        onClose={() => setIsEditingColumn(false)}
+                        onSubmit={async (name, newColor) => {
+                            if (onEdit) {
+                                await onEdit(column.id.toString(), name, newColor);
+                                setColor(newColor);
+                                setIsEditingColumn(false);
+                            }
+                        }}
+                        initialName={column.name}
+                        initialColor={color}
+                    />
+
+                    <AddTaskModal
+                        open={isAddingTask}
+                        onClose={() => setIsAddingTask(false)}
+                        onSubmit={handleAddTask}
+                        columnId={column.id.toString()}
+                    />
+                </Paper>
+            )}
+        </Draggable>
     );
 };
 

@@ -200,14 +200,15 @@ export const BoardPage: React.FC = () => {
             }
 
             // Находим задачу
-            const task = sourceColumn.tasks.find(t => t.id.toString() === draggableId);
+            const taskId = draggableId.replace('task-', '');
+            const task = sourceColumn.tasks.find(t => t.id.toString() === taskId);
             if (!task) {
-                console.error('Task not found:', draggableId);
+                console.error('Task not found:', taskId);
                 return;
             }
 
             // Удаляем задачу из исходной колонки
-            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id.toString() !== draggableId);
+            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id.toString() !== taskId);
 
             // Добавляем задачу в целевую колонку
             const updatedTask = { ...task };
@@ -218,8 +219,13 @@ export const BoardPage: React.FC = () => {
 
             // Отправляем запрос на сервер
             try {
-                const movedTask = await taskService.moveTask(draggableId, destination.droppableId);
-                console.log('Task moved successfully:', movedTask);
+                await taskService.moveTask({
+                    taskId: parseInt(taskId),
+                    sourceColumnId: parseInt(source.droppableId),
+                    destinationColumnId: parseInt(destination.droppableId),
+                    newPosition: destination.index
+                });
+                console.log('Task moved successfully');
             } catch (error) {
                 console.error('Failed to move task on server:', error);
                 // В случае ошибки отменяем оптимистичное обновление
@@ -580,7 +586,7 @@ export const BoardPage: React.FC = () => {
                     }}
                 >
                     {filteredColumns && filteredColumns.length > 0 ? (
-                        filteredColumns.map((column: Column, index: number) => (
+                        filteredColumns.map((column: Column) => (
                             <Droppable key={column.id} droppableId={column.id.toString()}>
                                 {(provided) => (
                                     <div
@@ -591,10 +597,11 @@ export const BoardPage: React.FC = () => {
                                             key={column.id}
                                             column={column}
                                             onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
-                                            canMoveLeft={index > 0}
-                                            canMoveRight={index < board.columns.length - 1}
+                                            canMoveLeft={board.columns.indexOf(column) > 0}
+                                            canMoveRight={board.columns.indexOf(column) < board.columns.length - 1}
                                             boardStatuses={board.taskStatuses}
                                             onTasksChange={(updatedColumn) => {
+                                                if (!board) return;
                                                 const updatedColumns = board.columns.map(col =>
                                                     col.id === updatedColumn.id ? updatedColumn : col
                                                 );
@@ -603,8 +610,8 @@ export const BoardPage: React.FC = () => {
                                                     columns: updatedColumns
                                                 });
                                             }}
-                                            onEdit={(columnId, name, color) => handleEditColumn(columnId.toString(), name, color)}
-                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId.toString(), name })}
+                                            onEdit={(columnId, name, color) => handleEditColumn(columnId, name, color)}
+                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId, name })}
                                         />
                                         {provided.placeholder}
                                     </div>

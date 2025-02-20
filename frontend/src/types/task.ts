@@ -98,10 +98,13 @@ export interface Task {
 export interface CreateTaskRequest {
     title: string;
     description?: string;
+    startDate?: string;
+    endDate?: string;
     dueDate?: string;
     status?: 'todo' | 'in_progress' | 'completed';
     statusId?: number;
     priority?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
     columnColor?: string;
+    columnId: string;
 } 

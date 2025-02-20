@@ -195,7 +195,7 @@ export const TaskDetailsModal = ({
     const handleDelete = async () => {
         try {
             setIsSubmitting(true);
-            await taskService.deleteTask(task.id.toString());
+            await taskService.deleteTask(task.id);
             onTaskDelete(task.id);
             onClose();
         } catch (error) {

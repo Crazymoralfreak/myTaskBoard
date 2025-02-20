@@ -7,7 +7,8 @@ import {
     TextField,
     Button,
     Box,
-    Typography
+    Typography,
+    FormHelperText
 } from '@mui/material';
 import { CreateTaskRequest } from '../types/task';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -18,40 +19,53 @@ import ruLocale from 'date-fns/locale/ru';
 interface AddTaskModalProps {
     open: boolean;
     onClose: () => void;
-    onSubmit: (task: CreateTaskRequest) => void;
+    onSubmit: (task: Omit<CreateTaskRequest, 'columnId'>) => void;
+    columnId: string;
 }
 
 export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     open,
     onClose,
-    onSubmit
+    onSubmit,
+    columnId
 }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [errors, setErrors] = useState<{
+        title?: string;
+        dates?: string;
+    }>({});
 
-    const handleSubmit = () => {
-        // Валидация
+    const validateForm = (): boolean => {
+        const newErrors: { title?: string; dates?: string } = {};
+
         if (!title.trim()) {
-            setError('Название задачи обязательно');
-            return;
+            newErrors.title = 'Название задачи обязательно';
         }
 
         if (startDate && endDate && startDate > endDate) {
-            setError('Дата начала не может быть позже даты окончания');
+            newErrors.dates = 'Дата начала не может быть позже даты окончания';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = () => {
+        if (!validateForm()) {
             return;
         }
 
-        const task: CreateTaskRequest = {
+        const task: Omit<CreateTaskRequest, 'columnId'> = {
             title: title.trim(),
             description: description.trim(),
             status: 'todo',
+            priority: 'NONE',
             tags: []
         };
 
-        // Добавляем даты только если они установлены
         if (startDate) {
             task.startDate = startDate.toISOString();
         }
@@ -68,7 +82,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         setDescription('');
         setStartDate(null);
         setEndDate(null);
-        setError(null);
+        setErrors({});
         onClose();
     };
 
@@ -81,11 +95,16 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         <TextField
                             label="Название"
                             value={title}
-                            onChange={(e) => setTitle(e.target.value)}
+                            onChange={(e) => {
+                                setTitle(e.target.value);
+                                if (errors.title) {
+                                    setErrors(prev => ({ ...prev, title: undefined }));
+                                }
+                            }}
                             fullWidth
                             required
-                            error={!!error && !title.trim()}
-                            helperText={error && !title.trim() ? error : ''}
+                            error={!!errors.title}
+                            helperText={errors.title}
                         />
                         <TextField
                             label="Описание"
@@ -95,27 +114,44 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                             multiline
                             rows={3}
                         />
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                            <DateTimePicker
-                                label="Дата начала"
-                                value={startDate}
-                                onChange={(newValue) => setStartDate(newValue)}
-                                slotProps={{
-                                    textField: { fullWidth: true }
-                                }}
-                            />
-                            <DateTimePicker
-                                label="Дата окончания"
-                                value={endDate}
-                                onChange={(newValue) => setEndDate(newValue)}
-                                slotProps={{
-                                    textField: { 
-                                        fullWidth: true,
-                                        error: !!error && !!startDate && !!endDate && startDate > endDate,
-                                        helperText: error && startDate && endDate && startDate > endDate ? error : ''
-                                    }
-                                }}
-                            />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <DateTimePicker
+                                    label="Дата начала"
+                                    value={startDate}
+                                    onChange={(newValue) => {
+                                        setStartDate(newValue);
+                                        if (errors.dates) {
+                                            setErrors(prev => ({ ...prev, dates: undefined }));
+                                        }
+                                    }}
+                                    slotProps={{
+                                        textField: { 
+                                            fullWidth: true,
+                                            error: !!errors.dates
+                                        }
+                                    }}
+                                />
+                                <DateTimePicker
+                                    label="Дата окончания"
+                                    value={endDate}
+                                    onChange={(newValue) => {
+                                        setEndDate(newValue);
+                                        if (errors.dates) {
+                                            setErrors(prev => ({ ...prev, dates: undefined }));
+                                        }
+                                    }}
+                                    slotProps={{
+                                        textField: { 
+                                            fullWidth: true,
+                                            error: !!errors.dates
+                                        }
+                                    }}
+                                />
+                            </Box>
+                            {errors.dates && (
+                                <FormHelperText error>{errors.dates}</FormHelperText>
+                            )}
                         </Box>
                     </Box>
                 </DialogContent>
