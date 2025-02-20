@@ -1,26 +1,32 @@
-# Use an official Node.js image as the build stage
-FROM node:22 AS build
+# Build stage
+FROM node:18-alpine as build
+
 WORKDIR /app
 
-# Copy package.json and install dependencies
-COPY package.json package-lock.json ./
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy source code
 COPY . .
 
 # Build the application
 RUN npm run build
 
-# Use a lightweight Nginx image for the runtime stage
+# Production stage
 FROM nginx:alpine
-WORKDIR /usr/share/nginx/html
 
-# Copy the built files from the build stage
-COPY --from=build /app/dist .
+# Copy the built files from build stage
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# Expose the application port
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Add bash for debugging if needed
+RUN apk add --no-cache bash
+
 EXPOSE 80
 
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]

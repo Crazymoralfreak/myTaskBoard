@@ -16,16 +16,19 @@ WORKDIR /app
 # Copy the built JAR file from the build stage
 COPY --from=build app/target/myTaskBoard-1.0-SNAPSHOT.jar ./app.jar
 
+# Установка curl для health check
+RUN microdnf install curl
+
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+  CMD curl -f http://localhost:8081/api/health || exit 1
 
 # Add environment variables
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
 # Expose the application port
-EXPOSE 8080
+EXPOSE 8081
 
 # Run the application
-ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

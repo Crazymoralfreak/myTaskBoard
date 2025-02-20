@@ -1,16 +1,33 @@
 package com.yourapp.model;
 
-import jakarta.persistence.Embeddable;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 
-@Embeddable
-@Getter
-@Setter
+@Entity
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "notification_preferences")
 public class NotificationPreferences {
-    private boolean globalNotificationsEnabled = true;
-    private boolean taskAssignedNotifications = true;
-    private boolean taskUpdatedNotifications = true;
-    private boolean taskMovedNotifications = true;
-    private boolean mentionNotifications = true;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @OneToOne
+    @JoinColumn(name = "user_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private User user;
+    
+    private boolean globalNotificationsEnabled;
+    private boolean taskAssignedNotifications;
+    private boolean taskMovedNotifications;
+    private boolean taskUpdatedNotifications;
+    private boolean mentionNotifications;
 }

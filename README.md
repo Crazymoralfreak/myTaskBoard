@@ -1,218 +1,177 @@
-# Task Board Application
+# MyTaskBoard - Система управления задачами с интеграцией Telegram
 
-## Backend Functionality
+## Описание проекта
 
-The backend provides the following core features:
+MyTaskBoard - это современная система управления задачами, которая сочетает в себе функциональность канбан-доски с интеграцией Telegram. Система позволяет эффективно организовывать и отслеживать задачи, обеспечивая удобное взаимодействие через веб-интерфейс и Telegram.
 
-### Kanban Board Management
-- Create, update and delete Kanban columns
-- Drag-and-drop task movement between columns
-- Column ordering and customization
+### Основные возможности
 
-### Task Management
-- Create tasks with title, description, due date, priority and labels
-- Assign tasks to users
-- Task filtering by status, priority and assignee
-- Task history tracking (who changed what and when)
+- **Управление досками:**
+  - Создание и редактирование досок
+  - Настройка колонок
+  - Архивация досок
+  
+- **Управление задачами:**
+  - Создание и редактирование задач
+  - Drag-and-drop перемещение между колонками
+  - Прикрепление файлов и комментариев
+  - Отслеживание истории изменений
+  
+- **Интеграция с Telegram:**
+  - Аутентификация через Telegram
+  - Уведомления о важных событиях
+  - Управление задачами через бота
+  
+- **Real-time обновления:**
+  - WebSocket для мгновенной синхронизации
+  - Уведомления в реальном времени
 
-### Notifications
-- Real-time updates via WebSocket
-- Telegram bot integration for task updates
-- Email notifications for important changes
+## Технический стек
 
-### Security
-- JWT-based authentication
-- Role-based access control
-- Password encryption
-- Rate limiting
+### Бэкенд
+- Java 17
+- Spring Boot 3.x
+- Spring Security
+- Spring Data JPA
+- PostgreSQL
+- WebSocket
+- Telegram Bot API
 
-### API Documentation
-- Swagger UI at `/swagger-ui.html`
-- OpenAPI 3.0 specification at `/v3/api-docs`
+### Фронтенд
+- React 18
+- TypeScript
+- Vite
+- Material UI
+- Redux Toolkit
+- React Beautiful DnD
+- Telegram Web App SDK
 
-## Getting Started with Docker
+## Требования для развертывания
 
-### Prerequisites
-- Docker 20.10+
-- Docker Compose 2.0+
-- Java 17+
+- Docker и Docker Compose
+- Git
+- Telegram Bot Token (получить у @BotFather)
+- Домен с SSL-сертификатом (для Telegram Web App)
 
-### Running the Application
+## Развертывание
 
-1. Clone the repository:
+### 1. Клонирование репозитория
+
 ```bash
-git clone https://github.com/Crazymoralfreak/myTaskBoard.git
-cd myTaskBoard
+git clone https://github.com/your-username/mytaskboard.git
+cd mytaskboard
 ```
 
-2. Create environment file:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
+### 2. Настройка переменных окружения
+
+Создайте файл `.env` в корневой директории:
+
+```env
+# Backend
+POSTGRES_USER=mytaskboard
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=mytaskboard_db
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_BOT_USERNAME=your_bot_username
+
+# Frontend
+VITE_API_URL=https://your-domain.com/api
+VITE_BOT_NAME=your_bot_username
 ```
 
-3. Build and start containers:
-```bash
-docker-compose up -d
-```
+### 3. Настройка SSL
 
-4. Access the application:
-- API: http://localhost:8080
-- Database: localhost:5432
-- Swagger UI: http://localhost:8080/swagger-ui.html
+Поместите ваши SSL-сертификаты в директорию `./nginx/certs/`:
+- `server.crt` - сертификат
+- `server.key` - приватный ключ
 
-5. Check logs:
+### 4. Запуск с помощью Docker Compose
+
 ```bash
+# Сборка и запуск контейнеров
+docker-compose up -d --build
+
+# Проверка логов
 docker-compose logs -f
 ```
 
-6. Stop the application:
+### 5. Настройка Telegram бота
+
+1. Получите токен у @BotFather
+2. Настройте webhook:
 ```bash
-docker-compose down
+curl -F "url=https://your-domain.com/api/telegram/webhook" \
+     https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
+```
+3. Добавьте веб-приложение в настройках бота через @BotFather
+
+## Структура проекта
+
+```
+mytaskboard/
+├── backend/                # Java Spring Boot backend
+│   ├── src/               # Исходный код
+│   ├── Dockerfile        # Dockerfile для бэкенда
+│   └── pom.xml           # Maven конфигурация
+├── frontend/              # React frontend
+│   ├── src/              # Исходный код
+│   ├── Dockerfile       # Dockerfile для фронтенда
+│   └── package.json     # NPM конфигурация
+├── nginx/                 # Nginx конфигурация
+│   ├── certs/           # SSL сертификаты
+│   └── nginx.conf       # Nginx конфигурация
+├── docker-compose.yml    # Docker Compose конфигурация
+└── .env                  # Переменные окружения
 ```
 
-### Environment Variables
+## Мониторинг и обслуживание
 
-| Variable                     | Description                          | Default Value          |
-|------------------------------|--------------------------------------|------------------------|
-| `SPRING_DATASOURCE_URL`       | Database connection URL              | jdbc:postgresql://db:5432/taskboard |
-| `SPRING_DATASOURCE_USERNAME`  | Database username                    | taskboard              |
-| `SPRING_DATASOURCE_PASSWORD`  | Database password                    | taskboard              |
-| `TELEGRAM_BOT_TOKEN`          | Telegram bot token                   |                        |
-| `TELEGRAM_BOT_USERNAME`       | Telegram bot username                |                        |
-| `JWT_SECRET`                  | JWT signing key                      | changeme               |
-| `JWT_EXPIRATION_MS`           | JWT expiration time in milliseconds  | 86400000 (24 hours)    |
+### Просмотр логов
 
-## Development
-
-### Running Tests
 ```bash
-./mvnw test
+# Все сервисы
+docker-compose logs -f
+
+# Конкретный сервис
+docker-compose logs -f backend
+docker-compose logs -f frontend
 ```
 
-### Building the Application
+### Обновление приложения
+
 ```bash
-./mvnw clean package
+# Получение последних изменений
+git pull
+
+# Пересборка и перезапуск контейнеров
+docker-compose up -d --build
 ```
 
-### Running Locally
+### Резервное копирование базы данных
+
 ```bash
-./mvnw spring-boot:run
-```
-## Notification Preferences API
+# Создание бэкапа
+docker-compose exec db pg_dump -U mytaskboard mytaskboard_db > backup.sql
 
-### Get User Notification Preferences
-`GET /api/notifications/preferences?userId={userId}`
-
-**Rate Limit:** 100 requests per hour per user
-
-**Success Response (200 OK):**
-```json
-{
-  "globalNotificationsEnabled": true,
-  "taskAssignedNotifications": true,
-  "taskUpdatedNotifications": true,
-  "taskMovedNotifications": true,
-  "mentionNotifications": true
-}
+# Восстановление из бэкапа
+cat backup.sql | docker-compose exec -T db psql -U mytaskboard mytaskboard_db
 ```
 
-**Error Responses:**
-- `401 Unauthorized`: Invalid or missing authentication token
-- `403 Forbidden`: User not authorized to access these preferences
-- `404 Not Found`: User not found
+## Безопасность
 
-**Example Request:**
-```bash
-curl -X GET "https://api.taskboard.com/api/notifications/preferences?userId=123" \
-  -H "Authorization: Bearer {token}"
-```
+- Все API-эндпоинты защищены аутентификацией
+- Поддержка HTTPS
+- Безопасное хранение паролей
+- Валидация входных данных
+- Rate limiting для API
 
-### Update Notification Preferences
-`PUT /api/notifications/preferences?userId={userId}`
+## Поддержка
 
-**Rate Limit:** 10 requests per minute per user
+При возникновении проблем:
+1. Проверьте логи контейнеров
+2. Убедитесь в правильности настроек окружения
+3. Создайте issue в репозитории проекта
 
-**Request Body:**
-```json
-{
-  "globalNotificationsEnabled": true,
-  "taskAssignedNotifications": true,
-  "taskUpdatedNotifications": true,
-  "taskMovedNotifications": true,
-  "mentionNotifications": true
-}
-```
+## Лицензия
 
-**Success Response (200 OK):**
-```json
-{
-  "message": "Preferences updated successfully",
-  "preferences": {
-    "globalNotificationsEnabled": true,
-    "taskAssignedNotifications": true,
-    "taskUpdatedNotifications": true,
-    "taskMovedNotifications": true,
-    "mentionNotifications": true
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid request body
-- `401 Unauthorized`: Invalid or missing authentication token
-- `403 Forbidden`: User not authorized to update these preferences
-- `404 Not Found`: User not found
-
-**Example Request:**
-```bash
-curl -X PUT "https://api.taskboard.com/api/notifications/preferences?userId=123" \
-  -H "Authorization: Bearer {token}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "globalNotificationsEnabled": true,
-    "taskAssignedNotifications": true,
-    "taskUpdatedNotifications": true,
-    "taskMovedNotifications": true,
-    "mentionNotifications": true
-  }'
-```
-
-### Toggle Global Notifications
-`PATCH /api/notifications/global?userId={userId}&enabled={true|false}`
-
-**Rate Limit:** 10 requests per minute per user
-
-**Success Response (200 OK):**
-```json
-{
-  "message": "Global notifications updated successfully",
-  "preferences": {
-    "globalNotificationsEnabled": false,
-    "taskAssignedNotifications": true,
-    "taskUpdatedNotifications": true,
-    "taskMovedNotifications": true,
-    "mentionNotifications": true
-  }
-}
-```
-
-**Error Responses:**
-- `400 Bad Request`: Invalid enabled parameter
-- `401 Unauthorized`: Invalid or missing authentication token
-- `403 Forbidden`: User not authorized to update these preferences
-- `404 Not Found`: User not found
-
-**Example Request:**
-```bash
-curl -X PATCH "https://api.taskboard.com/api/notifications/global?userId=123&enabled=false" \
-  -H "Authorization: Bearer {token}"
-```
-
-### Rate Limiting
-- All notification endpoints are rate limited
-- Exceeding limits will result in `429 Too Many Requests` response
-- Rate limit headers are included in all responses:
-  - `X-RateLimit-Limit`: Total allowed requests
-  - `X-RateLimit-Remaining`: Remaining requests
-  - `X-RateLimit-Reset`: Time when limit resets (UTC timestamp)
+MIT License. См. файл LICENSE для подробностей.

@@ -1,20 +1,31 @@
-import { useEffect, useState } from 'react';
-import WebApp from '@twa-dev/sdk';
+import { WebApp } from '@twa-dev/sdk';
+
+interface TelegramUser {
+    id: string;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+}
 
 export const useTelegram = () => {
-  const [user, setUser] = useState<any | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+    const user = WebApp.initDataUnsafe?.user as TelegramUser | undefined;
 
-  useEffect(() => {
-    WebApp.ready();
-    setUser(WebApp.initDataUnsafe.user || null);
-    setTheme(WebApp.colorScheme);
+    const onClose = () => {
+        WebApp.close();
+    };
 
-    const handleThemeChange = () => setTheme(WebApp.colorScheme);
-    WebApp.onEvent('themeChanged', handleThemeChange);
+    const onToggleButton = () => {
+        if (WebApp.MainButton.isVisible) {
+            WebApp.MainButton.hide();
+        } else {
+            WebApp.MainButton.show();
+        }
+    };
 
-    return () => WebApp.offEvent('themeChanged', handleThemeChange);
-  }, []);
-
-  return { user, theme, WebApp };
+    return {
+        onClose,
+        onToggleButton,
+        user,
+        WebApp
+    };
 };
