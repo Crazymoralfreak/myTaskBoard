@@ -28,4 +28,5 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@twa-dev/sdk']
   }
+
 })
