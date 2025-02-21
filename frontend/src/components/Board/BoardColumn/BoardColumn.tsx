@@ -61,7 +61,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     const { column, onMove, canMoveLeft, canMoveRight, boardStatuses, onTasksChange, onEdit, onDelete } = props;
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
-    const [sortType, setSortType] = useState<SortType>('priority');
+    const [sortType, setSortType] = useState<SortType | null>(null);
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [isEditingColumn, setIsEditingColumn] = useState(false);
     const [color, setColor] = useState(column.color || '#E0E0E0');
@@ -87,7 +87,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     };
 
     const handleSortChange = (newSortType: SortType) => {
-        setSortType(newSortType);
+        setSortType(sortType === newSortType ? null : newSortType);
         handleSortMenuClose();
     };
 
@@ -125,18 +125,40 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     )`;
     const iconBgHoverColor = isLightColor(color) ? alpha('#000', 0.08) : alpha('#fff', 0.15);
 
+    // Функция для сортировки задач
+    const getSortedTasks = () => {
+        if (!sortType) return column.tasks;
+
+        return [...column.tasks].sort((a, b) => {
+            switch (sortType) {
+                case 'priority':
+                    const priorityOrder = { HIGH: 3, MEDIUM: 2, LOW: 1, NONE: 0 };
+                    return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+                case 'date':
+                    if (!a.endDate && !b.endDate) return 0;
+                    if (!a.endDate) return 1;
+                    if (!b.endDate) return -1;
+                    return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+                case 'name':
+                    return a.title.localeCompare(b.title);
+                default:
+                    return 0;
+            }
+        });
+    };
+
     return (
         <Paper
             elevation={2}
             sx={{
                 width: 300,
                 bgcolor: 'background.paper',
-                borderRadius: 2,
+                borderRadius: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 maxHeight: '100%',
                 position: 'relative',
-                overflow: 'hidden',
+                overflow: 'visible',
                 boxShadow: `0 0 0 1px ${alpha(color, 0.15)}`,
                 transition: 'all 0.2s ease-in-out',
                 '&:hover': {
@@ -155,6 +177,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     justifyContent: 'space-between',
                     borderBottom: `1px solid ${alpha(color, 0.2)}`,
                     position: 'relative',
+                    borderTopLeftRadius: '16px',
+                    borderTopRightRadius: '16px',
                     '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -166,7 +190,9 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                             ${alpha('#fff', 0.1)} 0%, 
                             ${alpha('#fff', 0)} 100%
                         )`,
-                        pointerEvents: 'none'
+                        pointerEvents: 'none',
+                        borderTopLeftRadius: '16px',
+                        borderTopRightRadius: '16px'
                     }
                 }}
             >
@@ -272,10 +298,19 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                             p: 2,
                             flexGrow: 1,
                             minHeight: 100,
-                            overflowY: 'auto',
-                            bgcolor: snapshot.isDraggingOver ? alpha(color, 0.05) : 'transparent',
+                            maxHeight: 'calc(100vh - 200px)',
+                            position: 'relative',
+                            bgcolor: snapshot.isDraggingOver 
+                                ? `${alpha(color, 0.15)} !important`
+                                : 'transparent',
                             transition: 'all 0.2s ease',
                             borderRadius: 1,
+                            overflowY: 'auto',
+                            overflowX: 'visible',
+                            '& > *': {
+                                position: 'relative',
+                                zIndex: 1
+                            },
                             '&::-webkit-scrollbar': {
                                 width: '6px'
                             },
@@ -292,7 +327,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                             }
                         }}
                     >
-                        {column.tasks.map((task, index) => (
+                        {getSortedTasks().map((task, index) => (
                             <Draggable
                                 key={task.id}
                                 draggableId={`task-${task.id}`}
@@ -305,12 +340,22 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                         {...provided.dragHandleProps}
                                         sx={{
                                             mb: 1,
-                                            transform: snapshot.isDragging ? 'rotate(2deg)' : 'none',
-                                            opacity: snapshot.isDragging ? 0.9 : 1,
-                                            transition: 'all 0.2s ease',
-                                            '&:hover': {
+                                            transform: 'none',
+                                            position: 'relative',
+                                            zIndex: snapshot.isDragging ? 9999 : 'auto',
+                                            pointerEvents: 'auto',
+                                            '& > *': {
+                                                transform: snapshot.isDragging 
+                                                    ? 'rotate(2deg) scale(1.02)' 
+                                                    : 'none',
+                                                boxShadow: snapshot.isDragging 
+                                                    ? '0 8px 16px rgba(0,0,0,0.15)' 
+                                                    : 'none',
+                                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                            },
+                                            '&:hover > *': {
                                                 transform: 'translateY(-2px)',
-                                                boxShadow: 2
+                                                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
                                             },
                                             '&:last-child': { mb: 0 }
                                         }}
@@ -406,7 +451,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     selected={sortType === 'priority'}
                 >
                     <ListItemIcon>
-                        <PriorityHighIcon fontSize="small" />
+                        <PriorityHighIcon fontSize="small" color={sortType === 'priority' ? 'primary' : 'inherit'} />
                     </ListItemIcon>
                     <ListItemText>По приоритету</ListItemText>
                 </MenuItem>
@@ -415,7 +460,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     selected={sortType === 'date'}
                 >
                     <ListItemIcon>
-                        <EventIcon fontSize="small" />
+                        <EventIcon fontSize="small" color={sortType === 'date' ? 'primary' : 'inherit'} />
                     </ListItemIcon>
                     <ListItemText>По дате</ListItemText>
                 </MenuItem>
@@ -424,7 +469,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     selected={sortType === 'name'}
                 >
                     <ListItemIcon>
-                        <SortByAlphaIcon fontSize="small" />
+                        <SortByAlphaIcon fontSize="small" color={sortType === 'name' ? 'primary' : 'inherit'} />
                     </ListItemIcon>
                     <ListItemText>По названию</ListItemText>
                 </MenuItem>
