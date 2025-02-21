@@ -39,20 +39,24 @@ export const Board: React.FC<BoardProps> = ({
             <Box
                 sx={{
                     display: 'flex',
-                    gap: 2,
-                    p: 2,
+                    gap: 3,
+                    p: 3,
                     overflowX: 'auto',
-                    minHeight: 'calc(100vh - 64px)', // Высота экрана минус высота AppBar
+                    minHeight: 'calc(100vh - 64px)',
                     bgcolor: 'background.default',
                     '&::-webkit-scrollbar': {
                         height: '8px',
                     },
                     '&::-webkit-scrollbar-track': {
                         bgcolor: 'background.paper',
+                        borderRadius: '4px'
                     },
                     '&::-webkit-scrollbar-thumb': {
                         bgcolor: 'action.hover',
                         borderRadius: '4px',
+                        '&:hover': {
+                            bgcolor: 'action.selected'
+                        }
                     },
                 }}
             >
@@ -65,7 +69,6 @@ export const Board: React.FC<BoardProps> = ({
                         canMoveRight={index < columns.length - 1}
                         boardStatuses={boardStatuses}
                         onTasksChange={(updatedColumn) => {
-                            // Обновление задач в колонке
                             console.log('Tasks updated in column:', updatedColumn);
                         }}
                         onEdit={onColumnEdit}
@@ -85,7 +88,14 @@ export const Board: React.FC<BoardProps> = ({
                         variant="outlined"
                         startIcon={<AddIcon />}
                         onClick={() => onColumnAdd('Новая колонка')}
-                        sx={{ width: '100%' }}
+                        sx={{
+                            width: '100%',
+                            borderStyle: 'dashed',
+                            '&:hover': {
+                                borderStyle: 'dashed',
+                                bgcolor: 'action.hover'
+                            }
+                        }}
                     >
                         Добавить колонку
                     </Button>
