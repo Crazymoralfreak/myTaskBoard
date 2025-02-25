@@ -15,6 +15,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doFilterInternal(
@@ -30,6 +34,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+        if (shouldSkipFilter(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ") || authHeader.length() <= 7) {
             filterChain.doFilter(request, response);
@@ -53,12 +62,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+            filterChain.doFilter(request, response);
         } catch (Exception e) {
             logger.error("JWT Authentication error", e);
-            // Продолжаем цепочку фильтров даже при ошибке JWT
             SecurityContextHolder.clearContext();
+            
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Unauthorized");
+            error.put("message", "Invalid or expired token");
+            
+            objectMapper.writeValue(response.getWriter(), error);
         }
-        
-        filterChain.doFilter(request, response);
+    }
+
+    private boolean shouldSkipFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/api/auth/") || 
+               path.startsWith("/api/health") ||
+               path.startsWith("/error") ||
+               path.startsWith("/v3/api-docs") ||
+               path.startsWith("/swagger-ui");
     }
 } 

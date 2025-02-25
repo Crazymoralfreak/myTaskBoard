@@ -2,26 +2,32 @@ package com.yourapp.security;
 
 import com.yourapp.model.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
-
+import java.util.Base64;
 import io.jsonwebtoken.ExpiredJwtException;
 
 @Service
 public class JwtService {
 
-    private static final Key SIGNING_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    @Value("${jwt.secret}")
+    private String secret;
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
@@ -30,6 +36,17 @@ public class JwtService {
 
     public JwtService(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
+    }
+
+    private SecretKey getSigningKey() {
+        try {
+            // Используем SHA-256 для создания 256-битного ключа из секрета
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(secret.getBytes(StandardCharsets.UTF_8));
+            return Keys.hmacShaKeyFor(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error generating signing key", e);
+        }
     }
 
     public String extractUsername(String token) {
@@ -53,11 +70,11 @@ public class JwtService {
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
-                .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
-                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .claims(extraClaims)
+                .subject(userDetails.getUsername())
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusMillis(jwtExpiration)))
+                .signWith(getSigningKey())
                 .compact();
     }
 
@@ -67,7 +84,7 @@ public class JwtService {
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        return extractExpiration(token).before(Date.from(Instant.now()));
     }
 
     private Date extractExpiration(String token) {
@@ -75,29 +92,32 @@ public class JwtService {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSignInKey())
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
-    }
-
-    private Key getSignInKey() {
-        return SIGNING_KEY;
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public String refreshToken(String token) {
         try {
-            final String userEmail = extractUsername(token);
+            Claims claims = extractAllClaims(token);
+            String userEmail = claims.getSubject();
             UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            
+            // Проверяем, не истек ли токен слишком давно (например, более 24 часов)
+            if (claims.getExpiration().toInstant().isBefore(Instant.now().minus(24, ChronoUnit.HOURS))) {
+                throw new JwtException("Token is too old to refresh");
+            }
+            
             return generateToken(userDetails);
         } catch (ExpiredJwtException e) {
-            if (e.getClaims() != null && 
-                System.currentTimeMillis() - e.getClaims().getExpiration().getTime() < 86400000) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(e.getClaims().getSubject());
-                return generateToken(userDetails);
-            }
-            throw e;
+            // Если токен просто истек, но не слишком давно, мы все равно можем его обновить
+            String userEmail = e.getClaims().getSubject();
+            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            return generateToken(userDetails);
+        } catch (JwtException e) {
+            throw new JwtException("Invalid token for refresh", e);
         }
     }
 } 

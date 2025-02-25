@@ -4,7 +4,7 @@ import { theme } from './theme/theme';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { CreateBoardPage } from './pages/CreateBoardPage';
-import { PrivateRoute } from './components/PrivateRoute';
+import { PrivateRoute } from './components/auth';
 import { BoardPage } from './pages/BoardPage';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';

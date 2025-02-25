@@ -18,7 +18,7 @@
     <properties>
         <java.version>17</java.version>
         <lombok.version>1.18.26</lombok.version>
-        <jwt.version>0.11.5</jwt.version>
+        <jwt.version>0.12.3</jwt.version>
     </properties>
 
     <dependencies>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -42,23 +42,23 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import AddIcon from '@mui/icons-material/Add';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import { Task, TaskComment, TaskAttachment, TaskHistory } from '../types/task';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { taskService } from '../services/taskService';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { ConfirmDialog } from './ConfirmDialog';
-import { formatDuration } from '../utils/formatters';
-import { SubtaskList } from './SubtaskList/SubtaskList';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ReactMarkdown from 'react-markdown';
-import { userService } from '../services/userService';
+import { Task, TaskComment, TaskAttachment, TaskHistory } from '@/types/task';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { taskService } from '@/services/taskService';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ConfirmDialog } from '../../shared/ConfirmDialog';
+import { formatDuration } from '@/utils/formatters';
+import { SubtaskList } from '../SubtaskList';
+import { userService } from '@/services/userService';
 
 interface TaskDetailsModalProps {
     open: boolean;
@@ -195,7 +195,7 @@ export const TaskDetailsModal = ({
     const handleDelete = async () => {
         try {
             setIsSubmitting(true);
-            await taskService.deleteTask(task.id.toString());
+            await taskService.deleteTask(task.id);
             onTaskDelete(task.id);
             onClose();
         } catch (error) {
@@ -229,7 +229,7 @@ export const TaskDetailsModal = ({
 
         try {
             setUploadProgress(0);
-            const updatedTask = await taskService.uploadFile(task.id, file, (progress) => {
+            const updatedTask = await taskService.uploadFile(task.id, file, (progress: number) => {
                 setUploadProgress(progress);
             });
             onTaskUpdate(updatedTask);
@@ -254,7 +254,7 @@ export const TaskDetailsModal = ({
     };
 
     const handleTagDelete = async (tagToDelete: string) => {
-        const updatedTags = (editedTask.tags || []).filter(tag => tag !== tagToDelete);
+        const updatedTags = (editedTask.tags || []).filter((tag: string) => tag !== tagToDelete);
         try {
             const updatedTask = await taskService.updateTask(task.id, { tags: updatedTags });
             onTaskUpdate(updatedTask);
@@ -315,10 +315,10 @@ export const TaskDetailsModal = ({
                 newText = `_${selectedText}_`;
                 break;
             case 'bullet':
-                newText = selectedText.split('\n').map(line => `• ${line}`).join('\n');
+                newText = selectedText.split('\n').map((line: string) => `• ${line}`).join('\n');
                 break;
             case 'number':
-                newText = selectedText.split('\n').map((line, i) => `${i + 1}. ${line}`).join('\n');
+                newText = selectedText.split('\n').map((line: string, i: number) => `${i + 1}. ${line}`).join('\n');
                 break;
             default:
                 return;
@@ -338,7 +338,7 @@ export const TaskDetailsModal = ({
     };
 
     const handleTaskChange = (changes: Partial<Task>) => {
-        setEditedTask(prev => ({ ...prev, ...changes }));
+        setEditedTask((prev: Task) => ({ ...prev, ...changes }));
         setIsDirty(true);
     };
 
@@ -605,7 +605,7 @@ export const TaskDetailsModal = ({
                                     Теги
                                 </Typography>
                                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                                    {editedTask.tags?.map((tag) => (
+                                    {editedTask.tags?.map((tag: string) => (
                                         <Chip
                                             key={tag}
                                             label={tag}
@@ -633,7 +633,7 @@ export const TaskDetailsModal = ({
                     <TabPanel value={selectedTab} index={1}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {/* Список комментариев */}
-                            {task.comments?.map((comment) => (
+                            {task.comments?.map((comment: TaskComment) => (
                                 <Paper key={comment.id} variant="outlined" sx={{ p: 2 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <Avatar 
@@ -758,7 +758,7 @@ export const TaskDetailsModal = ({
                     <TabPanel value={selectedTab} index={2}>
                         <List>
                             {task.history && task.history.length > 0 ? (
-                                task.history.map((entry) => (
+                                task.history.map((entry: TaskHistory) => (
                                     <ListItem key={entry.id}>
                                         <ListItemAvatar>
                                             <Avatar src={entry.avatarUrl} alt={entry.username}>
@@ -798,7 +798,7 @@ export const TaskDetailsModal = ({
 
                     <TabPanel value={selectedTab} index={4}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {task.history?.map((entry) => (
+                            {task.history?.map((entry: TaskHistory) => (
                                 <Paper key={entry.id} variant="outlined" sx={{ p: 2 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <Avatar 

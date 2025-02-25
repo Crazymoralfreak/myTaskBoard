@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     Card,
     CardContent,
@@ -6,16 +6,18 @@ import {
     Box,
     Chip,
     Tooltip,
-    Badge
+    Badge,
+    IconButton
 } from '@mui/material';
 import TimerIcon from '@mui/icons-material/Timer';
 import EventIcon from '@mui/icons-material/Event';
 import ErrorIcon from '@mui/icons-material/Error';
 import CommentIcon from '@mui/icons-material/Comment';
-import { Task } from '../types/task';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { Task } from '../../../types/task';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { TaskDetailsModal } from './TaskDetailsModal';
+import { TaskDetailsModal } from '../TaskDetailsModal';
 
 interface TaskCardProps {
     task: Task;
@@ -40,6 +42,43 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onTaskDelete
 }) => {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // Логируем время анимации
+        const startTime = performance.now();
+        
+        if (cardRef.current) {
+            cardRef.current.style.opacity = '0';
+            cardRef.current.style.transform = 'translateY(20px)';
+            
+            // Форсируем reflow для корректной анимации
+            cardRef.current.offsetHeight;
+            
+            requestAnimationFrame(() => {
+                if (cardRef.current) {
+                    cardRef.current.style.opacity = '1';
+                    cardRef.current.style.transform = 'translateY(0)';
+                    
+                    // Логируем завершение анимации
+                    cardRef.current.addEventListener('transitionend', () => {
+                        const endTime = performance.now();
+                        console.log(`Card animation completed in ${endTime - startTime}ms`);
+                    }, { once: true });
+                }
+            });
+        }
+    }, []);
+
+    const handleDelete = async (taskId: number) => {
+        // Добавляем класс для анимации удаления
+        if (cardRef.current) {
+            cardRef.current.classList.add('deleting');
+            // Ждем завершения анимации перед удалением
+            await new Promise(resolve => setTimeout(resolve, 300));
+            onTaskDelete(taskId);
+        }
+    };
 
     const getDaysRemainingColor = () => {
         if (task.daysRemaining === null) return 'default';
@@ -55,13 +94,40 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     return (
         <>
             <Card 
-                sx={{ mb: 1, cursor: 'pointer' }}
+                ref={cardRef}
+                sx={{ 
+                    mb: 1, 
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease-in-out',
+                    opacity: 1,
+                    transform: 'translateY(0)',
+                    '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 3
+                    },
+                    '&.deleting': {
+                        opacity: 0,
+                        transform: 'translateY(20px)'
+                    }
+                }}
                 onClick={() => setIsDetailsOpen(true)}
             >
                 <CardContent>
-                    <Typography variant="h6" component="div" sx={{ mb: 1 }}>
-                        {task.title}
-                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="h6" component="div">
+                            {task.title}
+                        </Typography>
+                        <IconButton
+                            size="small"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(task.id);
+                            }}
+                            color="error"
+                        >
+                            <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
 
                     <Typography 
                         variant="body2" 
@@ -148,7 +214,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onClose={() => setIsDetailsOpen(false)}
                 task={task}
                 onTaskUpdate={onTaskUpdate}
-                onTaskDelete={onTaskDelete}
+                onTaskDelete={handleDelete}
                 boardStatuses={boardStatuses}
             />
         </>

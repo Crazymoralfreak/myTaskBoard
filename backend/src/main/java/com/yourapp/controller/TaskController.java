@@ -350,4 +350,20 @@ public class TaskController {
         Task task = taskService.updatePriority(taskId, TaskPriority.valueOf(request.get("priority")));
         return taskMapper.toResponse(task);
     }
+
+    @PostMapping("/move")
+    public TaskResponse moveTaskWithPosition(
+        @RequestBody Map<String, Object> request
+    ) {
+        logger.debug("Получен запрос на перемещение задачи: {}", request);
+        
+        Long taskId = Long.valueOf(request.get("taskId").toString());
+        Long sourceColumnId = Long.valueOf(request.get("sourceColumnId").toString());
+        Long destinationColumnId = Long.valueOf(request.get("destinationColumnId").toString());
+        Integer newPosition = (Integer) request.get("newPosition");
+        
+        return taskMapper.toResponse(
+            taskService.moveTaskWithPosition(taskId, sourceColumnId, destinationColumnId, newPosition)
+        );
+    }
 }

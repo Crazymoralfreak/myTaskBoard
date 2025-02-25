@@ -9,7 +9,7 @@ import {
     Box,
     CircularProgress
 } from '@mui/material';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog } from '../../../components/shared/ConfirmDialog';
 
 interface EditBoardModalProps {
     open: boolean;

@@ -27,15 +27,15 @@ import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
-import BoardColumn from '../components/BoardColumn/BoardColumn';
+import { BoardColumn } from '../components/board/BoardColumn';
 import { Column } from '../types/board';
-import { AddColumnModal } from '../components/AddColumnModal';
+import { AddColumnModal } from '../components/board/AddColumnModal/AddColumnModal';
 import { Task } from '../types/task';
 import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
 import { taskService } from '../services/taskService';
-import { EditBoardModal } from '../components/EditBoardModal';
-import { EditColumnModal } from '../components/EditColumnModal';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EditBoardModal } from '../components/board/EditBoardModal/EditBoardModal';
+import { EditColumnModal } from '../components/board/EditColumnModal/EditColumnModal';
+import { ConfirmDialog } from '../components/shared/ConfirmDialog/ConfirmDialog';
 import { useHotkeys } from 'react-hotkeys-hook';
 
 // Определяем тип для события горячих клавиш
@@ -47,6 +47,11 @@ interface EditColumnData {
     id: string;
     name: string;
     color?: string;
+}
+
+interface BoardUpdate {
+    name: string;
+    description: string;
 }
 
 export const BoardPage: React.FC = () => {
@@ -146,7 +151,8 @@ export const BoardPage: React.FC = () => {
             const boardData = await boardService.getBoard(boardId);
             setBoard(boardData);
         } catch (error) {
-            console.error('Failed to load board:', error);
+            console.error('Failed to load board:', error instanceof Error ? error.message : error);
+            setError('Не удалось загрузить доску');
         } finally {
             setLoading(false);
         }
@@ -158,7 +164,8 @@ export const BoardPage: React.FC = () => {
             const updatedBoard = await boardService.addColumn(boardId, { name: columnName });
             setBoard(updatedBoard);
         } catch (error) {
-            console.error('Failed to add column:', error);
+            console.error('Failed to add column:', error instanceof Error ? error.message : error);
+            setError('Не удалось добавить колонку');
         }
     };
 
@@ -168,67 +175,69 @@ export const BoardPage: React.FC = () => {
             const updatedBoard = await boardService.moveColumn(boardId, columnId, newPosition);
             setBoard(updatedBoard);
         } catch (error) {
-            console.error('Failed to move column:', error);
+            console.error('Failed to move column:', error instanceof Error ? error.message : error);
+            setError('Не удалось переместить колонку');
         }
     };
 
     const handleDragEnd = async (result: DropResult) => {
         const { source, destination, draggableId } = result;
-        console.log('Drag end event:', result);
-
-        // Если нет места назначения или место назначения то же самое, что и источник
+        
         if (!destination || 
             (source.droppableId === destination.droppableId && 
-             source.index === destination.index)
+             source.index === destination.index) ||
+            !board
         ) {
-            console.log('Invalid drop destination or same position');
             return;
         }
 
-        try {
-            console.log(`Moving task ${draggableId} from column ${source.droppableId} to ${destination.droppableId}`);
+        const taskId = parseInt(draggableId.replace('task-', ''));
+        const sourceColumnId = parseInt(source.droppableId);
+        const destinationColumnId = parseInt(destination.droppableId);
 
+        try {
+            const prevColumns = [...board.columns];
+            
             // Оптимистичное обновление UI
-            if (!board) return;
             const newBoard = { ...board };
-            const sourceColumn = newBoard.columns.find(col => col.id.toString() === source.droppableId);
-            const destinationColumn = newBoard.columns.find(col => col.id.toString() === destination.droppableId);
+            const sourceColumn = newBoard.columns.find(col => col.id === sourceColumnId);
+            const destinationColumn = newBoard.columns.find(col => col.id === destinationColumnId);
 
             if (!sourceColumn || !destinationColumn) {
                 console.error('Source or destination column not found');
                 return;
             }
 
-            // Находим задачу
-            const task = sourceColumn.tasks.find(t => t.id.toString() === draggableId);
+            const task = sourceColumn.tasks.find(t => t.id === taskId);
             if (!task) {
-                console.error('Task not found:', draggableId);
+                console.error('Task not found:', taskId);
                 return;
             }
 
             // Удаляем задачу из исходной колонки
-            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id.toString() !== draggableId);
+            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id !== taskId);
 
             // Добавляем задачу в целевую колонку
-            const updatedTask = { ...task };
-            destinationColumn.tasks.splice(destination.index, 0, updatedTask);
+            destinationColumn.tasks.splice(destination.index, 0, task);
 
             // Обновляем состояние для мгновенной реакции UI
             setBoard(newBoard);
 
             // Отправляем запрос на сервер
-            try {
-                const movedTask = await taskService.moveTask(draggableId, destination.droppableId);
-                console.log('Task moved successfully:', movedTask);
-            } catch (error) {
-                console.error('Failed to move task on server:', error);
-                // В случае ошибки отменяем оптимистичное обновление
-                await loadBoard();
-            }
+            await taskService.moveTask({
+                taskId,
+                sourceColumnId,
+                destinationColumnId,
+                newPosition: destination.index
+            });
+            setSuccess('Задача успешно перемещена');
         } catch (error) {
-            console.error('Error in handleDragEnd:', error);
-            // В случае любой ошибки перезагружаем доску
-            await loadBoard();
+            console.error('Failed to move task:', error instanceof Error ? error.message : error);
+            setError('Не удалось переместить задачу. Изменения отменены.');
+            // Откатываем изменения в состоянии
+            if (board) {
+                setBoard({ ...board, columns: board.columns });
+            }
         }
     };
 
@@ -240,7 +249,7 @@ export const BoardPage: React.FC = () => {
         setMenuAnchorEl(null);
     };
 
-    const handleEditBoard = async (updates: { name: string; description: string }) => {
+    const handleEditBoard = async (updates: BoardUpdate) => {
         try {
             if (!boardId) return;
             setLoading(true);
@@ -249,7 +258,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Доска успешно обновлена');
             setIsEditBoardModalOpen(false);
         } catch (error) {
-            console.error('Failed to update board:', error);
+            console.error('Failed to update board:', error instanceof Error ? error.message : error);
             setError('Не удалось обновить доску');
         } finally {
             setLoading(false);
@@ -264,7 +273,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Доска успешно удалена');
             navigate('/');
         } catch (error) {
-            console.error('Failed to delete board:', error);
+            console.error('Failed to delete board:', error instanceof Error ? error.message : error);
             setError('Не удалось удалить доску');
         } finally {
             setDeletingBoard(false);
@@ -281,7 +290,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Колонка успешно обновлена');
             setEditColumnData(null);
         } catch (error) {
-            console.error('Failed to update column:', error);
+            console.error('Failed to update column:', error instanceof Error ? error.message : error);
             setError('Не удалось обновить колонку');
         } finally {
             setLoading(false);
@@ -297,7 +306,7 @@ export const BoardPage: React.FC = () => {
             setSuccess('Колонка успешно удалена');
             setDeleteColumnData(null);
         } catch (error) {
-            console.error('Failed to delete column:', error);
+            console.error('Failed to delete column:', error instanceof Error ? error.message : error);
             setError('Не удалось удалить колонку');
         } finally {
             setDeletingColumn(false);
@@ -334,25 +343,69 @@ export const BoardPage: React.FC = () => {
         handleFilterClose();
     };
 
+    // Добавляем горячие клавиши
+    useHotkeys('ctrl+f, cmd+f', (e: KeyboardEvent) => {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="Поиск задач..."]') as HTMLInputElement;
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }, { enableOnFormTags: true }, []);
+
+    useHotkeys('ctrl+/, cmd+/', (e: KeyboardEvent) => {
+        e.preventDefault();
+        const filterButton = document.querySelector('[aria-label="Фильтры"]') as HTMLElement;
+        if (filterButton) {
+            setFilterAnchorEl(filterButton);
+        }
+    }, { enableOnFormTags: true }, []);
+
+    useHotkeys('esc', (e: KeyboardEvent) => {
+        e.preventDefault();
+        setSearchQuery('');
+        setFilterAnchorEl(null);
+        setSelectedStatuses([]);
+        setSelectedTags([]);
+    }, { enableOnFormTags: true }, []);
+
     // Обновляем типы в хуках горячих клавиш
     useHotkeys('ctrl+n, cmd+n', (e: any) => {
         e.preventDefault();
         setIsAddColumnModalOpen(true);
     }, { enableOnFormTags: true }, []);
 
-    useHotkeys('esc', () => {
-        if (menuAnchorEl) handleBoardMenuClose();
-        if (isAddColumnModalOpen) setIsAddColumnModalOpen(false);
-        if (isEditBoardModalOpen) setIsEditBoardModalOpen(false);
-        if (editColumnData) setEditColumnData(null);
-        if (deleteColumnData) setDeleteColumnData(null);
-        if (isDeleteBoardDialogOpen) setIsDeleteBoardDialogOpen(false);
-    }, [menuAnchorEl, isAddColumnModalOpen, isEditBoardModalOpen, editColumnData, deleteColumnData, isDeleteBoardDialogOpen]);
-
     useHotkeys('ctrl+e, cmd+e', (e: any) => {
         e.preventDefault();
         setIsEditBoardModalOpen(true);
     }, { enableOnFormTags: true }, []);
+
+    // Добавляем новый компонент для индикатора синхронизации
+    const SyncIndicator = () => (
+        <Box
+            sx={{
+                position: 'fixed',
+                bottom: 16,
+                right: 16,
+                zIndex: 1000
+            }}
+        >
+            {success === 'Синхронизация...' && (
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+            )}
+            {success && (
+                <Alert 
+                    severity={success === 'Синхронизация...' ? 'info' : 'success'}
+                    sx={{ 
+                        boxShadow: 3,
+                        opacity: 0.9,
+                        '&:hover': { opacity: 1 }
+                    }}
+                >
+                    {success}
+                </Alert>
+            )}
+        </Box>
+    );
 
     if (loading) {
         return (
@@ -374,10 +427,13 @@ export const BoardPage: React.FC = () => {
         <Container maxWidth={false}>
             <Box sx={{ mt: 2, mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton onClick={() => navigate('/')}>
+                    <IconButton 
+                        onClick={() => navigate('/')}
+                        title="Вернуться к списку досок (Esc)"
+                    >
                         <ArrowBackIcon />
                     </IconButton>
-                    <Typography variant="h5">{board.name}</Typography>
+                    <Typography variant="h5">{board?.name}</Typography>
                     <Box sx={{ flexGrow: 1 }} />
                     <TextField
                         placeholder="Поиск задач..."
@@ -396,16 +452,20 @@ export const BoardPage: React.FC = () => {
                                     <IconButton
                                         size="small"
                                         onClick={() => setSearchQuery('')}
+                                        title="Очистить поиск (Esc)"
                                     >
                                         <ClearIcon />
                                     </IconButton>
                                 </InputAdornment>
                             )
                         }}
+                        title="Поиск задач (Ctrl+F)"
                     />
                     <IconButton 
                         onClick={handleFilterOpen}
                         color={selectedStatuses.length > 0 || selectedTags.length > 0 ? "primary" : "default"}
+                        aria-label="Фильтры"
+                        title="Открыть фильтры (Ctrl+/)"
                     >
                         <FilterListIcon />
                     </IconButton>
@@ -413,10 +473,14 @@ export const BoardPage: React.FC = () => {
                         variant="contained"
                         startIcon={<AddIcon />}
                         onClick={() => setIsAddColumnModalOpen(true)}
+                        title="Добавить колонку (Ctrl+N)"
                     >
                         Добавить колонку
                     </Button>
-                    <IconButton onClick={handleBoardMenuOpen}>
+                    <IconButton 
+                        onClick={handleBoardMenuOpen}
+                        title="Настройки доски (Ctrl+E)"
+                    >
                         <SettingsIcon />
                     </IconButton>
                 </Box>
@@ -580,7 +644,7 @@ export const BoardPage: React.FC = () => {
                     }}
                 >
                     {filteredColumns && filteredColumns.length > 0 ? (
-                        filteredColumns.map((column: Column, index: number) => (
+                        filteredColumns.map((column: Column) => (
                             <Droppable key={column.id} droppableId={column.id.toString()}>
                                 {(provided) => (
                                     <div
@@ -591,10 +655,11 @@ export const BoardPage: React.FC = () => {
                                             key={column.id}
                                             column={column}
                                             onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
-                                            canMoveLeft={index > 0}
-                                            canMoveRight={index < board.columns.length - 1}
+                                            canMoveLeft={board.columns.indexOf(column) > 0}
+                                            canMoveRight={board.columns.indexOf(column) < board.columns.length - 1}
                                             boardStatuses={board.taskStatuses}
                                             onTasksChange={(updatedColumn) => {
+                                                if (!board) return;
                                                 const updatedColumns = board.columns.map(col =>
                                                     col.id === updatedColumn.id ? updatedColumn : col
                                                 );
@@ -603,8 +668,8 @@ export const BoardPage: React.FC = () => {
                                                     columns: updatedColumns
                                                 });
                                             }}
-                                            onEdit={(columnId, name, color) => handleEditColumn(columnId.toString(), name, color)}
-                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId.toString(), name })}
+                                            onEdit={(columnId, name, color) => handleEditColumn(columnId, name, color)}
+                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId, name })}
                                         />
                                         {provided.placeholder}
                                     </div>
@@ -659,7 +724,7 @@ export const BoardPage: React.FC = () => {
             <EditBoardModal
                 open={isEditBoardModalOpen}
                 onClose={() => setIsEditBoardModalOpen(false)}
-                onSubmit={async (updates) => {
+                onSubmit={async (updates: BoardUpdate) => {
                     await handleEditBoard(updates);
                     setIsEditBoardModalOpen(false);
                 }}
@@ -732,6 +797,8 @@ export const BoardPage: React.FC = () => {
                 onClose={() => setIsAddColumnModalOpen(false)}
                 onSubmit={handleAddColumn}
             />
+
+            <SyncIndicator />
         </Container>
     );
 };

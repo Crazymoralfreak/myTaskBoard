@@ -470,4 +470,50 @@ public class TaskService {
         // Возвращаем относительный путь к файлу
         return uniqueFilename;
     }
+
+    @Transactional
+    public Task moveTaskWithPosition(Long taskId, Long sourceColumnId, Long destinationColumnId, Integer newPosition) {
+        logger.debug("Перемещение задачи {} из колонки {} в колонку {} на позицию {}", 
+            taskId, sourceColumnId, destinationColumnId, newPosition);
+        
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+        
+        BoardColumn sourceColumn = columnRepository.findById(sourceColumnId)
+                .orElseThrow(() -> new RuntimeException("Source column not found"));
+        
+        BoardColumn destinationColumn = columnRepository.findById(destinationColumnId)
+                .orElseThrow(() -> new RuntimeException("Destination column not found"));
+        
+        // Проверяем, что задача действительно находится в исходной колонке
+        if (!task.getColumn().getId().equals(sourceColumnId)) {
+            throw new IllegalArgumentException("Task is not in the specified source column");
+        }
+        
+        // Обновляем позиции задач в исходной колонке
+        List<Task> sourceTasks = taskRepository.findByColumnId(sourceColumnId);
+        sourceTasks.stream()
+                .filter(t -> t.getPosition() > task.getPosition())
+                .forEach(t -> {
+                    t.setPosition(t.getPosition() - 1);
+                    taskRepository.save(t);
+                });
+        
+        // Обновляем позиции задач в целевой колонке
+        List<Task> destinationTasks = taskRepository.findByColumnId(destinationColumnId);
+        destinationTasks.stream()
+                .filter(t -> t.getPosition() >= newPosition)
+                .forEach(t -> {
+                    t.setPosition(t.getPosition() + 1);
+                    taskRepository.save(t);
+                });
+        
+        // Перемещаем задачу
+        task.setColumn(destinationColumn);
+        task.setPosition(newPosition);
+        task.setUpdatedAt(LocalDateTime.now());
+        
+        logger.debug("Задача успешно перемещена");
+        return taskRepository.save(task);
+    }
 }

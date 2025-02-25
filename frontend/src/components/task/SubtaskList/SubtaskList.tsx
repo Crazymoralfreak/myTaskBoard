@@ -23,13 +23,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import { Subtask } from '../../types/subtask';
-import { Task } from '../../types/task';
-import { taskService } from '../../services/taskService';
+import { Subtask } from '../../../types/subtask';
+import { Task } from '../../../types/task';
+import { taskService } from '../../../services/taskService';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { formatFileSize } from '../../utils/formatters';
+import { formatFileSize } from '../../../utils/formatters';
 
 interface SubtaskListProps {
     task: Task;

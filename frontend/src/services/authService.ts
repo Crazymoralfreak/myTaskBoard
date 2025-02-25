@@ -1,51 +1,60 @@
-import axios from 'axios';
 import { AuthResponse, TelegramAuthRequest } from '../types/auth';
+import { JwtService } from './jwtService';
 
-const API_URL = 'http://localhost:8081/api/auth';
-
-const axiosInstance = axios.create({
-    baseURL: 'http://localhost:8081',
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    },
-    withCredentials: true
-});
+const jwtService = JwtService.getInstance();
+const axiosInstance = jwtService.getAxiosInstance();
 
 export const authService = {
     async register(email: string, password: string, username: string): Promise<AuthResponse> {
-        const response = await axiosInstance.post(`${API_URL}/register`, {
+        const response = await axiosInstance.post('/api/auth/register', {
             email,
             password,
             username
         });
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+        }
         return response.data;
     },
 
     async login(email: string, password: string): Promise<AuthResponse> {
-        const response = await axiosInstance.post(`${API_URL}/login`, { 
+        const response = await axiosInstance.post('/api/auth/login', { 
             email, 
             password 
         });
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+        }
         return response.data;
     },
 
     async telegramAuth(data: TelegramAuthRequest): Promise<AuthResponse> {
-        const response = await axiosInstance.post(`${API_URL}/telegram`, data);
+        const response = await axiosInstance.post('/api/auth/telegram', data);
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+        }
         return response.data;
     },
 
     logout() {
         localStorage.removeItem('token');
+        window.location.href = '/login';
+    },
+
+    isAuthenticated(): boolean {
+        return !!localStorage.getItem('token');
+    },
+
+    getToken(): string | null {
+        return localStorage.getItem('token');
     }
 };
 
 export const refreshToken = async (): Promise<string> => {
-    const oldToken = localStorage.getItem('token');
-    const response = await axiosInstance.post(`${API_URL}/refresh`, null, {
-        headers: {
-            Authorization: `Bearer ${oldToken}`
-        }
-    });
-    return response.data.token;
+    const response = await axiosInstance.post('/api/auth/refresh');
+    const newToken = response.data.token;
+    if (newToken) {
+        localStorage.setItem('token', newToken);
+    }
+    return newToken;
 }; 
