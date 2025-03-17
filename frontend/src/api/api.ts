@@ -15,40 +15,85 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    config.headers['Content-Type'] = 'application/json';
   }
-  return config;
-});
-
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // Если ошибка 401 или 403 и это не повторный запрос после обновления токена
-    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
-      originalRequest._retry = true;
-      try {
-        const oldToken = localStorage.getItem('token');
-        if (!oldToken) {
-          throw new Error('No token found');
-        }
-        const newToken = await refreshToken();
-        localStorage.setItem('token', newToken);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        // Повторяем исходный запрос с новым токеном
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Если не удалось обновить токен, перенаправляем на страницу входа
-        localStorage.removeItem('token');
-        window.location.href = '/auth';
-        return Promise.reject(refreshError);
+  
+  // Гарантируем, что для всех не-GET запросов будет установлен Content-Type: application/json
+  if (config.method?.toLowerCase() !== 'get' && !config.headers['Content-Type']) {
+    if (config.data instanceof FormData) {
+      // Для FormData не устанавливаем Content-Type, браузер сделает это с правильной boundary
+      delete config.headers['Content-Type'];
+    } else {
+      config.headers['Content-Type'] = 'application/json';
+    }
+  }
+  
+  // Преобразуем объект в JSON, если это не FormData, Blob, File и др.
+  if (config.data && 
+      typeof config.data === 'object' &&
+      !(config.data instanceof FormData) &&
+      !(config.data instanceof Blob) &&
+      !(config.data instanceof File) &&
+      !(config.data instanceof ArrayBuffer)) {
+    // Проверяем, не был ли объект уже преобразован в JSON-строку
+    if (typeof config.data !== 'string') {
+      // Проверяем, не пытаемся ли мы отправить пустой объект
+      const isEmpty = Object.keys(config.data).length === 0;
+      if (!isEmpty) {
+        console.log('Преобразуем объект в JSON-строку:', config.data);
       }
     }
-    return Promise.reject(error);
   }
-);
+  
+  // Добавляем логирование для отладки
+  console.log('Request config:', {
+    url: config.url,
+    method: config.method,
+    headers: config.headers,
+    data: config.data
+  });
+
+  return config;
+}, (error) => {
+  console.error('Ошибка в запросе:', error);
+  return Promise.reject(error);
+});
+
+// Add response interceptor for logging and token refresh
+api.interceptors.response.use((response) => {
+  console.log('Успешный ответ:', {
+    url: response.config.url,
+    status: response.status,
+    data: response.data
+  });
+  return response;
+}, async (error) => {
+  console.error('Ошибка ответа:', {
+    url: error.config?.url,
+    status: error.response?.status,
+    data: error.response?.data,
+    headers: error.config?.headers,
+    message: error.message
+  });
+  
+  // Если 401 Unauthorized - возможно проблема с токеном
+  if (error.response && error.response.status === 401) {
+    try {
+      const newToken = await refreshToken();
+      if (newToken) {
+        // Если удалось обновить токен, повторяем запрос
+        const originalRequest = error.config;
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      }
+    } catch (refreshError) {
+      console.error('Не удалось обновить токен:', refreshError);
+      // Перенаправляем на страницу логина при ошибке обновления токена
+      window.location.href = '/login';
+    }
+  }
+  
+  return Promise.reject(error);
+});
 
 // Авторизация через Telegram
 export const sendAuthData = async (authData: any) => {

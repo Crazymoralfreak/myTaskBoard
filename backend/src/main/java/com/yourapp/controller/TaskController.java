@@ -10,7 +10,6 @@ import com.yourapp.service.TaskService;
 import com.yourapp.repository.ColumnRepository;
 import com.yourapp.repository.TaskStatusRepository;
 import com.yourapp.repository.UserRepository;
-import com.yourapp.dto.CreateTaskRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +24,6 @@ import org.slf4j.LoggerFactory;
 import com.yourapp.exception.ValidationException;
 import java.util.HashSet;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.Instant;
 import java.time.ZoneId;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,7 +38,6 @@ public class TaskController {
     private final TaskService taskService;
     private final ColumnRepository columnRepository;
     private final TaskStatusRepository taskStatusRepository;
-    private final UserRepository userRepository;
     private final TaskMapper taskMapper;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)

@@ -38,6 +38,7 @@ public class TaskService {
     private final ColumnRepository columnRepository;
     private final UserRepository userRepository;
     private final TaskStatusRepository taskStatusRepository;
+    private final TaskTypeRepository taskTypeRepository;
     private static final Logger logger = LoggerFactory.getLogger(TaskService.class);
     
     @Value("${app.upload.max-file-size}")
@@ -192,6 +193,19 @@ public class TaskService {
             TaskStatus status = taskStatusRepository.findById(((Number) statusDetails.get("id")).longValue())
                 .orElseThrow(() -> new RuntimeException("Status not found"));
             task.setCustomStatus(status);
+        }
+        
+        // Обновление типа задачи
+        if (updates.containsKey("type")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> typeDetails = updates.get("type") instanceof Map ? 
+                (Map<String, Object>) updates.get("type") : 
+                new HashMap<>();
+            if (typeDetails.containsKey("id")) {
+                TaskType type = taskTypeRepository.findById(((Number) typeDetails.get("id")).longValue())
+                    .orElseThrow(() -> new RuntimeException("Task type not found"));
+                task.setType(type);
+            }
         }
         
         // Обновление приоритета
@@ -512,6 +526,11 @@ public class TaskService {
         task.setColumn(destinationColumn);
         task.setPosition(newPosition);
         task.setUpdatedAt(LocalDateTime.now());
+        
+        // Сохраняем тип задачи при перемещении
+        if (task.getType() == null) {
+            logger.debug("Тип задачи не установлен, оставляем как есть");
+        }
         
         logger.debug("Задача успешно перемещена");
         return taskRepository.save(task);

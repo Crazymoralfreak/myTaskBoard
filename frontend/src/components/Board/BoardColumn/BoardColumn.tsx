@@ -25,7 +25,7 @@ import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
 import { alpha } from '@mui/material/styles';
 import { Column, BoardStatus } from '../../../types/board';
 import { TaskCard } from '../../task/TaskCard';
-import { AddTaskModal } from '../../task/AddTaskModal/AddTaskModal';
+import { TaskModal } from '../../task/TaskModal';
 import { Task, CreateTaskRequest } from '../../../types/task';
 import { taskService } from '../../../services/taskService';
 import { EditColumnModal } from '../EditColumnModal/EditColumnModal';
@@ -98,18 +98,16 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 ...taskData,
                 columnId: column.id.toString(),
                 statusId: defaultStatus?.id,
-                columnColor: color
             });
-            
-            const updatedColumn = {
-                ...column,
-                tasks: [...column.tasks, createdTask]
-            };
-            
-            onTasksChange?.(updatedColumn);
-            setIsAddingTask(false);
+
+            if (onTasksChange && column.tasks) {
+                onTasksChange({
+                    ...column,
+                    tasks: [...column.tasks, createdTask]
+                });
+            }
         } catch (error) {
-            console.error('Error creating task:', error);
+            console.error('Failed to create task:', error);
         }
     };
 
@@ -489,11 +487,13 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 initialColor={color}
             />
 
-            <AddTaskModal
+            <TaskModal
                 open={isAddingTask}
                 onClose={() => setIsAddingTask(false)}
-                onSubmit={handleAddTask}
+                mode="create"
                 columnId={column.id.toString()}
+                onTaskCreate={handleAddTask}
+                boardStatuses={boardStatuses}
             />
         </Paper>
     );

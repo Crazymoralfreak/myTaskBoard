@@ -3,6 +3,7 @@ package com.yourapp.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Data
@@ -32,6 +33,7 @@ public class TaskHistory {
     
     @ManyToOne
     @JoinColumn(name = "task_id")
+    @JsonManagedReference("task-history")
     private Task task;
     
     @ManyToOne

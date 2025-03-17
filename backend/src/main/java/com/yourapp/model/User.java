@@ -30,6 +30,7 @@ import java.util.HashSet;
 import lombok.ToString;
 import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Data
 @Builder
@@ -72,7 +73,7 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "owner")
     private List<Board> boards;
     
-    @JsonBackReference("subtask-assignee")
+    @JsonIgnore
     @OneToMany(mappedBy = "assignee")
     private List<Task> assignedTasks;
     
@@ -81,13 +82,20 @@ public class User implements UserDetails {
     private List<Comment> comments;
 
     @OneToMany(mappedBy = "createdBy")
+    @JsonIgnore
     private Set<TimeTracking> timeTrackings = new HashSet<>();
 
     @OneToMany(mappedBy = "createdBy")
+    @JsonIgnore
     private Set<TimeEstimate> timeEstimates = new HashSet<>();
 
     @OneToMany(mappedBy = "createdBy")
+    @JsonIgnore
     private Set<TaskLink> taskLinks = new HashSet<>();
+
+    @OneToMany(mappedBy = "uploadedBy")
+    @JsonManagedReference("user-uploads")
+    private Set<Attachment> uploads = new HashSet<>();
 
     @ManyToMany(mappedBy = "watchers")
     @JsonManagedReference("task-watchers")

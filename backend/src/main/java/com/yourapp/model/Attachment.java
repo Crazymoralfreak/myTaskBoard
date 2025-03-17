@@ -32,9 +32,11 @@ public class Attachment {
     
     @ManyToOne
     @JoinColumn(name = "task_id")
+    @JsonBackReference("task-attachments")
     private Task task;
     
     @ManyToOne
     @JoinColumn(name = "uploaded_by")
+    @JsonBackReference("user-uploads")
     private User uploadedBy;
 }

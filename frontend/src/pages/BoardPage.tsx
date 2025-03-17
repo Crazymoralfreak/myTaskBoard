@@ -170,13 +170,69 @@ export const BoardPage: React.FC = () => {
     };
 
     const handleColumnMove = async (columnId: string, newPosition: number): Promise<void> => {
-        if (!boardId) return;
+        console.log(`Перемещение колонки ${columnId} на позицию ${newPosition}`);
+        
+        if (!board) {
+            console.error('Доска не загружена');
+            return;
+        }
+        
+        // Проверяем, что новая позиция корректна
+        if (newPosition < 0 || newPosition >= board.columns.length) {
+            setError(`Некорректная позиция: ${newPosition}. Допустимый диапазон: 0-${board.columns.length - 1}`);
+            return;
+        }
+        
         try {
-            const updatedBoard = await boardService.moveColumn(boardId, columnId, newPosition);
+            // Оптимистично обновляем UI
+            const updatedColumns = [...board.columns];
+            console.log('Колонки доски:', updatedColumns.map(c => `id:${c.id} (${typeof c.id}), name:${c.name}, position:${c.position}`));
+            
+            // Поиск колонки с приведением типов
+            const columnIndex = updatedColumns.findIndex(c => c.id.toString() === columnId.toString());
+            
+            if (columnIndex === -1) {
+                console.error(`Колонка с ID ${columnId} не найдена`);
+                console.error(`Типы: ID в аргументе: ${typeof columnId}, ID колонок: ${typeof updatedColumns[0]?.id}`);
+                return;
+            }
+            
+            console.log(`Колонка найдена: ${updatedColumns[columnIndex].name} на позиции ${columnIndex}`);
+            
+            const [column] = updatedColumns.splice(columnIndex, 1);
+            updatedColumns.splice(newPosition, 0, column);
+            
+            // Обновляем позиции
+            const columnsWithNewPositions = updatedColumns.map((col, index) => ({
+                ...col,
+                position: index
+            }));
+            
+            setBoard({
+                ...board,
+                columns: columnsWithNewPositions
+            });
+            
+            // Отправляем запрос на сервер
+            console.log(`Отправка запроса на перемещение колонки ${columnId} на позицию ${newPosition}`);
+            const updatedBoard = await boardService.moveColumn(board.id.toString(), columnId, newPosition);
+            console.log('Получен ответ от сервера:', updatedBoard);
+            
+            // Обновляем доску с данными с сервера
             setBoard(updatedBoard);
         } catch (error) {
-            console.error('Failed to move column:', error instanceof Error ? error.message : error);
-            setError('Не удалось переместить колонку');
+            console.error('Ошибка при перемещении колонки:', error);
+            setError('Не удалось переместить колонку. Пожалуйста, попробуйте еще раз.');
+            
+            // Загружаем актуальное состояние доски с сервера
+            if (!board) return;
+            
+            try {
+                const refreshedBoard = await boardService.getBoard(board.id.toString());
+                setBoard(refreshedBoard);
+            } catch (refreshError) {
+                console.error('Не удалось обновить доску:', refreshError);
+            }
         }
     };
 
@@ -198,16 +254,21 @@ export const BoardPage: React.FC = () => {
         try {
             const prevColumns = [...board.columns];
             
-            // Оптимистичное обновление UI
-            const newBoard = { ...board };
-            const sourceColumn = newBoard.columns.find(col => col.id === sourceColumnId);
-            const destinationColumn = newBoard.columns.find(col => col.id === destinationColumnId);
+            // Проверяем существование колонок
+            const sourceColumn = board.columns.find(col => col.id === String(sourceColumnId) || Number(col.id) === sourceColumnId);
+            const destinationColumn = board.columns.find(col => col.id === String(destinationColumnId) || Number(col.id) === destinationColumnId);
 
             if (!sourceColumn || !destinationColumn) {
-                console.error('Source or destination column not found');
+                console.error('Source or destination column not found', {
+                    sourceColumnId,
+                    destinationColumnId,
+                    columns: board.columns.map(c => c.id)
+                });
                 return;
             }
 
+            // Оптимистичное обновление UI
+            const newBoard = { ...board };
             const task = sourceColumn.tasks.find(t => t.id === taskId);
             if (!task) {
                 console.error('Task not found:', taskId);
@@ -231,6 +292,10 @@ export const BoardPage: React.FC = () => {
                 newPosition: destination.index
             });
             setSuccess('Задача успешно перемещена');
+            
+            // Обновляем состояние доски после успешного перемещения
+            const updatedBoard = await boardService.getBoard(board.id);
+            setBoard(updatedBoard);
         } catch (error) {
             console.error('Failed to move task:', error instanceof Error ? error.message : error);
             setError('Не удалось переместить задачу. Изменения отменены.');
@@ -730,6 +795,7 @@ export const BoardPage: React.FC = () => {
                 }}
                 initialName={board?.name || ''}
                 initialDescription={board?.description || ''}
+                board={board}
             />
 
             <EditColumnModal

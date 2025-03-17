@@ -33,6 +33,18 @@ CREATE TABLE task_statuses (
     is_custom BOOLEAN DEFAULT FALSE
 );
 
+-- Создание таблицы типов задач
+CREATE TABLE task_types (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    icon VARCHAR(50),
+    position INTEGER NOT NULL,
+    board_id BIGINT REFERENCES boards(id),
+    is_default BOOLEAN DEFAULT FALSE,
+    is_custom BOOLEAN DEFAULT FALSE
+);
+
 -- Создание таблицы колонок
 CREATE TABLE board_columns (
     id BIGSERIAL PRIMARY KEY,
@@ -56,6 +68,7 @@ CREATE TABLE tasks (
     column_id BIGINT REFERENCES board_columns(id),
     assignee_id BIGINT REFERENCES users(id),
     status_id BIGINT REFERENCES task_statuses(id),
+    type_id BIGINT REFERENCES task_types(id),
     priority VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -205,6 +218,7 @@ CREATE TABLE subtasks (
 CREATE INDEX idx_tasks_column ON tasks(column_id);
 CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
 CREATE INDEX idx_tasks_status ON tasks(status_id);
+CREATE INDEX idx_tasks_type ON tasks(type_id);
 CREATE INDEX idx_task_start_date ON tasks(start_date);
 CREATE INDEX idx_task_end_date ON tasks(end_date);
 CREATE INDEX idx_board_columns_board ON board_columns(board_id);
@@ -225,6 +239,7 @@ CREATE INDEX idx_task_watchers_task ON task_watchers(task_id);
 CREATE INDEX idx_task_watchers_user ON task_watchers(user_id);
 CREATE INDEX idx_subtasks_parent ON subtasks(parent_task_id);
 CREATE INDEX idx_subtasks_assignee ON subtasks(assignee_id);
+CREATE INDEX idx_task_types_board ON task_types(board_id);
 
 -- Комментарии к таблицам
 COMMENT ON TABLE users IS 'Таблица пользователей системы';
@@ -235,6 +250,7 @@ COMMENT ON TABLE task_tags IS 'Таблица тегов задач';
 COMMENT ON TABLE comments IS 'Таблица комментариев к задачам';
 COMMENT ON TABLE board_members IS 'Таблица участников досок';
 COMMENT ON TABLE task_statuses IS 'Таблица статусов задач';
+COMMENT ON TABLE task_types IS 'Таблица типов задач';
 COMMENT ON TABLE attachments IS 'Таблица вложений к задачам';
 COMMENT ON TABLE task_history IS 'Таблица истории изменений задач';
 COMMENT ON TABLE notification_preferences IS 'Таблица настроек уведомлений пользователей';

@@ -3,7 +3,6 @@ package com.yourapp.controller;
 import com.yourapp.model.Subtask;
 import com.yourapp.model.User;
 import com.yourapp.service.SubtaskService;
-import com.yourapp.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +20,6 @@ public class SubtaskController {
     private static final Logger logger = LoggerFactory.getLogger(SubtaskController.class);
     
     private final SubtaskService subtaskService;
-    private final UserService userService;
     
     @PostMapping
     public ResponseEntity<Subtask> createSubtask(

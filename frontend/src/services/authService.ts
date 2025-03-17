@@ -51,10 +51,18 @@ export const authService = {
 };
 
 export const refreshToken = async (): Promise<string> => {
-    const response = await axiosInstance.post('/api/auth/refresh');
-    const newToken = response.data.token;
-    if (newToken) {
+    try {
+        const response = await axiosInstance.post('/api/auth/refresh', {}, {
+            withCredentials: true
+        });
+        
+        const newToken = response.data.token;
         localStorage.setItem('token', newToken);
+        return newToken;
+    } catch (error) {
+        console.error('Failed to refresh token:', error);
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        throw error;
     }
-    return newToken;
 }; 

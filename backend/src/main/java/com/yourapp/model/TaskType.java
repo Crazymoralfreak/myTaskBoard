@@ -5,20 +5,19 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.ArrayList;
-import java.util.List;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import java.util.List;
 import lombok.ToString;
 import lombok.EqualsAndHashCode;
 
+@Entity
+@Table(name = "task_types")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "board_columns")
-public class BoardColumn {
+@Builder
+public class TaskType {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,21 +26,30 @@ public class BoardColumn {
     private String name;
     
     @Column(nullable = false)
+    private String color;
+    
+    @Column
+    private String icon;
+    
+    @Column(name = "is_default")
+    private boolean isDefault;
+    
+    @Column(name = "is_custom")
+    private boolean isCustom;
+    
+    @Column(nullable = false)
     private Integer position;
     
-    @Column(name = "color", nullable = false)
-    private String color = "#E0E0E0"; // Цвет по умолчанию
-    
-    @JsonBackReference("board-columns")
+    @JsonBackReference("board-types")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Board board;
     
-    @JsonManagedReference("column-tasks")
-    @OneToMany(mappedBy = "column", cascade = CascadeType.ALL)
+    @JsonManagedReference("task-type")
+    @OneToMany(mappedBy = "type")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private List<Task> tasks = new ArrayList<>();
+    private List<Task> tasks;
 } 

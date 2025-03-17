@@ -31,4 +31,4 @@ ENV JAVA_OPTS="-Xmx512m -Xms256m"
 EXPOSE 8081
 
 # Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]

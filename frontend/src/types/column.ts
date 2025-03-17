@@ -5,4 +5,5 @@ export interface Column {
     name: string;
     position: number;
     tasks: Task[];
+    color?: string;
 } 

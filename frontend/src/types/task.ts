@@ -1,4 +1,5 @@
 import { Subtask } from './subtask';
+import { TaskType, BoardStatus } from './board';
 
 export type DefaultTaskStatus = 'todo' | 'in_progress' | 'completed';
 export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -51,14 +52,8 @@ export interface Task {
     startDate: string | null;
     endDate: string | null;
     daysRemaining: number | null;
-    customStatus?: {
-        id: number;
-        name: string;
-        color: string;
-        isDefault: boolean;
-        isCustom: boolean;
-        position: number;
-    };
+    customStatus?: BoardStatus;
+    type?: TaskType;
     columnId?: string;
     status?: 'todo' | 'in_progress' | 'completed';
     priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -103,6 +98,7 @@ export interface CreateTaskRequest {
     dueDate?: string;
     status?: 'todo' | 'in_progress' | 'completed';
     statusId?: number;
+    typeId?: number;
     priority?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
     columnColor?: string;

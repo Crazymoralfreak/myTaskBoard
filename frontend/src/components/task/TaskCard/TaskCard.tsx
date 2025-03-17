@@ -14,10 +14,11 @@ import EventIcon from '@mui/icons-material/Event';
 import ErrorIcon from '@mui/icons-material/Error';
 import CommentIcon from '@mui/icons-material/Comment';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditIcon from '@mui/icons-material/Edit';
 import { Task } from '../../../types/task';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { TaskDetailsModal } from '../TaskDetailsModal';
+import { TaskModal } from '../TaskModal';
 
 interface TaskCardProps {
     task: Task;
@@ -42,6 +43,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onTaskDelete
 }) => {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -117,16 +119,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         <Typography variant="h6" component="div">
                             {task.title}
                         </Typography>
-                        <IconButton
-                            size="small"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(task.id);
-                            }}
-                            color="error"
-                        >
-                            <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
+                        <Box>
+                            <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsEditOpen(true);
+                                }}
+                                color="primary"
+                                sx={{ mr: 1 }}
+                            >
+                                <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(task.id);
+                                }}
+                                color="error"
+                            >
+                                <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                        </Box>
                     </Box>
 
                     <Typography 
@@ -209,9 +224,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 </CardContent>
             </Card>
 
-            <TaskDetailsModal
+            <TaskModal
                 open={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
+                mode="view"
+                task={task}
+                onTaskUpdate={onTaskUpdate}
+                onTaskDelete={handleDelete}
+                boardStatuses={boardStatuses}
+            />
+
+            <TaskModal
+                open={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                mode="edit"
                 task={task}
                 onTaskUpdate={onTaskUpdate}
                 onTaskDelete={handleDelete}
