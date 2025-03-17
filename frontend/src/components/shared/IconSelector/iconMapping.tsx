@@ -39,6 +39,40 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import PublicIcon from '@mui/icons-material/Public';
 import ShareIcon from '@mui/icons-material/Share';
 
+// Добавляем новые иконки
+import FireplaceIcon from '@mui/icons-material/Fireplace'; // Огонь/горячая задача
+import SpeedIcon from '@mui/icons-material/Speed'; // Скорость/производительность
+import BlockIcon from '@mui/icons-material/Block'; // Блокировка
+import WarningIcon from '@mui/icons-material/Warning'; // Предупреждение
+import ErrorIcon from '@mui/icons-material/Error'; // Ошибка
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Завершено
+import CancelIcon from '@mui/icons-material/Cancel'; // Отменено
+import UpdateIcon from '@mui/icons-material/Update'; // Обновление
+import CloudIcon from '@mui/icons-material/Cloud'; // Облако
+import SecurityIcon from '@mui/icons-material/Security'; // Безопасность
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'; // Тренд вверх
+import TrendingDownIcon from '@mui/icons-material/TrendingDown'; // Тренд вниз
+import ScienceIcon from '@mui/icons-material/Science'; // Наука/исследования
+import BookmarkIcon from '@mui/icons-material/Bookmark'; // Закладка
+import LabelIcon from '@mui/icons-material/Label'; // Ярлык
+import LayersIcon from '@mui/icons-material/Layers'; // Слои
+import MobileFriendlyIcon from '@mui/icons-material/MobileFriendly'; // Мобильное приложение
+import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows'; // Десктоп
+import StorageIcon from '@mui/icons-material/Storage'; // База данных
+import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions'; // Интеграции
+import SourceIcon from '@mui/icons-material/Source'; // Исходный код
+import TerminalIcon from '@mui/icons-material/Terminal'; // Терминал
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'; // Автоисправление
+import ArchitectureIcon from '@mui/icons-material/Architecture'; // Архитектура
+import AlarmIcon from '@mui/icons-material/Alarm'; // Будильник/напоминание
+import RouterIcon from '@mui/icons-material/Router'; // Сеть
+import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard'; // Разработка/плата
+import MemoryIcon from '@mui/icons-material/Memory'; // Память/процессор
+import BiotechIcon from '@mui/icons-material/Biotech'; // Тестирование
+import ExtensionIcon from '@mui/icons-material/Extension'; // Расширение
+import CallSplitIcon from '@mui/icons-material/CallSplit'; // Ветвление
+import MergeTypeIcon from '@mui/icons-material/MergeType'; // Слияние
+
 // Карта соответствия имен иконок компонентам
 export const iconNameToComponent: Record<string, React.ReactElement> = {
     'add': <AddIcon />,
@@ -79,5 +113,39 @@ export const iconNameToComponent: Record<string, React.ReactElement> = {
     'group': <GroupIcon />,
     'local_offer': <LocalOfferIcon />,
     'public': <PublicIcon />,
-    'share': <ShareIcon />
+    'share': <ShareIcon />,
+    
+    // Новые иконки
+    'fireplace': <FireplaceIcon />,
+    'speed': <SpeedIcon />,
+    'block': <BlockIcon />,
+    'warning': <WarningIcon />,
+    'error': <ErrorIcon />,
+    'check_circle': <CheckCircleIcon />,
+    'cancel': <CancelIcon />,
+    'update': <UpdateIcon />,
+    'cloud': <CloudIcon />,
+    'security': <SecurityIcon />,
+    'trending_up': <TrendingUpIcon />,
+    'trending_down': <TrendingDownIcon />,
+    'science': <ScienceIcon />,
+    'bookmark': <BookmarkIcon />,
+    'label': <LabelIcon />,
+    'layers': <LayersIcon />,
+    'mobile_friendly': <MobileFriendlyIcon />,
+    'desktop_windows': <DesktopWindowsIcon />,
+    'storage': <StorageIcon />,
+    'integration_instructions': <IntegrationInstructionsIcon />,
+    'source': <SourceIcon />,
+    'terminal': <TerminalIcon />,
+    'auto_fix_high': <AutoFixHighIcon />,
+    'architecture': <ArchitectureIcon />,
+    'alarm': <AlarmIcon />,
+    'router': <RouterIcon />,
+    'developer_board': <DeveloperBoardIcon />,
+    'memory': <MemoryIcon />,
+    'biotech': <BiotechIcon />,
+    'extension': <ExtensionIcon />,
+    'call_split': <CallSplitIcon />,
+    'merge_type': <MergeTypeIcon />
 }; 

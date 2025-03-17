@@ -73,7 +73,12 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
     const [tabValue, setTabValue] = useState(0);
     const [statuses, setStatuses] = useState<BoardStatus[]>([]);
     const [types, setTypes] = useState<TaskType[]>([]);
-    const [loading, setLoading] = useState(false);
+    
+    // Разделяем состояния загрузки для разных действий
+    const [isLoading, setIsLoading] = useState(false); // Общая загрузка данных
+    const [isSubmitting, setIsSubmitting] = useState(false); // Загрузка при отправке формы
+    const [isDeleting, setIsDeleting] = useState(false); // Загрузка при удалении
+    
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     
@@ -86,7 +91,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
     const [isEditing, setIsEditing] = useState(false);
 
     const loadEntities = React.useCallback(async () => {
-        setLoading(true);
+        setIsLoading(true);
         try {
             const [loadedStatuses, loadedTypes] = await Promise.all([
                 boardService.getBoardStatuses(board.id),
@@ -98,7 +103,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             console.error('Ошибка при загрузке сущностей:', err);
             setError('Не удалось загрузить сущности доски');
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     }, [board.id]);
 
@@ -136,7 +141,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
     const confirmDeleteStatus = async () => {
         if (!deleteEntityId) return;
         
-        setLoading(true);
+        setIsDeleting(true);
         try {
             console.log('Удаление статуса id=' + deleteEntityId + ' с доски id=' + board.id);
             await boardService.deleteTaskStatus(board.id, deleteEntityId);
@@ -150,8 +155,9 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             console.error('Ошибка при удалении статуса задачи:', err);
             setError('Не удалось удалить статус задачи: ' + (err as Error).message);
         } finally {
-            setLoading(false);
+            setIsDeleting(false);
             setDeleteDialogOpen(false);
+            // Сбрасываем ID сущности для удаления
             setDeleteEntityId(null);
         }
     };
@@ -162,7 +168,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             return;
         }
 
-        setLoading(true);
+        setIsSubmitting(true);
         try {
             if (isEditing && currentEntity.id) {
                 const updatedStatus = await boardService.updateTaskStatus(
@@ -191,7 +197,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             console.error('Ошибка при сохранении статуса:', err);
             setError('Не удалось сохранить статус');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -222,7 +228,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
     const confirmDeleteType = async () => {
         if (!deleteEntityId) return;
         
-        setLoading(true);
+        setIsDeleting(true);
         try {
             console.log('Удаление типа задачи id=' + deleteEntityId + ' с доски id=' + board.id);
             await boardService.deleteTaskType(board.id, deleteEntityId);
@@ -236,8 +242,9 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             console.error('Ошибка при удалении типа задачи:', err);
             setError('Не удалось удалить тип задачи');
         } finally {
-            setLoading(false);
+            setIsDeleting(false);
             setDeleteDialogOpen(false);
+            // Сбрасываем ID сущности для удаления
             setDeleteEntityId(null);
         }
     };
@@ -248,7 +255,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             return;
         }
         
-        setLoading(true);
+        setIsSubmitting(true);
         
         try {
             console.log('Отправка данных типа задачи:', {
@@ -286,9 +293,21 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             console.error('Ошибка при сохранении типа задачи:', err);
             setError('Не удалось сохранить тип задачи');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
+
+    // Сбрасываем deleteEntityId когда закрывается диалог
+    useEffect(() => {
+        if (!deleteDialogOpen) {
+            // Небольшая задержка для анимации закрытия диалога
+            const timeout = setTimeout(() => {
+                setDeleteEntityId(null);
+                setIsDeleting(false); // Сбрасываем состояние удаления
+            }, 300);
+            return () => clearTimeout(timeout);
+        }
+    }, [deleteDialogOpen]);
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -312,15 +331,15 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     </Button>
                 </Box>
                 
-                {loading && <CircularProgress />}
+                {isLoading && <CircularProgress />}
                 
-                {!loading && statuses.length === 0 && (
+                {!isLoading && statuses.length === 0 && (
                     <Typography color="textSecondary">
                         Нет доступных статусов. Создайте новый статус.
                     </Typography>
                 )}
                 
-                {!loading && statuses.length > 0 && (
+                {!isLoading && statuses.length > 0 && (
                     <Paper elevation={2}>
                         <List>
                             {statuses.map((status) => (
@@ -381,15 +400,15 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     </Button>
                 </Box>
                 
-                {loading && <CircularProgress />}
+                {isLoading && <CircularProgress />}
                 
-                {!loading && types.length === 0 && (
+                {!isLoading && types.length === 0 && (
                     <Typography color="textSecondary">
                         Нет доступных типов задач. Создайте новый тип.
                     </Typography>
                 )}
                 
-                {!loading && types.length > 0 && (
+                {!isLoading && types.length > 0 && (
                     <Paper elevation={2}>
                         <List>
                             {types.map((type) => (
@@ -443,7 +462,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             </TabPanel>
 
             {/* Диалог для статусов */}
-            <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)}>
+            <Dialog open={statusDialogOpen} onClose={() => !isSubmitting && setStatusDialogOpen(false)}>
                 <DialogTitle>
                     {isEditing ? 'Редактировать статус' : 'Добавить статус'}
                 </DialogTitle>
@@ -482,19 +501,19 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setStatusDialogOpen(false)}>Отмена</Button>
+                    <Button onClick={() => setStatusDialogOpen(false)} disabled={isSubmitting}>Отмена</Button>
                     <Button 
                         onClick={saveStatus} 
                         variant="contained"
-                        disabled={loading || !currentEntity.name.trim()}
+                        disabled={isSubmitting || !currentEntity.name.trim()}
                     >
-                        {loading ? <CircularProgress size={24} /> : 'Сохранить'}
+                        {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Диалог для типов задач */}
-            <Dialog open={typeDialogOpen} onClose={() => setTypeDialogOpen(false)}>
+            <Dialog open={typeDialogOpen} onClose={() => !isSubmitting && setTypeDialogOpen(false)}>
                 <DialogTitle>
                     {isEditing ? 'Редактировать тип задачи' : 'Добавить тип задачи'}
                 </DialogTitle>
@@ -538,13 +557,13 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setTypeDialogOpen(false)}>Отмена</Button>
+                    <Button onClick={() => setTypeDialogOpen(false)} disabled={isSubmitting}>Отмена</Button>
                     <Button 
                         onClick={handleTypeSubmit} 
                         variant="contained"
-                        disabled={loading || !currentEntity.name.trim()}
+                        disabled={isSubmitting || !currentEntity.name.trim()}
                     >
-                        {loading ? <CircularProgress size={24} /> : 'Сохранить'}
+                        {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -552,11 +571,12 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             {/* Диалог подтверждения удаления */}
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onClose={() => setDeleteDialogOpen(false)}
+                onClose={() => !isDeleting && setDeleteDialogOpen(false)}
                 onConfirm={tabValue === 0 ? confirmDeleteStatus : confirmDeleteType}
                 title="Подтверждение удаления"
                 message={`Вы уверены, что хотите удалить этот ${tabValue === 0 ? 'статус' : 'тип задачи'}? Это действие нельзя отменить.`}
                 actionType="delete"
+                loading={isDeleting}
             />
         </Box>
     );
