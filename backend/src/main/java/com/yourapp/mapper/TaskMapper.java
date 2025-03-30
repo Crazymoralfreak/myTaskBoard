@@ -35,6 +35,18 @@ public class TaskMapper {
             response.setAssigneeId(task.getAssignee().getId());
         }
         
+        if (task.getType() != null) {
+            TaskResponse.TaskTypeResponse typeResponse = new TaskResponse.TaskTypeResponse();
+            typeResponse.setId(task.getType().getId());
+            typeResponse.setName(task.getType().getName());
+            typeResponse.setColor(task.getType().getColor());
+            typeResponse.setIcon(task.getType().getIcon());
+            typeResponse.setPosition(task.getType().getPosition());
+            typeResponse.setDefault(task.getType().isDefault());
+            typeResponse.setCustom(task.getType().isCustom());
+            response.setType(typeResponse);
+        }
+        
         if (task.getCustomStatus() != null) {
             TaskResponse.TaskStatusResponse statusResponse = new TaskResponse.TaskStatusResponse();
             statusResponse.setId(task.getCustomStatus().getId());
@@ -59,7 +71,6 @@ public class TaskMapper {
                         TaskResponse.UserResponse author = new TaskResponse.UserResponse();
                         author.setId(comment.getAuthor().getId());
                         author.setUsername(comment.getAuthor().getUsername());
-                        // Добавляем аватар, если есть
                         commentResponse.setAuthor(author);
                     }
                     
@@ -67,6 +78,15 @@ public class TaskMapper {
                 })
                 .collect(Collectors.toList());
             response.setComments(comments);
+            response.setCommentCount((long) task.getComments().size());
+        } else {
+            response.setCommentCount(0L);
+        }
+        
+        if (task.getAttachments() != null) {
+            response.setAttachmentCount((long) task.getAttachments().size());
+        } else {
+            response.setAttachmentCount(0L);
         }
         
         return response;

@@ -4,6 +4,7 @@ import com.yourapp.model.Board;
 import com.yourapp.model.BoardColumn;
 import com.yourapp.model.TaskStatus;
 import com.yourapp.model.TaskType;
+import com.yourapp.model.Task;
 import com.yourapp.exception.ResourceNotFoundException;
 import com.yourapp.repository.BoardRepository;
 import com.yourapp.repository.TaskStatusRepository;
@@ -118,8 +119,58 @@ public class BoardService {
     }
     
     public Board getBoard(Long id) {
-        return boardRepository.findById(id)
+        logger.debug("Начало загрузки доски с ID: {}", id);
+        
+        // Загружаем доску с колонками
+        Board board = boardRepository.findByIdWithColumns(id)
                 .orElseThrow(() -> new RuntimeException("Board not found"));
+        logger.debug("Загружена доска с {} колонками", board.getColumns().size());
+        
+        // Загружаем типы
+        Board boardWithTypes = boardRepository.findByIdWithTypes(id)
+                .orElseThrow(() -> new RuntimeException("Board not found"));
+        logger.debug("Загружены типы ({})", boardWithTypes.getTaskTypes().size());
+        
+        // Загружаем статусы
+        Board boardWithStatuses = boardRepository.findByIdWithStatuses(id)
+                .orElseThrow(() -> new RuntimeException("Board not found"));
+        logger.debug("Загружены статусы ({})", boardWithStatuses.getTaskStatuses().size());
+        
+        // Копируем типы и статусы
+        board.setTaskTypes(boardWithTypes.getTaskTypes());
+        board.setTaskStatuses(boardWithStatuses.getTaskStatuses());
+        
+        // Загружаем задачи с их типами и статусами
+        List<Task> tasks = boardRepository.findTasksByBoardId(id);
+        logger.debug("Загружено {} задач", tasks.size());
+        
+        // Логируем информацию о типах задач
+        tasks.forEach(task -> {
+            logger.debug("Задача ID:{} - тип:{}, статус:{}", 
+                task.getId(),
+                task.getType() != null ? task.getType().getId() + ":" + task.getType().getName() : "null",
+                task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null");
+        });
+        
+        // Обновляем задачи в колонках
+        for (BoardColumn column : board.getColumns()) {
+            List<Task> columnTasks = tasks.stream()
+                    .filter(task -> task.getColumn().getId().equals(column.getId()))
+                    .collect(Collectors.toList());
+            column.setTasks(columnTasks);
+            logger.debug("Колонка {} (ID:{}) содержит {} задач", 
+                column.getName(), column.getId(), columnTasks.size());
+        }
+        
+        logger.debug("Завершена загрузка доски. Типы задач: {}, Статусы: {}", 
+            board.getTaskTypes().stream()
+                .map(type -> type.getId() + ":" + type.getName())
+                .collect(Collectors.joining(", ")),
+            board.getTaskStatuses().stream()
+                .map(status -> status.getId() + ":" + status.getName())
+                .collect(Collectors.joining(", ")));
+        
+        return board;
     }
     
     public List<Board> getAllBoards() {
@@ -146,14 +197,42 @@ public class BoardService {
 
     @Transactional
     public Board addColumnToBoard(Long boardId, BoardColumn column) {
-        Board board = boardRepository.findById(boardId)
-            .orElseThrow(() -> new RuntimeException("Board not found"));
-        // Инициализируем коллекции, чтобы избежать LazyInitializationException
+        logger.debug("Начало добавления колонки к доске ID:{}", boardId);
+        
+        Board board = getBoard(boardId);
+        logger.debug("Загружена доска с {} колонками, {} типами и {} статусами", 
+            board.getColumns().size(),
+            board.getTaskTypes().size(),
+            board.getTaskStatuses().size());
+        
+        // Инициализируем коллекции
         board.getColumns().forEach(existingColumn -> {
-            existingColumn.getTasks().size(); // Принудительная инициализация задач
+            int taskCount = existingColumn.getTasks().size();
+            logger.debug("Колонка {} (ID:{}) содержит {} задач", 
+                existingColumn.getName(), existingColumn.getId(), taskCount);
+            existingColumn.getTasks().forEach(task -> {
+                logger.debug("Задача ID:{} в колонке {} - тип:{}, статус:{}", 
+                    task.getId(), existingColumn.getName(),
+                    task.getType() != null ? task.getType().getId() + ":" + task.getType().getName() : "null",
+                    task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null");
+            });
         });
+        
         board.addColumn(column);
-        return boardRepository.save(board);
+        logger.debug("Добавлена новая колонка: {} (позиция: {})", column.getName(), column.getPosition());
+        
+        Board savedBoard = boardRepository.save(board);
+        logger.debug("Доска сохранена. Проверка после сохранения:");
+        logger.debug("Колонки: {}", 
+            savedBoard.getColumns().stream()
+                .map(c -> c.getName() + "(ID:" + c.getId() + ",pos:" + c.getPosition() + ")")
+                .collect(Collectors.joining(", ")));
+        logger.debug("Типы задач: {}", 
+            savedBoard.getTaskTypes().stream()
+                .map(t -> t.getName() + "(ID:" + t.getId() + ")")
+                .collect(Collectors.joining(", ")));
+        
+        return savedBoard;
     }
 
     public Board removeColumnFromBoard(Long boardId, Long columnId) {
@@ -180,7 +259,7 @@ public class BoardService {
     public Board moveColumnInBoard(Long boardId, Long columnId, int newPosition) {
         try {
             logger.debug("Начало перемещения колонки {} в позицию {} на доске {}", columnId, newPosition, boardId);
-            Board board = getBoardById(boardId);
+            Board board = getBoard(boardId);
             
             BoardColumn column = board.getColumns().stream()
                     .filter(c -> c.getId().equals(columnId))
@@ -262,17 +341,8 @@ public class BoardService {
     }
 
     public Board getBoardById(Long id) {
-        Board board = boardRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Board not found with id: " + id));
-            
-        // Убедимся, что колонки отсортированы по позиции
-        List<BoardColumn> sortedColumns = board.getColumns().stream()
-            .sorted(Comparator.comparing(BoardColumn::getPosition))
-            .collect(Collectors.toList());
-        board.getColumns().clear();
-        board.getColumns().addAll(sortedColumns);
-        
-        return board;
+        logger.debug("Получение доски по ID: {}", id);
+        return getBoard(id);
     }
 
     @Transactional

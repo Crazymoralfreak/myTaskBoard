@@ -88,6 +88,8 @@ export interface Task {
         avatarUrl?: string;
     }>;
     subtasks?: Array<Subtask>;
+    commentCount: number;
+    attachmentCount: number;
 }
 
 export interface CreateTaskRequest {
@@ -97,10 +99,29 @@ export interface CreateTaskRequest {
     endDate?: string;
     dueDate?: string;
     status?: 'todo' | 'in_progress' | 'completed';
-    statusId?: number;
-    typeId?: number;
+    statusId?: number | null;
+    typeId?: number | null;
     priority?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
     columnColor?: string;
     columnId: string;
+}
+
+export interface TaskTemplate {
+    id: number;
+    name: string;
+    description?: string;
+    taskData: {
+        title: string;
+        description?: string;
+        typeId?: number;
+        statusId?: number;
+        priority: TaskPriority;
+        dueDate?: string;
+        tags?: string[];
+    };
+    boardId: number;
+    createdBy: number;
+    createdAt: string;
+    updatedAt: string;
 } 

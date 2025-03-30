@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import {
     Dialog,
     DialogTitle,
@@ -20,10 +21,27 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    Paper,
+    Tooltip,
+    Grid,
+    List,
+    ListItem,
+    ListItemIcon,
+    ListItemText,
+    Alert,
+    Autocomplete
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import EventIcon from '@mui/icons-material/Event';
+import TimerIcon from '@mui/icons-material/Timer';
+import CategoryIcon from '@mui/icons-material/Category';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SaveAltIcon from '@mui/icons-material/SaveAlt';
+import StyleIcon from '@mui/icons-material/Style';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { Task, CreateTaskRequest, TaskPriority } from '../../../types/task';
+import { BoardStatus, TaskType } from '../../../types/board';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -31,6 +49,18 @@ import { ru } from 'date-fns/locale';
 import { taskService } from '../../../services/taskService';
 import { SubtaskList } from '../SubtaskList';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
+import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
+import { TaskTemplateList } from '../TaskTemplateList';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import { TaskComments } from '../TaskComments';
+import { TaskHistory } from '../TaskHistory';
+import { TaskAttachments } from '../TaskAttachments';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import CommentIcon from '@mui/icons-material/Comment';
+import AttachmentIcon from '@mui/icons-material/Attachment';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -67,26 +97,44 @@ interface TaskModalProps {
     onTaskCreate?: (task: Omit<CreateTaskRequest, 'columnId'>) => void;
     onTaskUpdate?: (updatedTask: Task) => void;
     onTaskDelete?: (taskId: number) => void;
-    boardStatuses?: Array<{
-        id: number;
-        name: string;
-        color: string;
-        isDefault: boolean;
-        isCustom: boolean;
-        position: number;
-    }>;
+    boardStatuses?: BoardStatus[];
+    taskTypes?: TaskType[];
+    onTaskCopy?: (task: Task) => void;
+    disableBackdropClick?: boolean;
 }
+
+// Расширенный интерфейс для Task с новыми полями
+interface ExtendedTask extends Task {
+    createdAt?: string | Date;
+    estimatedTime?: number;
+}
+
+// Расширенный интерфейс для TaskType с description
+interface ExtendedTaskType extends TaskType {
+    description?: string;
+}
+
+// Обновленный интерфейс для Task, включающий ExtendedTaskType
+interface ExtendedTaskWithTypes extends Omit<ExtendedTask, 'type'> {
+    type?: ExtendedTaskType;
+}
+
+// Тип для режима работы модального окна
+type ModalMode = 'create' | 'edit' | 'view';
 
 export const TaskModal: React.FC<TaskModalProps> = ({
     open,
     onClose,
     mode: initialMode,
-    task,
+    task: initialTask,
     columnId,
     onTaskCreate,
     onTaskUpdate,
     onTaskDelete,
-    boardStatuses = []
+    boardStatuses = [],
+    taskTypes = [],
+    onTaskCopy,
+    disableBackdropClick = false
 }) => {
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -96,16 +144,50 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
     const [priority, setPriority] = useState<TaskPriority>('NONE');
+    const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+    const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [mode, setMode] = useState<'create' | 'edit' | 'view'>(initialMode);
+    const [mode, setMode] = useState<ModalMode>(initialMode);
     const [selectedTab, setSelectedTab] = useState(0);
     const [errors, setErrors] = useState<{
         title?: string;
         dates?: string;
     }>({});
+    const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+    const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+    const [templateName, setTemplateName] = useState('');
+    const [tags, setTags] = useState<string[]>([]);
+    const [availableTags, setAvailableTags] = useState<string[]>([]);
+    const [newTag, setNewTag] = useState('');
+
+    // Используем ExtendedTaskWithTypes вместо Task
+    const [task, setTask] = useState<ExtendedTaskWithTypes | null>(initialTask || null);
+
+    const quillModules = {
+        toolbar: [
+            ['bold', 'italic', 'underline', 'strike'],
+            ['blockquote', 'code-block'],
+            [{ 'header': 1 }, { 'header': 2 }],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            [{ 'script': 'sub' }, { 'script': 'super' }],
+            [{ 'indent': '-1' }, { 'indent': '+1' }],
+            ['link'],
+            ['clean']
+        ],
+    };
+
+    const quillFormats = [
+        'bold', 'italic', 'underline', 'strike',
+        'blockquote', 'code-block',
+        'header',
+        'list', 'bullet',
+        'script',
+        'indent',
+        'link'
+    ];
 
     useEffect(() => {
         if (open) {
@@ -116,19 +198,71 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 setStartDate(null);
                 setEndDate(null);
                 setPriority('NONE');
-            } else if (task) {
-                setMode(initialMode);
-                setTitle(task.title);
-                setDescription(task.description || '');
-                setStartDate(task.startDate ? new Date(task.startDate) : null);
-                setEndDate(task.endDate ? new Date(task.endDate) : null);
-                setPriority(task.priority || 'NONE');
+                setTags([]);
+                setSelectedTypeId(null);
+                setSelectedStatusId(null);
+            } else {
+                // Для режимов edit и view используем initialTask (если есть)
+                if (initialTask) {
+                    setMode(initialMode);
+                    setTask(initialTask as ExtendedTaskWithTypes);
+                    setTitle(initialTask.title || '');
+                    setDescription(initialTask.description || '');
+                    setStartDate(initialTask.startDate ? new Date(initialTask.startDate) : null);
+                    setEndDate(initialTask.endDate ? new Date(initialTask.endDate) : null);
+                    setPriority(initialTask.priority || 'NONE');
+                    setSelectedTypeId(initialTask.type?.id || null);
+                    setSelectedStatusId(initialTask.customStatus?.id || null);
+                    setTags(initialTask.tags || []);
+                    
+                    // Если в режиме просмотра, загружаем задачу по её ID для получения свежих данных
+                    if (initialMode === 'view' && initialTask.id) {
+                        const fetchTask = async () => {
+                            try {
+                                const loadedTask = await taskService.getTask(initialTask.id);
+                                if (loadedTask) {
+                                    setTask(loadedTask as ExtendedTaskWithTypes);
+                                    setTitle(loadedTask.title || '');
+                                    setDescription(loadedTask.description || '');
+                                    setStartDate(loadedTask.startDate ? new Date(loadedTask.startDate) : null);
+                                    setEndDate(loadedTask.endDate ? new Date(loadedTask.endDate) : null);
+                                    setPriority(loadedTask.priority || 'NONE');
+                                    setSelectedTypeId(loadedTask.type?.id || null);
+                                    setSelectedStatusId(loadedTask.customStatus?.id || null);
+                                    setTags(loadedTask.tags || []);
+                                }
+                            } catch (error) {
+                                console.error('Ошибка при загрузке задачи:', error);
+                                setError('Не удалось загрузить данные задачи');
+                            }
+                        };
+                        
+                        fetchTask();
+                    }
+                }
             }
+            
             setSelectedTab(0);
             setErrors({});
             setError(null);
         }
-    }, [open, initialMode, task]);
+    }, [open, initialMode, initialTask, boardStatuses, taskTypes]);
+
+    useEffect(() => {
+        const storedTags = localStorage.getItem('taskTags');
+        if (storedTags) {
+            setAvailableTags(JSON.parse(storedTags));
+        }
+    }, []);
+
+    useEffect(() => {
+        if (task && mode !== 'create') {
+            setTags(task.tags || []);
+        } else if (mode === 'create') {
+            // При создании новой задачи очищаем массив тегов
+            setTags([]);
+        }
+    }, [task, mode]);
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setSelectedTab(newValue);
@@ -156,20 +290,36 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
         try {
             setIsSubmitting(true);
+            // Создаем базовый объект без typeId и statusId
             const newTask: Omit<CreateTaskRequest, 'columnId'> = {
                 title: title.trim(),
                 description: description.trim(),
-                status: 'todo',
                 priority: priority,
-                tags: []
+                tags: tags || [],
             };
 
+            // Добавляем даты только если они установлены
             if (startDate) {
                 newTask.startDate = startDate.toISOString();
             }
             if (endDate) {
                 newTask.endDate = endDate.toISOString();
             }
+            
+            // Добавляем typeId только если пользователь явно выбрал его 
+            // и значение не равно null или undefined
+            if (selectedTypeId !== null && selectedTypeId !== undefined) {
+                newTask.typeId = selectedTypeId;
+            }
+            
+            // Добавляем statusId только если пользователь явно выбрал его
+            // и значение не равно null или undefined
+            if (selectedStatusId !== null && selectedStatusId !== undefined) {
+                newTask.statusId = selectedStatusId;
+            }
+            
+            // Для проверки того, что отправляется
+            console.log('Создаем задачу с данными:', JSON.stringify(newTask));
 
             onTaskCreate(newTask);
             handleClose();
@@ -182,7 +332,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
 
     const handleUpdate = async () => {
-        if (!validateForm() || !task || !onTaskUpdate) {
+        if (!task || !onTaskUpdate) {
             return;
         }
 
@@ -194,10 +344,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 description: description.trim(),
                 startDate: startDate ? startDate.toISOString() : null,
                 endDate: endDate ? endDate.toISOString() : null,
-                priority: priority
+                priority: priority,
+                typeId: selectedTypeId || null,
+                statusId: selectedStatusId || null,
+                tags,
             };
 
+            console.log('Отправка обновления задачи:', updatedTask);
             const result = await taskService.updateTask(task.id, updatedTask);
+            console.log('Результат обновления задачи:', result);
             onTaskUpdate(result);
             handleClose();
         } catch (error) {
@@ -228,14 +383,124 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
 
     const handleClose = () => {
+        // Перед закрытием, обновляем родительский компонент с текущими данными задачи
+        if (task && mode === 'view' && onTaskUpdate) {
+            // Создаем копию задачи для обновления
+            const updatedTask = { ...task };
+            onTaskUpdate(updatedTask);
+        }
+        
+        // Сбрасываем состояние
         setTitle('');
         setDescription('');
         setStartDate(null);
         setEndDate(null);
         setPriority('NONE');
+        setSelectedTypeId(null);
+        setSelectedStatusId(null);
         setErrors({});
         setError(null);
         onClose();
+    };
+
+    const handleCopyTask = async () => {
+        if (!task) return;
+        
+        try {
+            setIsSubmitting(true);
+            
+            if (onTaskCopy) {
+                // Если есть обработчик в родительском компоненте, используем его
+                onTaskCopy(task);
+                handleClose();
+            } else {
+                // Иначе делаем API запрос на создание копии задачи
+                const newTask = await taskService.createTaskCopy(task);
+                console.log('Задача скопирована:', newTask);
+                
+                // Перенаправляем на страницу с доской или закрываем модальное окно
+                handleClose();
+                
+                // Обновляем список задач (если необходимо)
+                if (onTaskCreate) {
+                    // Уведомляем родительский компонент о создании новой задачи
+                    const { columnId, ...taskData } = newTask;
+                    onTaskCreate(taskData as any);
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка при копировании задачи:', error);
+            setError('Не удалось создать копию задачи');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleUseTemplate = (template: any) => {
+        setTitle(template.taskData.title);
+        setDescription(template.taskData.description || '');
+        setPriority(template.taskData.priority || 'NONE');
+        
+        if (template.taskData.typeId && taskTypes.length > 0) {
+            setSelectedTypeId(template.taskData.typeId);
+        }
+        
+        if (template.taskData.statusId && boardStatuses.length > 0) {
+            setSelectedStatusId(template.taskData.statusId);
+        }
+        
+        setShowTemplateSelector(false);
+    };
+    
+    const handleSaveAsTemplate = () => {
+        if (!title.trim()) {
+            setError('Название задачи обязательно для создания шаблона');
+            return;
+        }
+        
+        setSaveTemplateDialogOpen(true);
+    };
+    
+    const saveTemplate = () => {
+        if (!templateName.trim()) {
+            setError('Название шаблона обязательно');
+            return;
+        }
+        
+        const templateData = {
+            id: Date.now(),
+            name: templateName.trim(),
+            taskData: {
+                title: title.trim(),
+                description: description.trim(),
+                typeId: selectedTypeId,
+                statusId: selectedStatusId,
+                priority: priority,
+                tags,
+            }
+        };
+        
+        try {
+            // Получаем текущие шаблоны из localStorage
+            const savedTemplates = localStorage.getItem('taskTemplates');
+            let templates = [];
+            
+            if (savedTemplates) {
+                templates = JSON.parse(savedTemplates);
+            }
+            
+            // Добавляем новый шаблон
+            templates.push(templateData);
+            
+            // Сохраняем обновленный список шаблонов
+            localStorage.setItem('taskTemplates', JSON.stringify(templates));
+            
+            setTemplateName('');
+            setSaveTemplateDialogOpen(false);
+        } catch (e) {
+            console.error('Ошибка при сохранении шаблона:', e);
+            setError('Не удалось сохранить шаблон');
+        }
     };
 
     const renderDialogTitle = () => {
@@ -297,6 +562,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 Удалить
                             </Button>
                         )}
+                        <Button 
+                            onClick={handleCopyTask}
+                            startIcon={<ContentCopyIcon />}
+                        >
+                            Копировать
+                        </Button>
                         <Button onClick={handleClose}>Закрыть</Button>
                         {onTaskUpdate && (
                             <Button 
@@ -317,6 +588,185 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     const isEditable = mode === 'create' || mode === 'edit';
 
+    // Добавляем компонент для отображения типа задачи и статуса в режиме просмотра
+    const TaskInfoChips = ({ task, isEditable }: { task: Task, isEditable: boolean }) => {
+        return (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {task.type && (
+                    <Chip
+                        icon={
+                            task.type.icon && iconNameToComponent[task.type.icon] 
+                                ? React.cloneElement(iconNameToComponent[task.type.icon], { 
+                                    style: { color: task.type.color || 'inherit' } 
+                                  }) 
+                                : <CategoryIcon style={{ color: task.type.color || 'inherit' }} />
+                        }
+                        label={task.type.name}
+                        size="medium"
+                        sx={{ 
+                            backgroundColor: task.type.color ? `${task.type.color}20` : undefined,
+                            color: task.type.color,
+                            borderColor: task.type.color,
+                            borderWidth: task.type.color ? 1 : 0,
+                            borderStyle: 'solid',
+                            fontWeight: '500',
+                            pl: 0.5
+                        }}
+                        onClick={isEditable ? undefined : () => {}}
+                    />
+                )}
+                {task.customStatus && (
+                    <Chip
+                        label={task.customStatus.name}
+                        size="medium"
+                        sx={{ 
+                            backgroundColor: task.customStatus.color,
+                            color: '#fff',
+                            fontWeight: 'bold'
+                        }}
+                        onClick={isEditable ? undefined : () => {}}
+                    />
+                )}
+                <Chip
+                    label={
+                        task.priority === 'HIGH' ? 'Высокий приоритет' :
+                        task.priority === 'MEDIUM' ? 'Средний приоритет' :
+                        task.priority === 'LOW' ? 'Низкий приоритет' :
+                        'Без приоритета'
+                    }
+                    color={
+                        task.priority === 'HIGH' ? 'error' :
+                        task.priority === 'MEDIUM' ? 'warning' :
+                        task.priority === 'LOW' ? 'info' :
+                        'default'
+                    }
+                    size="medium"
+                    variant="outlined"
+                    onClick={isEditable ? undefined : () => {}}
+                />
+            </Box>
+        );
+    };
+
+    // View mode - content display components
+    const renderViewModeContent = () => {
+        // Возвращаем пустое значение, чтобы использовать основную форму
+        // с disabled полями вместо специальной отображения для режима просмотра
+        return null;
+    };
+
+    // Функция форматирования даты
+    const formatDate = (date: string | Date): string => {
+        const d = typeof date === 'string' ? new Date(date) : date;
+        return d.toLocaleString('ru-RU');
+    };
+
+    // Создаем портал для диалога подтверждения удаления
+    const renderDeleteConfirmDialog = () => {
+        return ReactDOM.createPortal(
+            <ConfirmDialog
+                open={showDeleteConfirm}
+                title="Удалить задачу"
+                message="Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить."
+                onConfirm={handleDelete}
+                onClose={() => setShowDeleteConfirm(false)}
+                loading={isSubmitting}
+                actionType="delete"
+            />,
+            document.body // Монтируем напрямую в body
+        );
+    };
+
+    const handleAddNewTag = (tag: string) => {
+        if (!tag || availableTags.includes(tag)) return;
+        
+        const updatedTags = [...availableTags, tag];
+        setAvailableTags(updatedTags);
+        localStorage.setItem('taskTags', JSON.stringify(updatedTags));
+    };
+
+    const renderTagsSelector = () => (
+        <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+                Теги
+                <Tooltip title="Теги помогают категоризировать задачи и быстро их находить">
+                    <IconButton size="small" sx={{ ml: 1 }}>
+                        <HelpOutlineIcon fontSize="small" />
+                    </IconButton>
+                </Tooltip>
+            </Typography>
+            
+            {mode === 'view' ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {tags.length > 0 ? (
+                        tags.map(tag => (
+                            <Chip
+                                key={tag}
+                                label={tag}
+                                icon={<LocalOfferIcon />}
+                                variant="outlined"
+                                size="small"
+                            />
+                        ))
+                    ) : (
+                        <Typography variant="body2" color="text.secondary">
+                            Нет тегов
+                        </Typography>
+                    )}
+                </Box>
+            ) : (
+                <>
+                    <Autocomplete
+                        multiple
+                        freeSolo
+                        options={availableTags}
+                        value={tags}
+                        onChange={(event, newValue) => {
+                            // Устанавливаем только выбранные теги, не добавляя их автоматически в доступные
+                            setTags(newValue);
+                            
+                            // Добавляем новые теги в availableTags только если они действительно новые
+                            newValue.forEach(tag => {
+                                if (!availableTags.includes(tag)) {
+                                    handleAddNewTag(tag);
+                                }
+                            });
+                        }}
+                        inputValue={newTag}
+                        onInputChange={(event, newInputValue) => {
+                            setNewTag(newInputValue);
+                        }}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip
+                                    icon={<LocalOfferIcon />}
+                                    variant="outlined"
+                                    label={option}
+                                    {...getTagProps({ index })}
+                                    size="small"
+                                />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                variant="outlined"
+                                placeholder="Добавить тег..."
+                                size="small"
+                                fullWidth
+                                disabled={!isEditable}
+                            />
+                        )}
+                        disabled={!isEditable}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        Введите текст и нажмите Enter для добавления нового тега
+                    </Typography>
+                </>
+            )}
+        </Box>
+    );
+
     return (
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
             <Dialog 
@@ -325,6 +775,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 maxWidth="md" 
                 fullWidth
                 fullScreen={fullScreen}
+                disableEscapeKeyDown={disableBackdropClick}
+                disableEnforceFocus={showDeleteConfirm} // Отключаем фокус, если открыт диалог подтверждения удаления
             >
                 <DialogTitle>
                     {renderDialogTitle()}
@@ -341,142 +793,646 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent>
-                    {mode !== 'create' && task && (
-                        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-                            <Tabs value={selectedTab} onChange={handleTabChange}>
-                                <Tab label="Основное" />
-                                <Tab label="Подзадачи" />
-                                <Tab label="Комментарии" />
-                                <Tab label="История" />
-                                <Tab label="Вложения" />
-                            </Tabs>
-                        </Box>
-                    )}
-
-                    {mode === 'create' || selectedTab === 0 ? (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                            <TextField
-                                label="Название"
-                                value={title}
-                                onChange={(e) => {
-                                    setTitle(e.target.value);
-                                    if (errors.title) {
-                                        setErrors(prev => ({ ...prev, title: undefined }));
-                                    }
-                                }}
-                                fullWidth
-                                required
-                                error={!!errors.title}
-                                helperText={errors.title}
-                                disabled={!isEditable}
-                            />
-                            <TextField
-                                label="Описание"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                fullWidth
-                                multiline
-                                rows={3}
-                                disabled={!isEditable}
-                            />
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                <Box sx={{ display: 'flex', gap: 2 }}>
-                                    <DateTimePicker
-                                        label="Дата начала"
-                                        value={startDate}
-                                        onChange={(newValue) => {
-                                            setStartDate(newValue);
-                                            if (errors.dates) {
-                                                setErrors(prev => ({ ...prev, dates: undefined }));
-                                            }
-                                        }}
-                                        slotProps={{
-                                            textField: { 
-                                                fullWidth: true,
-                                                error: !!errors.dates,
-                                                disabled: !isEditable
-                                            }
-                                        }}
-                                    />
-                                    <DateTimePicker
-                                        label="Дата окончания"
-                                        value={endDate}
-                                        onChange={(newValue) => {
-                                            setEndDate(newValue);
-                                            if (errors.dates) {
-                                                setErrors(prev => ({ ...prev, dates: undefined }));
-                                            }
-                                        }}
-                                        slotProps={{
-                                            textField: { 
-                                                fullWidth: true,
-                                                error: !!errors.dates,
-                                                disabled: !isEditable
-                                            }
-                                        }}
-                                    />
-                                </Box>
-                                {errors.dates && (
-                                    <FormHelperText error>{errors.dates}</FormHelperText>
-                                )}
+                <DialogContent dividers>
+                    {showTemplateSelector ? (
+                        <Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                <Typography variant="h6">Выберите шаблон задачи</Typography>
+                                <Button onClick={() => setShowTemplateSelector(false)}>
+                                    Вернуться к созданию задачи
+                                </Button>
                             </Box>
-                            <FormControl fullWidth disabled={!isEditable}>
-                                <InputLabel>Приоритет</InputLabel>
-                                <Select
-                                    value={priority}
-                                    label="Приоритет"
-                                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                                >
-                                    <MenuItem value="NONE">Без приоритета</MenuItem>
-                                    <MenuItem value="LOW">Низкий</MenuItem>
-                                    <MenuItem value="MEDIUM">Средний</MenuItem>
-                                    <MenuItem value="HIGH">Высокий</MenuItem>
-                                </Select>
-                            </FormControl>
+                            <TaskTemplateList 
+                                onUseTemplate={handleUseTemplate} 
+                                boardStatuses={boardStatuses} 
+                                taskTypes={taskTypes} 
+                            />
                         </Box>
-                    ) : null}
-
-                    {mode !== 'create' && task && (
+                    ) : (
                         <>
-                            <TabPanel value={selectedTab} index={1}>
-                                <SubtaskList 
-                                    task={task} 
-                                    onTaskUpdate={(updatedTask: Task) => onTaskUpdate && onTaskUpdate(updatedTask)}
-                                />
-                            </TabPanel>
-                            <TabPanel value={selectedTab} index={2}>
-                                <Typography>Комментарии будут здесь</Typography>
-                            </TabPanel>
-                            <TabPanel value={selectedTab} index={3}>
-                                <Typography>История будет здесь</Typography>
-                            </TabPanel>
-                            <TabPanel value={selectedTab} index={4}>
-                                <Typography>Вложения будут здесь</Typography>
-                            </TabPanel>
-                        </>
-                    )}
+                            {mode !== 'create' && task && (
+                                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                                    <Tabs value={selectedTab} onChange={handleTabChange}>
+                                        <Tab label="Основное" />
+                                        <Tab label="Подзадачи" />
+                                        <Tab 
+                                            label={
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span>Комментарии</span>
+                                                    {task.commentCount !== undefined && task.commentCount > 0 && (
+                                                        <Chip 
+                                                            label={task.commentCount} 
+                                                            size="small" 
+                                                            color="primary"
+                                                            sx={{ 
+                                                                ml: 1, 
+                                                                height: 20, 
+                                                                minWidth: 20, 
+                                                                fontSize: '0.75rem',
+                                                                '& .MuiChip-label': {
+                                                                    px: 1
+                                                                }
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Box>
+                                            }
+                                        />
+                                        <Tab label="История" />
+                                        <Tab 
+                                            label={
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span>Вложения</span>
+                                                    {task.attachmentCount !== undefined && task.attachmentCount > 0 && (
+                                                        <Chip 
+                                                            label={task.attachmentCount} 
+                                                            size="small"
+                                                            color="primary"
+                                                            sx={{ 
+                                                                ml: 1, 
+                                                                height: 20, 
+                                                                minWidth: 20, 
+                                                                fontSize: '0.75rem',
+                                                                '& .MuiChip-label': {
+                                                                    px: 1
+                                                                }
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Box>
+                                            } 
+                                        />
+                                    </Tabs>
+                                </Box>
+                            )}
 
-                    {error && (
-                        <Box sx={{ mt: 2 }}>
-                            <Typography color="error">{error}</Typography>
-                        </Box>
+                            {(mode === 'create' || mode === 'edit' || mode === 'view') && (selectedTab === 0 || mode === 'create') && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                                    {mode === 'view' ? (
+                                        // Используем общие поля для режима просмотра, но делаем их неактивными
+                                        <>
+                                            <TextField
+                                                label="Название"
+                                                value={title}
+                                                fullWidth
+                                                InputProps={{
+                                                    readOnly: true
+                                                }}
+                                                sx={{
+                                                    '& .MuiInputBase-input.Mui-disabled': {
+                                                        WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                    },
+                                                    '& .MuiOutlinedInput-notchedOutline': {
+                                                        borderColor: 'rgba(0, 0, 0, 0.12)'
+                                                    }
+                                                }}
+                                            />
+                                            <Box sx={{ mb: 2 }}>
+                                                <Typography variant="subtitle2" gutterBottom>Описание</Typography>
+                                                <Paper 
+                                                    variant="outlined" 
+                                                    sx={{ 
+                                                        p: 2, 
+                                                        minHeight: '200px',
+                                                        '& img': { maxWidth: '100%' } 
+                                                    }}
+                                                >
+                                                    <div dangerouslySetInnerHTML={{ __html: description }} />
+                                                </Paper>
+                                            </Box>
+                                            
+                                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <FormControl fullWidth disabled={!isEditable}>
+                                                        <InputLabel>Тип задачи</InputLabel>
+                                                        <Select
+                                                            value={selectedTypeId || ''}
+                                                            label="Тип задачи"
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+                                                                setSelectedTypeId(value === '' ? null : Number(value));
+                                                            }}
+                                                            renderValue={(selected) => {
+                                                                if (!selected) return <em>Не выбран</em>;
+                                                                const selectedType = taskTypes.find(t => t.id === selected);
+                                                                if (!selectedType) return <em>Не выбран</em>;
+                                                                
+                                                                return (
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        {selectedType.icon && iconNameToComponent[selectedType.icon] 
+                                                                            ? React.cloneElement(iconNameToComponent[selectedType.icon], { 
+                                                                                style: { color: selectedType.color || 'inherit' } 
+                                                                            }) 
+                                                                            : <CategoryIcon style={{ color: selectedType.color || 'inherit' }} />
+                                                                        }
+                                                                        <Typography>{selectedType.name}</Typography>
+                                                                    </Box>
+                                                                );
+                                                            }}
+                                                            inputProps={{
+                                                                readOnly: !isEditable
+                                                            }}
+                                                            sx={{
+                                                                '.MuiSelect-select.Mui-disabled': {
+                                                                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                                }
+                                                            }}
+                                                        >
+                                                            <MenuItem value="">
+                                                                <em>Не выбран</em>
+                                                            </MenuItem>
+                                                            {taskTypes.map((type) => (
+                                                                <MenuItem key={type.id} value={type.id}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        {type.icon && iconNameToComponent[type.icon] 
+                                                                            ? React.cloneElement(iconNameToComponent[type.icon], { 
+                                                                                style: { color: type.color || 'inherit' } 
+                                                                            }) 
+                                                                            : <CategoryIcon style={{ color: type.color || 'inherit' }} />
+                                                                        }
+                                                                        <Typography>{type.name}</Typography>
+                                                                    </Box>
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Box>
+                                                
+                                                <Box sx={{ flex: 1 }}>
+                                                    <FormControl fullWidth disabled={!isEditable}>
+                                                        <InputLabel>Статус</InputLabel>
+                                                        <Select
+                                                            value={selectedStatusId || ''}
+                                                            label="Статус"
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+                                                                setSelectedStatusId(value === '' ? null : Number(value));
+                                                            }}
+                                                            renderValue={(selected) => {
+                                                                if (!selected) return <em>Не выбран</em>;
+                                                                const selectedStatus = boardStatuses.find(s => s.id === selected);
+                                                                if (!selectedStatus) return <em>Не выбран</em>;
+                                                                
+                                                                return (
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        <Box
+                                                                            sx={{
+                                                                                width: 16,
+                                                                                height: 16,
+                                                                                borderRadius: '50%',
+                                                                                bgcolor: selectedStatus.color,
+                                                                            }}
+                                                                        />
+                                                                        <Typography>{selectedStatus.name}</Typography>
+                                                                    </Box>
+                                                                );
+                                                            }}
+                                                            inputProps={{
+                                                                readOnly: !isEditable
+                                                            }}
+                                                            sx={{
+                                                                '.MuiSelect-select.Mui-disabled': {
+                                                                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                                }
+                                                            }}
+                                                        >
+                                                            <MenuItem value="">
+                                                                <em>Не выбран</em>
+                                                            </MenuItem>
+                                                            {boardStatuses.map((status) => (
+                                                                <MenuItem key={status.id} value={status.id}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        <Box
+                                                                            sx={{
+                                                                                width: 16,
+                                                                                height: 16,
+                                                                                borderRadius: '50%',
+                                                                                bgcolor: status.color,
+                                                                            }}
+                                                                        />
+                                                                        <Typography>{status.name}</Typography>
+                                                                    </Box>
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Box>
+                                            </Box>
+                                            
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                                    <DateTimePicker
+                                                        label="Дата начала"
+                                                        value={startDate}
+                                                        onChange={() => {}}
+                                                        readOnly
+                                                        slotProps={{
+                                                            textField: { 
+                                                                fullWidth: true,
+                                                                InputProps: { readOnly: true },
+                                                                sx: {
+                                                                    '& .MuiInputBase-input.Mui-readOnly': {
+                                                                        WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                                    }
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                    <DateTimePicker
+                                                        label="Дата окончания"
+                                                        value={endDate}
+                                                        onChange={() => {}}
+                                                        readOnly
+                                                        slotProps={{
+                                                            textField: { 
+                                                                fullWidth: true,
+                                                                InputProps: { readOnly: true },
+                                                                sx: {
+                                                                    '& .MuiInputBase-input.Mui-readOnly': {
+                                                                        WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                                    }
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                </Box>
+                                            </Box>
+                                            <FormControl fullWidth disabled>
+                                                <InputLabel>Приоритет</InputLabel>
+                                                <Select
+                                                    value={priority}
+                                                    label="Приоритет"
+                                                    readOnly
+                                                    sx={{
+                                                        '.MuiSelect-select.Mui-disabled': {
+                                                            WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                        }
+                                                    }}
+                                                >
+                                                    <MenuItem value="NONE">Без приоритета</MenuItem>
+                                                    <MenuItem value="LOW">Низкий</MenuItem>
+                                                    <MenuItem value="MEDIUM">Средний</MenuItem>
+                                                    <MenuItem value="HIGH">Высокий</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {mode === 'create' && (
+                                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                                                    <Button 
+                                                        startIcon={<StyleIcon />} 
+                                                        onClick={() => setShowTemplateSelector(true)}
+                                                        color="primary"
+                                                    >
+                                                        Использовать шаблон
+                                                    </Button>
+                                                    <Button 
+                                                        startIcon={<SaveAltIcon />} 
+                                                        onClick={handleSaveAsTemplate}
+                                                        color="secondary"
+                                                        sx={{ ml: 2 }}
+                                                        disabled={!title.trim()}
+                                                    >
+                                                        Сохранить как шаблон
+                                                    </Button>
+                                                </Box>
+                                            )}
+                                            
+                                            <TextField
+                                                label="Название"
+                                                value={title}
+                                                onChange={(e) => {
+                                                    setTitle(e.target.value);
+                                                    if (errors.title) {
+                                                        setErrors(prev => ({ ...prev, title: undefined }));
+                                                    }
+                                                }}
+                                                fullWidth
+                                                required
+                                                error={!!errors.title}
+                                                helperText={errors.title}
+                                                disabled={!isEditable}
+                                            />
+                                            {isEditable ? (
+                                                <Box sx={{ mb: 2 }}>
+                                                    <Typography variant="subtitle2" gutterBottom>Описание</Typography>
+                                                    <ReactQuill
+                                                        value={description}
+                                                        onChange={setDescription}
+                                                        modules={quillModules}
+                                                        formats={quillFormats}
+                                                        placeholder="Добавьте описание задачи..."
+                                                        theme="snow"
+                                                        style={{ height: '200px', marginBottom: '40px' }}
+                                                    />
+                                                </Box>
+                                            ) : (
+                                                <TextField
+                                                    label="Описание"
+                                                    value={description}
+                                                    onChange={(e) => setDescription(e.target.value)}
+                                                    fullWidth
+                                                    multiline
+                                                    rows={3}
+                                                    disabled={!isEditable}
+                                                />
+                                            )}
+                                            
+                                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <FormControl fullWidth disabled={!isEditable}>
+                                                        <InputLabel>Тип задачи</InputLabel>
+                                                        <Select
+                                                            value={selectedTypeId || ''}
+                                                            label="Тип задачи"
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+                                                                setSelectedTypeId(value === '' ? null : Number(value));
+                                                            }}
+                                                            renderValue={(selected) => {
+                                                                if (!selected) return <em>Не выбран</em>;
+                                                                const selectedType = taskTypes.find(t => t.id === selected);
+                                                                if (!selectedType) return <em>Не выбран</em>;
+                                                                
+                                                                return (
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        {selectedType.icon && iconNameToComponent[selectedType.icon] 
+                                                                            ? React.cloneElement(iconNameToComponent[selectedType.icon], { 
+                                                                                style: { color: selectedType.color || 'inherit' } 
+                                                                            }) 
+                                                                            : <CategoryIcon style={{ color: selectedType.color || 'inherit' }} />
+                                                                        }
+                                                                        <Typography>{selectedType.name}</Typography>
+                                                                    </Box>
+                                                                );
+                                                            }}
+                                                            inputProps={{
+                                                                readOnly: !isEditable
+                                                            }}
+                                                            sx={{
+                                                                '.MuiSelect-select.Mui-disabled': {
+                                                                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                                }
+                                                            }}
+                                                        >
+                                                            <MenuItem value="">
+                                                                <em>Не выбран</em>
+                                                            </MenuItem>
+                                                            {taskTypes.map((type) => (
+                                                                <MenuItem key={type.id} value={type.id}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        {type.icon && iconNameToComponent[type.icon] 
+                                                                            ? React.cloneElement(iconNameToComponent[type.icon], { 
+                                                                                style: { color: type.color || 'inherit' } 
+                                                                            }) 
+                                                                            : <CategoryIcon style={{ color: type.color || 'inherit' }} />
+                                                                        }
+                                                                        <Typography>{type.name}</Typography>
+                                                                    </Box>
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Box>
+                                                
+                                                <Box sx={{ flex: 1 }}>
+                                                    <FormControl fullWidth disabled={!isEditable}>
+                                                        <InputLabel>Статус</InputLabel>
+                                                        <Select
+                                                            value={selectedStatusId || ''}
+                                                            label="Статус"
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+                                                                setSelectedStatusId(value === '' ? null : Number(value));
+                                                            }}
+                                                            renderValue={(selected) => {
+                                                                if (!selected) return <em>Не выбран</em>;
+                                                                const selectedStatus = boardStatuses.find(s => s.id === selected);
+                                                                if (!selectedStatus) return <em>Не выбран</em>;
+                                                                
+                                                                return (
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        <Box
+                                                                            sx={{
+                                                                                width: 16,
+                                                                                height: 16,
+                                                                                borderRadius: '50%',
+                                                                                bgcolor: selectedStatus.color,
+                                                                            }}
+                                                                        />
+                                                                        <Typography>{selectedStatus.name}</Typography>
+                                                                    </Box>
+                                                                );
+                                                            }}
+                                                            inputProps={{
+                                                                readOnly: !isEditable
+                                                            }}
+                                                            sx={{
+                                                                '.MuiSelect-select.Mui-disabled': {
+                                                                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                                }
+                                                            }}
+                                                        >
+                                                            <MenuItem value="">
+                                                                <em>Не выбран</em>
+                                                            </MenuItem>
+                                                            {boardStatuses.map((status) => (
+                                                                <MenuItem key={status.id} value={status.id}>
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        <Box
+                                                                            sx={{
+                                                                                width: 16,
+                                                                                height: 16,
+                                                                                borderRadius: '50%',
+                                                                                bgcolor: status.color,
+                                                                            }}
+                                                                        />
+                                                                        <Typography>{status.name}</Typography>
+                                                                    </Box>
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Box>
+                                            </Box>
+                                            
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                                    <DateTimePicker
+                                                        label="Дата начала"
+                                                        value={startDate}
+                                                        onChange={(newValue) => {
+                                                            setStartDate(newValue);
+                                                            if (errors.dates) {
+                                                                setErrors(prev => ({ ...prev, dates: undefined }));
+                                                            }
+                                                        }}
+                                                        slotProps={{
+                                                            textField: { 
+                                                                fullWidth: true,
+                                                                error: !!errors.dates,
+                                                                disabled: !isEditable
+                                                            }
+                                                        }}
+                                                    />
+                                                    <DateTimePicker
+                                                        label="Дата окончания"
+                                                        value={endDate}
+                                                        onChange={(newValue) => {
+                                                            setEndDate(newValue);
+                                                            if (errors.dates) {
+                                                                setErrors(prev => ({ ...prev, dates: undefined }));
+                                                            }
+                                                        }}
+                                                        slotProps={{
+                                                            textField: { 
+                                                                fullWidth: true,
+                                                                error: !!errors.dates,
+                                                                disabled: !isEditable
+                                                            }
+                                                        }}
+                                                    />
+                                                </Box>
+                                                {errors.dates && (
+                                                    <FormHelperText error>{errors.dates}</FormHelperText>
+                                                )}
+                                            </Box>
+                                            <FormControl fullWidth disabled={!isEditable}>
+                                                <InputLabel>Приоритет</InputLabel>
+                                                <Select
+                                                    value={priority}
+                                                    label="Приоритет"
+                                                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                                                >
+                                                    <MenuItem value="NONE">Без приоритета</MenuItem>
+                                                    <MenuItem value="LOW">Низкий</MenuItem>
+                                                    <MenuItem value="MEDIUM">Средний</MenuItem>
+                                                    <MenuItem value="HIGH">Высокий</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </>
+                                    )}
+                                    
+                                    {renderTagsSelector()}
+                                </Box>
+                            )}
+
+                            {mode !== 'create' && task && (
+                                <>
+                                    <TabPanel value={selectedTab} index={1}>
+                                        <SubtaskList 
+                                            task={task} 
+                                            onTaskUpdate={(updatedTask: Task) => onTaskUpdate && onTaskUpdate(updatedTask)}
+                                        />
+                                    </TabPanel>
+                                    <TabPanel value={selectedTab} index={2}>
+                                        <TaskComments
+                                            taskId={task.id}
+                                            onTaskUpdate={(updatedTaskInfo) => {
+                                                // Обновляем только счетчик комментариев, но не закрываем модальное окно
+                                                if (task) {
+                                                    // Если получили updatedTaskInfo, используем его
+                                                    if (updatedTaskInfo) {
+                                                        // Обновляем задачу, сохраняя все существующие данные и обновляя только счетчик комментариев
+                                                        const updatedTask = {
+                                                            ...task,
+                                                            commentCount: updatedTaskInfo.commentCount || (task.commentCount || 0) + 1
+                                                        };
+                                                        
+                                                        // Обновляем локальное состояние
+                                                        setTask(updatedTask as ExtendedTaskWithTypes);
+                                                        
+                                                        // Важное изменение! НЕ передаем обновленную задачу родительскому компоненту
+                                                        // Это может вызвать закрытие модального окна
+                                                        
+                                                        // УБИРАЕМ следующий код, чтобы предотвратить закрытие:
+                                                        // if (onTaskUpdate) {
+                                                        //     onTaskUpdate(updatedTask);
+                                                        // }
+                                                    } else {
+                                                        // Если обновленная информация не получена, просто инкрементируем счетчик
+                                                        const updatedTask = {
+                                                            ...task,
+                                                            commentCount: (task.commentCount || 0) + 1
+                                                        };
+                                                        setTask(updatedTask as ExtendedTaskWithTypes);
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </TabPanel>
+                                    <TabPanel value={selectedTab} index={3}>
+                                        <TaskHistory task={task} />
+                                    </TabPanel>
+                                    <TabPanel value={selectedTab} index={4}>
+                                        <TaskAttachments
+                                            taskId={task.id}
+                                            onTaskUpdate={updatedTask => {
+                                                if (onTaskUpdate) {
+                                                    onTaskUpdate(updatedTask);
+                                                }
+                                            }}
+                                        />
+                                    </TabPanel>
+                                </>
+                            )}
+
+                            {error && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Typography color="error">{error}</Typography>
+                                </Box>
+                            )}
+                        </>
                     )}
                 </DialogContent>
                 <DialogActions>
-                    {renderDialogActions()}
+                    {!showTemplateSelector && renderDialogActions()}
                 </DialogActions>
             </Dialog>
 
-            <ConfirmDialog
-                open={showDeleteConfirm}
-                title="Удалить задачу"
-                message="Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить."
-                onConfirm={handleDelete}
-                onClose={() => setShowDeleteConfirm(false)}
-                loading={isSubmitting}
-                actionType="delete"
-            />
+            {/* Используем функцию для создания портала */}
+            {renderDeleteConfirmDialog()}
+            
+            <Dialog open={saveTemplateDialogOpen} onClose={() => setSaveTemplateDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Сохранить задачу как шаблон</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        label="Название шаблона"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        fullWidth
+                        required
+                        margin="normal"
+                        helperText="Укажите имя шаблона для быстрого создания похожих задач в будущем"
+                    />
+                    <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2">Шаблон будет включать:</Typography>
+                        <ul>
+                            <li>Название: {title}</li>
+                            <li>Описание{description ? '' : ' (пусто)'}</li>
+                            <li>Тип: {taskTypes.find(t => t.id === selectedTypeId)?.name || 'Не выбран'}</li>
+                            <li>Статус: {boardStatuses.find(s => s.id === selectedStatusId)?.name || 'Не выбран'}</li>
+                            <li>Приоритет: {
+                                priority === 'HIGH' ? 'Высокий' :
+                                priority === 'MEDIUM' ? 'Средний' :
+                                priority === 'LOW' ? 'Низкий' :
+                                'Без приоритета'
+                            }</li>
+                        </ul>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setSaveTemplateDialogOpen(false)}>Отмена</Button>
+                    <Button 
+                        onClick={saveTemplate} 
+                        variant="contained"
+                        disabled={!templateName.trim()}
+                    >
+                        Сохранить шаблон
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </LocalizationProvider>
     );
 }; 

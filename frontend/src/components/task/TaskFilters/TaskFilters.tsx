@@ -1,47 +1,212 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  Button,
+  Chip,
+  Grid,
+  SelectChangeEvent,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Paper,
+  Divider
+} from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ru } from 'date-fns/locale';
+import { TaskType, BoardStatus } from '../../../types/board';
 
 interface TaskFiltersProps {
-  onFilter: (filters: { status: string; dueDate: string }) => void;
+  taskTypes: TaskType[];
+  boardStatuses: BoardStatus[];
+  onFilter: (filters: {
+    statusIds: number[];
+    typeIds: number[];
+    dueDate: Date | null;
+    hasTags: boolean;
+    search: string;
+  }) => void;
+  onReset: () => void;
   onSort: (sortBy: string) => void;
 }
 
-export const TaskFilters = ({ onFilter, onSort }: TaskFiltersProps) => {
-  const [statusFilter, setStatusFilter] = useState('');
-  const [dueDateFilter, setDueDateFilter] = useState('');
+export const TaskFilters: React.FC<TaskFiltersProps> = ({
+  taskTypes = [],
+  boardStatuses = [],
+  onFilter,
+  onReset,
+  onSort
+}) => {
+  const [statusFilters, setStatusFilters] = useState<number[]>([]);
+  const [typeFilters, setTypeFilters] = useState<number[]>([]);
+  const [dueDateFilter, setDueDateFilter] = useState<Date | null>(null);
+  const [hasTagsFilter, setHasTagsFilter] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('dueDate');
 
   const handleFilter = () => {
-    onFilter({ status: statusFilter, dueDate: dueDateFilter });
+    onFilter({
+      statusIds: statusFilters,
+      typeIds: typeFilters,
+      dueDate: dueDateFilter,
+      hasTags: hasTagsFilter,
+      search: searchTerm
+    });
+  };
+
+  const handleReset = () => {
+    setStatusFilters([]);
+    setTypeFilters([]);
+    setDueDateFilter(null);
+    setHasTagsFilter(false);
+    setSearchTerm('');
+    setSortBy('dueDate');
+    onReset();
+  };
+
+  const handleStatusChange = (statusId: number) => {
+    setStatusFilters(prev => 
+      prev.includes(statusId)
+        ? prev.filter(id => id !== statusId)
+        : [...prev, statusId]
+    );
+  };
+
+  const handleTypeChange = (typeId: number) => {
+    setTypeFilters(prev => 
+      prev.includes(typeId)
+        ? prev.filter(id => id !== typeId)
+        : [...prev, typeId]
+    );
+  };
+
+  const handleSortChange = (event: SelectChangeEvent) => {
+    const value = event.target.value;
+    setSortBy(value);
+    onSort(value);
   };
 
   return (
-    <div>
-      <h3>Фильтры и сортировка</h3>
-      <div>
-        <label>Статус:</label>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">Все</option>
-          <option value="todo">To Do</option>
-          <option value="in_progress">In Progress</option>
-          <option value="done">Done</option>
-        </select>
-      </div>
-      <div>
-        <label>Срок:</label>
-        <input
-          type="date"
-          value={dueDateFilter}
-          onChange={(e) => setDueDateFilter(e.target.value)}
-        />
-      </div>
-      <button onClick={handleFilter}>Применить фильтры</button>
-      <div>
-        <label>Сортировать по:</label>
-        <select onChange={(e) => onSort(e.target.value)}>
-          <option value="dueDate">Сроку</option>
-          <option value="status">Статусу</option>
-          <option value="title">Названию</option>
-        </select>
-      </div>
-    </div>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          Фильтры и сортировка
+        </Typography>
+        
+        <Grid container spacing={2}>
+          {/* Поиск */}
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Поиск задач"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              margin="dense"
+            />
+          </Grid>
+          
+          {/* Статусы */}
+          <Grid item xs={12}>
+            <Typography variant="subtitle1">Статусы</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+              {boardStatuses.map(status => (
+                <Chip
+                  key={status.id}
+                  label={status.name}
+                  onClick={() => handleStatusChange(status.id)}
+                  sx={{
+                    bgcolor: statusFilters.includes(status.id) ? status.color : 'transparent',
+                    color: statusFilters.includes(status.id) ? '#fff' : 'text.primary',
+                    borderColor: status.color,
+                    border: 1
+                  }}
+                />
+              ))}
+            </Box>
+          </Grid>
+          
+          {/* Типы задач */}
+          <Grid item xs={12}>
+            <Typography variant="subtitle1">Типы задач</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+              {taskTypes.map(type => (
+                <Chip
+                  key={type.id}
+                  label={type.name}
+                  onClick={() => handleTypeChange(type.id)}
+                  sx={{
+                    bgcolor: typeFilters.includes(type.id) ? `${type.color}40` : 'transparent',
+                    color: type.color,
+                    borderColor: type.color,
+                    border: 1
+                  }}
+                />
+              ))}
+            </Box>
+          </Grid>
+          
+          {/* Другие фильтры */}
+          <Grid item xs={12} sm={6}>
+            <DatePicker
+              label="Срок до"
+              value={dueDateFilter}
+              onChange={(date) => setDueDateFilter(date)}
+              slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Сортировать по</InputLabel>
+              <Select
+                value={sortBy}
+                label="Сортировать по"
+                onChange={handleSortChange}
+              >
+                <MenuItem value="dueDate">Сроку</MenuItem>
+                <MenuItem value="status">Статусу</MenuItem>
+                <MenuItem value="title">Названию</MenuItem>
+                <MenuItem value="priority">Приоритету</MenuItem>
+                <MenuItem value="type">Типу</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hasTagsFilter}
+                    onChange={() => setHasTagsFilter(!hasTagsFilter)}
+                  />
+                }
+                label="Только задачи с тегами"
+              />
+            </FormGroup>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Button variant="outlined" onClick={handleReset}>
+                Сбросить
+              </Button>
+              <Button variant="contained" onClick={handleFilter}>
+                Применить
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+    </LocalizationProvider>
   );
 };

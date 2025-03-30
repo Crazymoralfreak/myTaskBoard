@@ -23,7 +23,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import EventIcon from '@mui/icons-material/Event';
 import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
 import { alpha } from '@mui/material/styles';
-import { Column, BoardStatus } from '../../../types/board';
+import { Column, BoardStatus, TaskType } from '../../../types/board';
 import { TaskCard } from '../../task/TaskCard';
 import { TaskModal } from '../../task/TaskModal';
 import { Task, CreateTaskRequest } from '../../../types/task';
@@ -37,6 +37,7 @@ interface BoardColumnProps {
     canMoveLeft: boolean;
     canMoveRight: boolean;
     boardStatuses: BoardStatus[];
+    taskTypes: TaskType[];
     onTasksChange?: (updatedColumn: Column) => void;
     onEdit?: (columnId: string, columnName: string, color?: string) => void;
     onDelete?: (columnId: string, columnName: string) => void;
@@ -58,7 +59,7 @@ const isLightColor = (color: string): boolean => {
 };
 
 export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
-    const { column, onMove, canMoveLeft, canMoveRight, boardStatuses, onTasksChange, onEdit, onDelete } = props;
+    const { column, onMove, canMoveLeft, canMoveRight, boardStatuses, taskTypes = [], onTasksChange, onEdit, onDelete } = props;
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
     const [sortType, setSortType] = useState<SortType | null>(null);
@@ -93,12 +94,18 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
 
     const handleAddTask = async (taskData: Omit<CreateTaskRequest, 'columnId'>) => {
         try {
-            const defaultStatus = boardStatuses.find(status => status.isDefault);
-            const createdTask = await taskService.createTask({
+            const createData = {
                 ...taskData,
                 columnId: column.id.toString(),
-                statusId: defaultStatus?.id,
-            });
+                typeId: taskData.typeId || null,
+                statusId: taskData.statusId || null
+            };
+            
+            console.log("Данные для создания задачи:", createData);
+            
+            const createdTask = await taskService.createTask(createData);
+            
+            console.log("Созданная задача:", createdTask);
 
             if (onTasksChange && column.tasks) {
                 onTasksChange({
@@ -114,6 +121,20 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     const handleEditClick = () => {
         setIsEditingColumn(true);
         handleMenuClose();
+    };
+
+    const handleTaskDelete = async (taskId: number) => {
+        try {
+            const updatedBoard = await taskService.deleteTask(taskId);
+            if (onTasksChange && column.tasks) {
+                onTasksChange({
+                    ...column,
+                    tasks: column.tasks.filter(task => task.id !== taskId)
+                });
+            }
+        } catch (error) {
+            console.error('Failed to delete task:', error);
+        }
     };
 
     const textColor = isLightColor(color) ? 'rgba(0, 0, 0, 0.87)' : 'white';
@@ -361,7 +382,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                         <TaskCard
                                             task={task}
                                             boardStatuses={boardStatuses}
-                                            onStatusChange={(status) => {
+                                            taskTypes={taskTypes}
+                                            onTaskStatusChange={(taskId: number, statusId: number) => {
                                                 onTasksChange?.(column);
                                             }}
                                             onTaskUpdate={(updatedTask) => {
@@ -373,13 +395,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                                     tasks: updatedTasks
                                                 });
                                             }}
-                                            onTaskDelete={(taskId) => {
-                                                const updatedTasks = column.tasks.filter(t => t.id !== taskId);
-                                                onTasksChange?.({
-                                                    ...column,
-                                                    tasks: updatedTasks
-                                                });
-                                            }}
+                                            onTaskDelete={handleTaskDelete}
                                         />
                                     </Box>
                                 )}
@@ -494,6 +510,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 columnId={column.id.toString()}
                 onTaskCreate={handleAddTask}
                 boardStatuses={boardStatuses}
+                taskTypes={taskTypes}
             />
         </Paper>
     );

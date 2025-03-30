@@ -1,7 +1,9 @@
 import { api } from '../api/api';
-import { Task, TaskPriority, CreateTaskRequest, TaskComment, TaskAttachment } from '../types/task';
+import { Task, TaskPriority, CreateTaskRequest, TaskComment, TaskAttachment, TaskTemplate } from '../types/task';
 import { CreateSubtaskRequest, UpdateSubtaskRequest } from '../types/subtask';
 import { JwtService } from './jwtService';
+import { AxiosResponse } from 'axios';
+import { Board } from '../types/board';
 
 const jwtService = JwtService.getInstance();
 const axiosInstance = jwtService.getAxiosInstance();
@@ -11,6 +13,8 @@ interface MoveTaskRequest {
     sourceColumnId: number;
     destinationColumnId: number;
     newPosition: number;
+    typeId?: number | null;
+    statusId?: number | null;
 }
 
 export const taskService = {
@@ -20,6 +24,18 @@ export const taskService = {
             return response.data;
         } catch (error) {
             console.error('Ошибка при получении задач:', error);
+            throw error;
+        }
+    },
+
+    async getTask(taskId: number): Promise<Task> {
+        try {
+            console.log('Получение задачи по ID:', taskId);
+            const response = await axiosInstance.get(`/api/tasks/${taskId}`);
+            console.log('Задача успешно получена:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при получении задачи:', error);
             throw error;
         }
     },
@@ -39,7 +55,17 @@ export const taskService = {
     async updateTask(taskId: number, task: Partial<Task>): Promise<Task> {
         try {
             console.log('Обновление задачи:', { taskId, task });
-            const response = await axiosInstance.put(`/api/tasks/${taskId}`, task);
+            
+            // Удаляем null значения из объекта task
+            const cleanTask = Object.entries(task).reduce((acc, [key, value]) => {
+                if (value !== undefined) {
+                    (acc as any)[key] = value;
+                }
+                return acc;
+            }, {} as Partial<Task>);
+            
+            console.log('Очищенные данные для обновления:', cleanTask);
+            const response = await axiosInstance.put(`/api/tasks/${taskId}`, cleanTask);
             console.log('Задача успешно обновлена:', response.data);
             return response.data;
         } catch (error) {
@@ -48,10 +74,11 @@ export const taskService = {
         }
     },
 
-    async deleteTask(taskId: number): Promise<void> {
+    async deleteTask(taskId: number): Promise<Board> {
         try {
-            await axiosInstance.delete(`/api/tasks/${taskId}`);
+            const response = await axiosInstance.delete(`/api/tasks/${taskId}`);
             console.log('Задача успешно удалена:', taskId);
+            return response.data;
         } catch (error) {
             console.error('Ошибка при удалении задачи:', error);
             throw error;
@@ -60,9 +87,33 @@ export const taskService = {
 
     async moveTask(moveRequest: MoveTaskRequest): Promise<void> {
         try {
-            console.log('Перемещение задачи:', moveRequest);
-            await axiosInstance.post('/api/tasks/move', moveRequest);
-            console.log('Задача успешно перемещена');
+            console.log('Вызов метода moveTask с параметрами:', JSON.stringify(moveRequest, null, 2));
+            
+            // Проверяем все обязательные поля
+            if (moveRequest.taskId === undefined || moveRequest.taskId === null) {
+                throw new Error('Не указан taskId');
+            }
+            if (moveRequest.sourceColumnId === undefined || moveRequest.sourceColumnId === null) {
+                throw new Error('Не указан sourceColumnId');
+            }
+            if (moveRequest.destinationColumnId === undefined || moveRequest.destinationColumnId === null) {
+                throw new Error('Не указан destinationColumnId');
+            }
+            if (moveRequest.newPosition === undefined || moveRequest.newPosition === null) {
+                throw new Error('Не указана новая позиция');
+            }
+            
+            // Создаем копию запроса, чтобы не модифицировать оригинал
+            const requestData = {
+                ...moveRequest,
+                typeId: moveRequest.typeId || null,
+                statusId: moveRequest.statusId || null
+            };
+            
+            console.log('Отправка запроса на перемещение:', JSON.stringify(requestData, null, 2));
+            const response = await axiosInstance.post('/api/tasks/move', requestData);
+            console.log('Задача успешно перемещена, ответ сервера:', response.data);
+            return response.data;
         } catch (error) {
             console.error('Ошибка при перемещении задачи:', error);
             throw error;
@@ -95,6 +146,21 @@ export const taskService = {
         }
     },
 
+    async updateComment(taskId: number, commentId: number, content: string): Promise<Task> {
+        try {
+            console.log('Обновление комментария:', { taskId, commentId, content });
+            const response = await axiosInstance.put(
+                `/api/tasks/${taskId}/comments/${commentId}`, 
+                { content }
+            );
+            console.log('Комментарий успешно обновлен:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при обновлении комментария:', error);
+            throw error;
+        }
+    },
+
     async uploadFile(
         taskId: number, 
         file: File, 
@@ -105,7 +171,7 @@ export const taskService = {
             formData.append('file', file);
         
             const response = await axiosInstance.post(
-                `/api/tasks/${taskId}/files`, 
+                `/api/tasks/${taskId}/attachments`, 
                 formData,
                 {
                     headers: {
@@ -130,7 +196,7 @@ export const taskService = {
 
     async deleteFile(taskId: number, fileId: number): Promise<Task> {
         try {
-            const response = await axiosInstance.delete(`/api/tasks/${taskId}/files/${fileId}`);
+            const response = await axiosInstance.delete(`/api/tasks/${taskId}/attachments/${fileId}`);
             console.log('Файл успешно удален:', response.data);
             return response.data;
         } catch (error) {
@@ -271,6 +337,39 @@ export const taskService = {
         }
     },
 
+    async createTaskCopy(task: Task): Promise<Task> {
+        try {
+            console.log('Создание копии задачи:', task);
+            
+            // Формируем данные новой задачи на основе копируемой
+            const newTaskData: CreateTaskRequest = {
+                title: `Копия: ${task.title}`,
+                description: task.description,
+                columnId: task.columnId || '',
+                priority: task.priority,
+                tags: task.tags || [],
+                statusId: task.customStatus?.id,
+                typeId: task.type?.id
+            };
+            
+            if (task.startDate) {
+                newTaskData.startDate = task.startDate;
+            }
+            
+            if (task.endDate) {
+                newTaskData.endDate = task.endDate;
+            }
+            
+            // Создаем новую задачу
+            const response = await axiosInstance.post('/api/tasks', newTaskData);
+            console.log('Копия задачи успешно создана:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при создании копии задачи:', error);
+            throw error;
+        }
+    },
+
     async assignTask(taskId: string, userId: string): Promise<Task> {
         const response = await api.patch(`/api/tasks/${taskId}/assign/${userId}`);
         return response.data;
@@ -280,7 +379,11 @@ export const taskService = {
     async createSubtask(taskId: number, subtask: CreateSubtaskRequest): Promise<Task> {
         try {
             console.log('Создание подзадачи:', { taskId, subtask });
-            const response = await axiosInstance.post(`/api/tasks/${taskId}/subtasks`, subtask);
+            const response = await axiosInstance.post(`/api/tasks/${taskId}/subtasks`, subtask, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             console.log('Подзадача успешно создана:', response.data);
             return response.data;
         } catch (error) {
@@ -292,7 +395,11 @@ export const taskService = {
     async updateSubtask(taskId: number, subtaskId: number, updates: UpdateSubtaskRequest): Promise<Task> {
         try {
             console.log('Обновление подзадачи:', { taskId, subtaskId, updates });
-            const response = await axiosInstance.put(`/api/tasks/${taskId}/subtasks/${subtaskId}`, updates);
+            const response = await axiosInstance.put(`/api/tasks/${taskId}/subtasks/${subtaskId}`, updates, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             console.log('Подзадача успешно обновлена:', response.data);
             return response.data;
         } catch (error) {
@@ -313,27 +420,54 @@ export const taskService = {
     },
 
     async assignSubtask(taskId: number, subtaskId: number, userId: number): Promise<Task> {
-        const response = await api.put<Task>(
-            `/api/tasks/${taskId}/subtasks/${subtaskId}/assign?userId=${userId}`,
-            JSON.stringify({}),
-            {
-                headers: {
-                    'Content-Type': 'application/json'
+        try {
+            const response = await axiosInstance.put(
+                `/api/tasks/${taskId}/subtasks/${subtaskId}/assign?userId=${userId}`,
+                {},
+                {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 }
-            }
-        );
-        return response.data;
+            );
+            console.log('Подзадача успешно назначена:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при назначении подзадачи:', error);
+            throw error;
+        }
     },
 
     async reorderSubtasks(taskId: number, subtaskIds: number[]): Promise<Task> {
         try {
             console.log('Изменение порядка подзадач:', { taskId, subtaskIds });
-            const response = await axiosInstance.post(`/api/tasks/${taskId}/subtasks/reorder`, subtaskIds);
+            const response = await axiosInstance.put(`/api/tasks/${taskId}/subtasks/reorder`, subtaskIds, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             console.log('Порядок подзадач успешно изменен:', response.data);
             return response.data;
         } catch (error) {
             console.error('Ошибка при изменении порядка подзадач:', error);
             throw error;
         }
+    },
+
+    // Методы для работы с шаблонами задач
+    getTaskTemplates(boardId: number): Promise<AxiosResponse<TaskTemplate[]>> {
+        return axiosInstance.get(`/api/boards/${boardId}/templates`);
+    },
+
+    createTaskTemplate(boardId: number, template: TaskTemplate): Promise<AxiosResponse<TaskTemplate>> {
+        return axiosInstance.post(`/api/boards/${boardId}/templates`, template);
+    },
+
+    updateTaskTemplate(templateId: number, template: TaskTemplate): Promise<AxiosResponse<TaskTemplate>> {
+        return axiosInstance.put(`/api/templates/${templateId}`, template);
+    },
+
+    deleteTaskTemplate(templateId: number): Promise<AxiosResponse<void>> {
+        return axiosInstance.delete(`/api/templates/${templateId}`);
     },
 }; 

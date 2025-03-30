@@ -70,7 +70,29 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             fullWidth
             aria-labelledby="confirm-dialog-title"
             onKeyDown={handleKeyDown}
-            keepMounted  // Важно для корректной работы с фокусом
+            keepMounted={false}
+            disablePortal={false}
+            style={{ zIndex: 9999 }}
+            PaperProps={{
+                style: {
+                    zIndex: 10000,
+                    position: 'relative'
+                }
+            }}
+            BackdropProps={{
+                style: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    zIndex: 9998
+                }
+            }}
+            sx={{
+                '& .MuiDialog-container': {
+                    zIndex: 10000
+                },
+                '& .MuiBackdrop-root': {
+                    zIndex: 9998
+                }
+            }}
         >
             <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
             <DialogContent>

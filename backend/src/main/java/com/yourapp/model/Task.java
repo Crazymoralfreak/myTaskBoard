@@ -51,6 +51,9 @@ public class Task {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
+    @Column(name = "comment_count")
+    private Integer commentCount = 0;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "status_id")
     @JsonBackReference("task-status")
@@ -126,4 +129,13 @@ public class Task {
     @OneToMany(mappedBy = "targetTask", cascade = CascadeType.ALL)
     @JsonManagedReference("task-target-links")
     private List<TaskLink> targetLinks = new ArrayList<>();
+
+    @Transient
+    public Integer getCommentCount() {
+        return commentCount;
+    }
+    
+    public void setCommentCount(Integer commentCount) {
+        this.commentCount = commentCount;
+    }
 }

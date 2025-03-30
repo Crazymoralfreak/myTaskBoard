@@ -1,1 +1,1 @@
-export { TaskHistory } from './TaskHistory'; 
+export * from './TaskHistory'; 

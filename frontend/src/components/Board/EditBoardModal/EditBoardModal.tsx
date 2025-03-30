@@ -49,6 +49,7 @@ interface EditBoardModalProps {
     initialName: string;
     initialDescription: string;
     board?: Board;
+    onBoardUpdate?: (updatedBoard: Board) => void;
 }
 
 export const EditBoardModal: React.FC<EditBoardModalProps> = ({
@@ -57,7 +58,8 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
     onSubmit,
     initialName,
     initialDescription,
-    board
+    board,
+    onBoardUpdate
 }) => {
     const [name, setName] = useState(initialName);
     const [description, setDescription] = useState(initialDescription || '');
@@ -156,7 +158,17 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
                         </Box>
                     </TabPanel>
                     <TabPanel value={selectedTab} index={1}>
-                        {board && <BoardEntitiesManager board={board} />}
+                        {board && onBoardUpdate && (
+                            <BoardEntitiesManager 
+                                board={board} 
+                                onBoardUpdate={onBoardUpdate}
+                            />
+                        )}
+                        {board && !onBoardUpdate && (
+                            <Typography color="text.secondary">
+                                Обновление сущностей может не отображаться сразу. Пожалуйста, перезагрузите страницу после изменений.
+                            </Typography>
+                        )}
                         {!board && (
                             <Typography color="error">
                                 Не удалось загрузить данные доски

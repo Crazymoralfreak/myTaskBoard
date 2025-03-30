@@ -67,9 +67,10 @@ interface EntityFormData {
 
 interface BoardEntitiesManagerProps {
     board: Board;
+    onBoardUpdate: (updatedBoard: Board) => void;
 }
 
-export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ board }) => {
+export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ board, onBoardUpdate }) => {
     const [tabValue, setTabValue] = useState(0);
     const [statuses, setStatuses] = useState<BoardStatus[]>([]);
     const [types, setTypes] = useState<TaskType[]>([]);
@@ -179,7 +180,12 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                         color: currentEntity.color
                     }
                 );
-                setStatuses(statuses.map(s => s.id === currentEntity.id ? updatedStatus : s));
+                const updatedStatuses = statuses.map(s => s.id === currentEntity.id ? updatedStatus : s);
+                setStatuses(updatedStatuses);
+                onBoardUpdate({
+                    ...board,
+                    taskStatuses: updatedStatuses
+                });
                 setSuccess('Статус успешно обновлен');
             } else {
                 const newStatus = await boardService.createTaskStatus(
@@ -189,7 +195,12 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                         color: currentEntity.color
                     }
                 );
-                setStatuses([...statuses, newStatus]);
+                const updatedStatuses = [...statuses, newStatus];
+                setStatuses(updatedStatuses);
+                onBoardUpdate({
+                    ...board,
+                    taskStatuses: updatedStatuses
+                });
                 setSuccess('Статус успешно создан');
             }
             setStatusDialogOpen(false);
@@ -250,20 +261,13 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
     };
 
     const handleTypeSubmit = async () => {
-        if (!currentEntity.name) {
-            setError('Название типа задачи не может быть пустым');
+        if (!currentEntity.name.trim()) {
+            setError('Название типа обязательно');
             return;
         }
-        
+
         setIsSubmitting(true);
-        
         try {
-            console.log('Отправка данных типа задачи:', {
-                name: currentEntity.name,
-                color: currentEntity.color,
-                icon: currentEntity.icon
-            });
-            
             if (isEditing && currentEntity.id) {
                 const updatedType = await boardService.updateTaskType(
                     board.id,
@@ -271,27 +275,37 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     {
                         name: currentEntity.name,
                         color: currentEntity.color,
-                        icon: currentEntity.icon
+                        icon: currentEntity.icon || 'task_alt'
                     }
                 );
-                setTypes(types.map(t => t.id === currentEntity.id ? updatedType : t));
-                setSuccess('Тип задачи успешно обновлен');
+                const updatedTypes = types.map(t => t.id === currentEntity.id ? updatedType : t);
+                setTypes(updatedTypes);
+                onBoardUpdate({
+                    ...board,
+                    taskTypes: updatedTypes
+                });
+                setSuccess('Тип успешно обновлен');
             } else {
                 const newType = await boardService.createTaskType(
                     board.id,
                     {
                         name: currentEntity.name,
                         color: currentEntity.color,
-                        icon: currentEntity.icon
+                        icon: currentEntity.icon || 'task_alt'
                     }
                 );
-                setTypes([...types, newType]);
-                setSuccess('Тип задачи успешно создан');
+                const updatedTypes = [...types, newType];
+                setTypes(updatedTypes);
+                onBoardUpdate({
+                    ...board,
+                    taskTypes: updatedTypes
+                });
+                setSuccess('Тип успешно создан');
             }
             setTypeDialogOpen(false);
         } catch (err) {
-            console.error('Ошибка при сохранении типа задачи:', err);
-            setError('Не удалось сохранить тип задачи');
+            console.error('Ошибка при сохранении типа:', err);
+            setError('Не удалось сохранить тип');
         } finally {
             setIsSubmitting(false);
         }

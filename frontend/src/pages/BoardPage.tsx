@@ -17,7 +17,9 @@ import {
     Popover,
     FormGroup,
     FormControlLabel,
-    Checkbox
+    Checkbox,
+    Tabs,
+    Tab
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,15 +30,17 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
 import { BoardColumn } from '../components/board/BoardColumn';
-import { Column } from '../types/board';
+import { Column, BoardStatus, TaskType } from '../types/board';
 import { AddColumnModal } from '../components/board/AddColumnModal/AddColumnModal';
 import { Task } from '../types/task';
-import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { taskService } from '../services/taskService';
 import { EditBoardModal } from '../components/board/EditBoardModal/EditBoardModal';
 import { EditColumnModal } from '../components/board/EditColumnModal/EditColumnModal';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog/ConfirmDialog';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { TaskFilters } from '../components/task/TaskFilters';
+import { toast } from 'react-hot-toast';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -52,6 +56,33 @@ interface EditColumnData {
 interface BoardUpdate {
     name: string;
     description: string;
+}
+
+// Добавить TabPanel компонент
+interface TabPanelProps {
+    children?: React.ReactNode;
+    index: number;
+    value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+    const { children, value, index, ...other } = props;
+
+    return (
+        <div
+            role="tabpanel"
+            hidden={value !== index}
+            id={`filter-tabpanel-${index}`}
+            aria-labelledby={`filter-tab-${index}`}
+            {...other}
+        >
+            {value === index && (
+                <Box sx={{ pt: 2 }}>
+                    {children}
+                </Box>
+            )}
+        </div>
+    );
 }
 
 export const BoardPage: React.FC = () => {
@@ -75,6 +106,9 @@ export const BoardPage: React.FC = () => {
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
     const [availableTags, setAvailableTags] = useState<string[]>([]);
+    const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
+    const [selectedTypes, setSelectedTypes] = useState<number[]>([]);
+    const [filterTabValue, setFilterTabValue] = useState(0);
 
     useEffect(() => {
         if (boardId) {
@@ -133,16 +167,66 @@ export const BoardPage: React.FC = () => {
                 const matchesStatus = selectedStatuses.length === 0 || 
                     (task.customStatus && selectedStatuses.includes(task.customStatus.id));
 
+                // Фильтрация по типам
+                const matchesType = selectedTypes.length === 0 ||
+                    (task.type && selectedTypes.includes(task.type.id));
+
                 // Фильтрация по тегам
                 const matchesTags = selectedTags.length === 0 ||
                     selectedTags.every(tag => task.tags?.includes(tag));
 
-                return matchesSearch && matchesStatus && matchesTags;
+                return matchesSearch && matchesStatus && matchesType && matchesTags;
             })
         }));
 
         setFilteredColumns([...filtered]);
-    }, [searchQuery, board, selectedStatuses, selectedTags]);
+    }, [searchQuery, board, selectedStatuses, selectedTypes, selectedTags]);
+
+    // Обновление TaskCards при изменении типов задач
+    useEffect(() => {
+        if (board && board.columns) {
+            const updatedColumns = board.columns.map(column => ({
+                ...column,
+                tasks: column.tasks.map(task => {
+                    if (task.type && board.taskTypes) {
+                        const updatedType = board.taskTypes.find(t => t.id === task.type?.id);
+                        if (updatedType) {
+                            return {
+                                ...task,
+                                type: updatedType
+                            };
+                        }
+                    }
+                    return task;
+                })
+            }));
+            
+            setFilteredColumns(updatedColumns);
+        }
+    }, [board?.taskTypes]);
+
+    // Обновление TaskCards при изменении статусов задач
+    useEffect(() => {
+        if (board && board.columns) {
+            const updatedColumns = board.columns.map(column => ({
+                ...column,
+                tasks: column.tasks.map(task => {
+                    if (task.customStatus && board.taskStatuses) {
+                        const updatedStatus = board.taskStatuses.find(s => s.id === task.customStatus?.id);
+                        if (updatedStatus) {
+                            return {
+                                ...task,
+                                customStatus: updatedStatus
+                            };
+                        }
+                    }
+                    return task;
+                })
+            }));
+            
+            setFilteredColumns(updatedColumns);
+        }
+    }, [board?.taskStatuses]);
 
     const loadBoard = async () => {
         if (!boardId) return;
@@ -150,6 +234,18 @@ export const BoardPage: React.FC = () => {
             setLoading(true);
             const boardData = await boardService.getBoard(boardId);
             setBoard(boardData);
+            
+            // Если в доске нет типов задач, загружаем их с сервера
+            if (!boardData.taskTypes || boardData.taskTypes.length === 0) {
+                try {
+                    const types = await boardService.getBoardTaskTypes(boardId);
+                    setTaskTypes(types);
+                } catch (error) {
+                    console.error('Не удалось загрузить типы задач:', error);
+                }
+            } else {
+                setTaskTypes(boardData.taskTypes);
+            }
         } catch (error) {
             console.error('Failed to load board:', error instanceof Error ? error.message : error);
             setError('Не удалось загрузить доску');
@@ -236,73 +332,83 @@ export const BoardPage: React.FC = () => {
         }
     };
 
-    const handleDragEnd = async (result: DropResult) => {
-        const { source, destination, draggableId } = result;
-        
-        if (!destination || 
-            (source.droppableId === destination.droppableId && 
-             source.index === destination.index) ||
-            !board
+    const onDragEnd = async (result: DropResult) => {
+        const { destination, source, draggableId } = result;
+
+        if (!destination) {
+            return;
+        }
+
+        if (
+            destination.droppableId === source.droppableId &&
+            destination.index === source.index
         ) {
             return;
         }
 
-        const taskId = parseInt(draggableId.replace('task-', ''));
-        const sourceColumnId = parseInt(source.droppableId);
-        const destinationColumnId = parseInt(destination.droppableId);
-
         try {
-            const prevColumns = [...board.columns];
-            
-            // Проверяем существование колонок
-            const sourceColumn = board.columns.find(col => col.id === String(sourceColumnId) || Number(col.id) === sourceColumnId);
-            const destinationColumn = board.columns.find(col => col.id === String(destinationColumnId) || Number(col.id) === destinationColumnId);
+            const taskId = parseInt(draggableId.replace('task-', ''));
+            const sourceColumnId = parseInt(source.droppableId.replace('column-', ''));
+            const destinationColumnId = parseInt(destination.droppableId.replace('column-', ''));
 
-            if (!sourceColumn || !destinationColumn) {
-                console.error('Source or destination column not found', {
-                    sourceColumnId,
-                    destinationColumnId,
-                    columns: board.columns.map(c => c.id)
-                });
+            // Находим задачу в исходной колонке
+            const sourceColumn = board?.columns.find(col => Number(col.id) === sourceColumnId);
+            if (!sourceColumn) {
+                console.error('Исходная колонка не найдена');
                 return;
             }
 
-            // Оптимистичное обновление UI
-            const newBoard = { ...board };
-            const task = sourceColumn.tasks.find(t => t.id === taskId);
+            const task = sourceColumn.tasks[source.index];
             if (!task) {
-                console.error('Task not found:', taskId);
+                console.error('Задача не найдена');
                 return;
             }
 
-            // Удаляем задачу из исходной колонки
-            sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id !== taskId);
-
-            // Добавляем задачу в целевую колонку
-            destinationColumn.tasks.splice(destination.index, 0, task);
-
-            // Обновляем состояние для мгновенной реакции UI
-            setBoard(newBoard);
-
-            // Отправляем запрос на сервер
-            await taskService.moveTask({
+            console.log('Moving task:', {
                 taskId,
                 sourceColumnId,
                 destinationColumnId,
-                newPosition: destination.index
+                newPosition: destination.index,
+                typeId: task.type?.id,
+                statusId: task.customStatus?.id
             });
-            setSuccess('Задача успешно перемещена');
-            
-            // Обновляем состояние доски после успешного перемещения
-            const updatedBoard = await boardService.getBoard(board.id);
-            setBoard(updatedBoard);
+
+            const movedTask = await taskService.moveTask({
+                taskId,
+                sourceColumnId,
+                destinationColumnId,
+                newPosition: destination.index,
+                typeId: task.type?.id || null,
+                statusId: task.customStatus?.id || null
+            });
+
+            console.log('Task moved successfully:', movedTask);
+
+            // Обновляем состояние доски с новой задачей
+            setBoard(prevBoard => {
+                const newColumns = [...prevBoard!.columns];
+                const sourceColumn = newColumns.find(col => Number(col.id) === sourceColumnId);
+                const destinationColumn = newColumns.find(col => Number(col.id) === destinationColumnId);
+
+                if (!sourceColumn || !destinationColumn) {
+                    return prevBoard;
+                }
+
+                // Удаляем задачу из исходной колонки
+                const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+
+                // Добавляем задачу в целевую колонку
+                destinationColumn.tasks.splice(destination.index, 0, movedTask);
+
+                return {
+                    ...prevBoard!,
+                    columns: newColumns
+                };
+            });
         } catch (error) {
-            console.error('Failed to move task:', error instanceof Error ? error.message : error);
-            setError('Не удалось переместить задачу. Изменения отменены.');
-            // Откатываем изменения в состоянии
-            if (board) {
-                setBoard({ ...board, columns: board.columns });
-            }
+            console.error('Error moving task:', error);
+            // Показываем уведомление об ошибке
+            toast.error('Ошибка при перемещении задачи');
         }
     };
 
@@ -322,6 +428,8 @@ export const BoardPage: React.FC = () => {
             setBoard(updatedBoard);
             setSuccess('Доска успешно обновлена');
             setIsEditBoardModalOpen(false);
+            // Обновляем локальное состояние taskTypes для немедленного применения в интерфейсе
+            setTaskTypes(updatedBoard.taskTypes || []);
         } catch (error) {
             console.error('Failed to update board:', error instanceof Error ? error.message : error);
             setError('Не удалось обновить доску');
@@ -402,9 +510,18 @@ export const BoardPage: React.FC = () => {
         );
     };
 
+    const handleTypeToggle = (typeId: number) => {
+        setSelectedTypes(prev => 
+            prev.includes(typeId)
+                ? prev.filter(id => id !== typeId)
+                : [...prev, typeId]
+        );
+    };
+
     const clearFilters = () => {
         setSelectedStatuses([]);
         setSelectedTags([]);
+        setSelectedTypes([]);
         handleFilterClose();
     };
 
@@ -471,6 +588,10 @@ export const BoardPage: React.FC = () => {
             )}
         </Box>
     );
+
+    const handleFilterTabChange = (event: React.SyntheticEvent, newValue: number) => {
+        setFilterTabValue(newValue);
+    };
 
     if (loading) {
         return (
@@ -549,7 +670,7 @@ export const BoardPage: React.FC = () => {
                         <SettingsIcon />
                     </IconButton>
                 </Box>
-                {(selectedStatuses.length > 0 || selectedTags.length > 0) && (
+                {(selectedStatuses.length > 0 || selectedTypes.length > 0 || selectedTags.length > 0) && (
                     <Box sx={{ mt: 2, ml: 6, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         {selectedStatuses.map(statusId => {
                             const status = board.taskStatuses.find(s => s.id === statusId);
@@ -562,6 +683,24 @@ export const BoardPage: React.FC = () => {
                                     sx={{ 
                                         backgroundColor: status.color,
                                         color: '#fff'
+                                    }}
+                                />
+                            );
+                        })}
+                        {selectedTypes.map(typeId => {
+                            const type = board.taskTypes.find(t => t.id === typeId);
+                            if (!type) return null;
+                            return (
+                                <Chip
+                                    key={type.id}
+                                    label={type.name}
+                                    onDelete={() => handleTypeToggle(typeId)}
+                                    sx={{ 
+                                        backgroundColor: type.color ? `${type.color}20` : undefined,
+                                        color: type.color,
+                                        borderColor: type.color,
+                                        borderWidth: type.color ? 1 : 0,
+                                        borderStyle: 'solid' 
                                     }}
                                 />
                             );
@@ -606,54 +745,91 @@ export const BoardPage: React.FC = () => {
                 }}
             >
                 <Box sx={{ p: 2, width: 300 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>Статусы</Typography>
-                    <FormGroup>
-                        {board.taskStatuses.map(status => (
-                            <FormControlLabel
-                                key={status.id}
-                                control={
-                                    <Checkbox
-                                        checked={selectedStatuses.includes(status.id)}
-                                        onChange={() => handleStatusToggle(status.id)}
-                                    />
-                                }
-                                label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        <Box
-                                            sx={{
-                                                width: 12,
-                                                height: 12,
-                                                borderRadius: '50%',
-                                                backgroundColor: status.color,
-                                                mr: 1
-                                            }}
-                                        />
-                                        {status.name}
-                                    </Box>
-                                }
-                            />
-                        ))}
-                    </FormGroup>
+                    <Tabs value={filterTabValue} onChange={handleFilterTabChange}>
+                        <Tab label="Статусы" />
+                        <Tab label="Типы" />
+                        <Tab label="Теги" />
+                    </Tabs>
 
-                    {availableTags.length > 0 && (
-                        <>
-                            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>Теги</Typography>
-                            <FormGroup>
-                                {availableTags.map(tag => (
-                                    <FormControlLabel
-                                        key={tag}
-                                        control={
-                                            <Checkbox
-                                                checked={selectedTags.includes(tag)}
-                                                onChange={() => handleTagToggle(tag)}
+                    <TabPanel value={filterTabValue} index={0}>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Статусы</Typography>
+                        <FormGroup>
+                            {board.taskStatuses.map(status => (
+                                <FormControlLabel
+                                    key={status.id}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedStatuses.includes(status.id)}
+                                            onChange={() => handleStatusToggle(status.id)}
+                                        />
+                                    }
+                                    label={
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <Box
+                                                sx={{
+                                                    width: 12,
+                                                    height: 12,
+                                                    borderRadius: '50%',
+                                                    backgroundColor: status.color,
+                                                    mr: 1
+                                                }}
                                             />
-                                        }
-                                        label={tag}
-                                    />
-                                ))}
-                            </FormGroup>
-                        </>
-                    )}
+                                            {status.name}
+                                        </Box>
+                                    }
+                                />
+                            ))}
+                        </FormGroup>
+                    </TabPanel>
+
+                    <TabPanel value={filterTabValue} index={1}>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Типы задач</Typography>
+                        <FormGroup>
+                            {board.taskTypes.map(type => (
+                                <FormControlLabel
+                                    key={type.id}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedTypes.includes(type.id)}
+                                            onChange={() => handleTypeToggle(type.id)}
+                                        />
+                                    }
+                                    label={
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <Box
+                                                sx={{
+                                                    width: 12,
+                                                    height: 12,
+                                                    borderRadius: '4px',
+                                                    backgroundColor: type.color,
+                                                    mr: 1
+                                                }}
+                                            />
+                                            {type.name}
+                                        </Box>
+                                    }
+                                />
+                            ))}
+                        </FormGroup>
+                    </TabPanel>
+
+                    <TabPanel value={filterTabValue} index={2}>
+                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Теги</Typography>
+                        <FormGroup>
+                            {availableTags.map(tag => (
+                                <FormControlLabel
+                                    key={tag}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedTags.includes(tag)}
+                                            onChange={() => handleTagToggle(tag)}
+                                        />
+                                    }
+                                    label={tag}
+                                />
+                            ))}
+                        </FormGroup>
+                    </TabPanel>
 
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                         <Button onClick={clearFilters} sx={{ mr: 1 }}>
@@ -698,7 +874,7 @@ export const BoardPage: React.FC = () => {
                 </MenuItem>
             </Menu>
 
-            <DragDropContext onDragEnd={handleDragEnd}>
+            <DragDropContext onDragEnd={onDragEnd}>
                 <Box 
                     sx={{ 
                         display: 'flex', 
@@ -723,6 +899,7 @@ export const BoardPage: React.FC = () => {
                                             canMoveLeft={board.columns.indexOf(column) > 0}
                                             canMoveRight={board.columns.indexOf(column) < board.columns.length - 1}
                                             boardStatuses={board.taskStatuses}
+                                            taskTypes={taskTypes}
                                             onTasksChange={(updatedColumn) => {
                                                 if (!board) return;
                                                 const updatedColumns = board.columns.map(col =>
@@ -796,6 +973,11 @@ export const BoardPage: React.FC = () => {
                 initialName={board?.name || ''}
                 initialDescription={board?.description || ''}
                 board={board}
+                onBoardUpdate={(updatedBoard) => {
+                    setBoard(updatedBoard);
+                    // Обновляем локальное состояние taskTypes для немедленного применения в интерфейсе
+                    setTaskTypes(updatedBoard.taskTypes || []);
+                }}
             />
 
             <EditColumnModal

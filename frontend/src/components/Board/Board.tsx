@@ -2,7 +2,7 @@ import React from 'react';
 import { DragDropContext, DropResult } from 'react-beautiful-dnd';
 import { Box, Button } from '@mui/material';
 import { BoardColumn } from './BoardColumn';
-import { Column, BoardStatus } from '@/types/board';
+import { Column, BoardStatus, TaskType } from '@/types/board';
 import { Task } from '@/types/task';
 import { AddColumnModal } from './AddColumnModal';
 import AddIcon from '@mui/icons-material/Add';
@@ -10,6 +10,7 @@ import AddIcon from '@mui/icons-material/Add';
 interface BoardProps {
     columns: Column[];
     boardStatuses: BoardStatus[];
+    taskTypes: TaskType[];
     onColumnAdd: (name: string) => void;
     onColumnEdit: (columnId: string, name: string, color?: string) => void;
     onColumnDelete: (columnId: string) => void;
@@ -20,6 +21,7 @@ interface BoardProps {
 export const Board: React.FC<BoardProps> = ({
     columns,
     boardStatuses,
+    taskTypes = [],
     onColumnAdd,
     onColumnEdit,
     onColumnDelete,
@@ -68,6 +70,7 @@ export const Board: React.FC<BoardProps> = ({
                         canMoveLeft={index > 0}
                         canMoveRight={index < columns.length - 1}
                         boardStatuses={boardStatuses}
+                        taskTypes={taskTypes}
                         onTasksChange={(updatedColumn) => {
                             console.log('Tasks updated in column:', updatedColumn);
                         }}
