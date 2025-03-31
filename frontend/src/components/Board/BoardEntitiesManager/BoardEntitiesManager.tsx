@@ -25,6 +25,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { Board, BoardStatus, TaskType } from '../../../types/board';
 import { boardService } from '../../../services/boardService';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
@@ -79,6 +80,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
     const [isLoading, setIsLoading] = useState(false); // Общая загрузка данных
     const [isSubmitting, setIsSubmitting] = useState(false); // Загрузка при отправке формы
     const [isDeleting, setIsDeleting] = useState(false); // Загрузка при удалении
+    const [isRefreshing, setIsRefreshing] = useState(false); // Состояние для обновления списка сущностей
     
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -197,10 +199,17 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                 );
                 const updatedStatuses = [...statuses, newStatus];
                 setStatuses(updatedStatuses);
-                onBoardUpdate({
-                    ...board,
-                    taskStatuses: updatedStatuses
-                });
+                
+                // Обновляем всю доску после создания нового статуса
+                try {
+                    const updatedBoard = await boardService.getBoard(board.id);
+                    if (updatedBoard) {
+                        onBoardUpdate(updatedBoard);
+                    }
+                } catch (refreshErr) {
+                    console.error('Ошибка при обновлении доски после создания статуса:', refreshErr);
+                }
+                
                 setSuccess('Статус успешно создан');
             }
             setStatusDialogOpen(false);
@@ -296,10 +305,17 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                 );
                 const updatedTypes = [...types, newType];
                 setTypes(updatedTypes);
-                onBoardUpdate({
-                    ...board,
-                    taskTypes: updatedTypes
-                });
+                
+                // Обновляем всю доску после создания нового типа задачи
+                try {
+                    const updatedBoard = await boardService.getBoard(board.id);
+                    if (updatedBoard) {
+                        onBoardUpdate(updatedBoard);
+                    }
+                } catch (refreshErr) {
+                    console.error('Ошибка при обновлении доски после создания типа задачи:', refreshErr);
+                }
+                
                 setSuccess('Тип успешно создан');
             }
             setTypeDialogOpen(false);
@@ -323,6 +339,27 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
         }
     }, [deleteDialogOpen]);
 
+    // Функция для обновления сущностей
+    const refreshEntities = async () => {
+        setIsRefreshing(true);
+        try {
+            await loadEntities();
+            
+            // Также получаем обновленную доску для обновления всего интерфейса
+            const updatedBoard = await boardService.getBoard(board.id);
+            if (updatedBoard) {
+                onBoardUpdate(updatedBoard);
+            }
+            
+            setSuccess('Сущности доски обновлены');
+        } catch (err) {
+            console.error('Ошибка при обновлении сущностей:', err);
+            setError('Не удалось обновить сущности доски');
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     return (
         <Box sx={{ width: '100%' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -334,15 +371,25 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
 
             {/* Панель статусов */}
             <TabPanel value={tabValue} index={0}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6">Статусы задач</Typography>
-                    <Button 
-                        variant="contained" 
-                        startIcon={<AddIcon />}
-                        onClick={handleAddStatus}
-                    >
-                        Добавить статус
-                    </Button>
+                    <Box>
+                        <Button 
+                            startIcon={<RefreshIcon />} 
+                            onClick={refreshEntities} 
+                            disabled={isRefreshing || isLoading}
+                            sx={{ mr: 1 }}
+                        >
+                            {isRefreshing ? <CircularProgress size={24} /> : 'Обновить'}
+                        </Button>
+                        <Button 
+                            startIcon={<AddIcon />} 
+                            variant="contained" 
+                            onClick={handleAddStatus}
+                        >
+                            Добавить статус
+                        </Button>
+                    </Box>
                 </Box>
                 
                 {isLoading && <CircularProgress />}
@@ -403,15 +450,25 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
 
             {/* Панель типов задач */}
             <TabPanel value={tabValue} index={1}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6">Типы задач</Typography>
-                    <Button 
-                        variant="contained" 
-                        startIcon={<AddIcon />}
-                        onClick={handleAddType}
-                    >
-                        Добавить тип
-                    </Button>
+                    <Box>
+                        <Button 
+                            startIcon={<RefreshIcon />} 
+                            onClick={refreshEntities} 
+                            disabled={isRefreshing || isLoading}
+                            sx={{ mr: 1 }}
+                        >
+                            {isRefreshing ? <CircularProgress size={24} /> : 'Обновить'}
+                        </Button>
+                        <Button 
+                            startIcon={<AddIcon />} 
+                            variant="contained" 
+                            onClick={handleAddType}
+                        >
+                            Добавить тип
+                        </Button>
+                    </Box>
                 </Box>
                 
                 {isLoading && <CircularProgress />}

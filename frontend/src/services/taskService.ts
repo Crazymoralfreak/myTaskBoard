@@ -1,5 +1,5 @@
 import { api } from '../api/api';
-import { Task, TaskPriority, CreateTaskRequest, TaskComment, TaskAttachment, TaskTemplate } from '../types/task';
+import { Task, TaskPriority, CreateTaskRequest, TaskComment, TaskAttachment, TaskTemplate, TaskHistory } from '../types/task';
 import { CreateSubtaskRequest, UpdateSubtaskRequest } from '../types/subtask';
 import { JwtService } from './jwtService';
 import { AxiosResponse } from 'axios';
@@ -7,6 +7,9 @@ import { Board } from '../types/board';
 
 const jwtService = JwtService.getInstance();
 const axiosInstance = jwtService.getAxiosInstance();
+
+// Кэш для хранения тегов
+let tagsCache: string[] | null = null;
 
 interface MoveTaskRequest {
     taskId: number;
@@ -30,47 +33,176 @@ export const taskService = {
 
     async getTask(taskId: number): Promise<Task> {
         try {
-            console.log('Получение задачи по ID:', taskId);
             const response = await axiosInstance.get(`/api/tasks/${taskId}`);
-            console.log('Задача успешно получена:', response.data);
-            return response.data;
+            console.log('Получены данные задачи:', response.data);
+            
+            // Проверяем, есть ли тип и статус задачи в ответе
+            // Если тип задачи null, но есть typeId, загружаем информацию о типе
+            if (response.data.type === null && response.data.typeId) {
+                try {
+                    // Находим board ID для запроса типов
+                    const boardId = response.data.boardId || this.getBoardIdFromUrl();
+                    if (boardId) {
+                        const boardTypesResponse = await axiosInstance.get(`/api/boards/${boardId}/entities/types`);
+                        const typeInfo = boardTypesResponse.data.find((t: any) => t.id === response.data.typeId);
+                        if (typeInfo) {
+                            response.data.type = {
+                                id: typeInfo.id,
+                                name: typeInfo.name,
+                                color: typeInfo.color,
+                                icon: typeInfo.icon
+                            };
+                            console.log('Добавлен тип задачи из дополнительного запроса:', response.data.type);
+                        }
+                    }
+                } catch (typeError) {
+                    console.error('Ошибка при загрузке типа задачи:', typeError);
+                }
+            }
+            
+            // Аналогично для статуса
+            if (response.data.customStatus === null && response.data.statusId) {
+                try {
+                    const boardId = response.data.boardId || this.getBoardIdFromUrl();
+                    if (boardId) {
+                        const boardStatusesResponse = await axiosInstance.get(`/api/boards/${boardId}/entities/statuses`);
+                        const statusInfo = boardStatusesResponse.data.find((s: any) => s.id === response.data.statusId);
+                        if (statusInfo) {
+                            response.data.customStatus = {
+                                id: statusInfo.id,
+                                name: statusInfo.name,
+                                color: statusInfo.color
+                            };
+                            console.log('Добавлен статус задачи из дополнительного запроса:', response.data.customStatus);
+                        }
+                    }
+                } catch (statusError) {
+                    console.error('Ошибка при загрузке статуса задачи:', statusError);
+                }
+            }
+            
+            // Санитизируем ответ, чтобы избежать проблем с рекурсивными ссылками
+            return this.sanitizeTaskData(response.data);
         } catch (error) {
-            console.error('Ошибка при получении задачи:', error);
-            throw error;
+            console.error('Failed to fetch task:', error);
+            throw new Error('Failed to fetch task');
         }
     },
 
     async createTask(task: CreateTaskRequest): Promise<Task> {
         try {
-            console.log('Создание задачи:', task);
-            const response = await axiosInstance.post('/api/tasks', task);
+            // Убедимся, что typeId корректный - если он существует, но равен 0, устанавливаем null
+            const cleanedTask = { ...task };
+            
+            if (cleanedTask.typeId !== undefined) {
+                // Преобразуем typeId в число для корректной проверки
+                const typeIdNum = Number(cleanedTask.typeId);
+                
+                // Если typeId равен 0 или не является числом (NaN), устанавливаем null
+                if (isNaN(typeIdNum) || typeIdNum === 0) {
+                    cleanedTask.typeId = null;
+                } else {
+                    // Убедимся, что typeId сохранен как число, а не строка
+                    cleanedTask.typeId = typeIdNum;
+                }
+            }
+            
+            // Аналогично для statusId
+            if (cleanedTask.statusId !== undefined) {
+                const statusIdNum = Number(cleanedTask.statusId);
+                
+                if (isNaN(statusIdNum) || statusIdNum === 0) {
+                    cleanedTask.statusId = null;
+                } else {
+                    cleanedTask.statusId = statusIdNum;
+                }
+            }
+            
+            console.log('Отправка запроса на создание задачи (очищенные данные):', cleanedTask);
+            const response = await axiosInstance.post('/api/tasks', cleanedTask);
             console.log('Задача успешно создана:', response.data);
+            
+            // Добавляем запись в историю о создании задачи
+            try {
+                if (response.data && response.data.id) {
+                    await this.addHistoryEntry(response.data.id, {
+                        action: 'task_created',
+                        newValue: 'Задача создана'
+                    });
+                    console.log('Добавлена запись в историю о создании задачи');
+                }
+            } catch (historyError) {
+                console.error('Ошибка при записи истории создания задачи:', historyError);
+                // Не выбрасываем ошибку, так как создание задачи уже успешно выполнено
+            }
+            
             return response.data;
         } catch (error) {
-            console.error('Ошибка при создании задачи:', error);
-            throw error;
+            console.error('Failed to create task:', error);
+            throw new Error('Failed to create task');
         }
     },
 
-    async updateTask(taskId: number, task: Partial<Task>): Promise<Task> {
+    async updateTask(taskId: number, updatedTask: any): Promise<Task> {
         try {
-            console.log('Обновление задачи:', { taskId, task });
+            console.log('Отправка запроса на обновление задачи:', updatedTask);
             
-            // Удаляем null значения из объекта task
-            const cleanTask = Object.entries(task).reduce((acc, [key, value]) => {
-                if (value !== undefined) {
-                    (acc as any)[key] = value;
+            // Создаем копию объекта для модификации перед отправкой
+            const taskToUpdate = { ...updatedTask };
+            
+            // Обрабатываем typeId - проверяем и преобразуем в число 
+            if (taskToUpdate.typeId !== undefined) {
+                const typeIdNum = Number(taskToUpdate.typeId);
+                
+                if (isNaN(typeIdNum) || typeIdNum === 0) {
+                    console.log('Коррекция typeId: установлен null вместо некорректного значения');
+                    taskToUpdate.typeId = null;
+                } else {
+                    console.log('Обновляем typeId:', typeIdNum);
+                    taskToUpdate.typeId = typeIdNum;
                 }
-                return acc;
-            }, {} as Partial<Task>);
+            }
             
-            console.log('Очищенные данные для обновления:', cleanTask);
-            const response = await axiosInstance.put(`/api/tasks/${taskId}`, cleanTask);
+            // Обрабатываем statusId - проверяем и преобразуем в число
+            if (taskToUpdate.statusId !== undefined) {
+                const statusIdNum = Number(taskToUpdate.statusId);
+                
+                if (isNaN(statusIdNum) || statusIdNum === 0) {
+                    console.log('Коррекция statusId: установлен null вместо некорректного значения');
+                    taskToUpdate.statusId = null;
+                } else {
+                    console.log('Обновляем statusId:', statusIdNum);
+                    taskToUpdate.statusId = statusIdNum;
+                }
+            }
+            
+            // Если изменилась колонка, записываем это в историю
+            const previousColumnId = updatedTask.previousColumnId;
+            if (previousColumnId && previousColumnId !== updatedTask.columnId) {
+                try {
+                    // Получаем информацию о колонках для записи в историю
+                    await this.addHistoryEntry(taskId, {
+                        action: 'column_changed',
+                        oldValue: `Колонка ID: ${previousColumnId}`,
+                        newValue: `Колонка ID: ${updatedTask.columnId}`
+                    });
+                    console.log('Добавлена запись в историю о перемещении задачи');
+                } catch (historyError) {
+                    console.error('Ошибка при записи истории перемещения задачи:', historyError);
+                }
+            }
+            
+            // Удаляем временные поля перед отправкой
+            delete taskToUpdate.previousColumnId;
+            
+            const response = await axiosInstance.put(`/api/tasks/${taskId}`, taskToUpdate);
             console.log('Задача успешно обновлена:', response.data);
-            return response.data;
+            
+            // Возвращаем безопасную копию данных
+            return this.sanitizeTaskData(response.data);
         } catch (error) {
-            console.error('Ошибка при обновлении задачи:', error);
-            throw error;
+            console.error('Failed to update task:', error);
+            throw new Error('Failed to update task');
         }
     },
 
@@ -85,38 +217,93 @@ export const taskService = {
         }
     },
 
-    async moveTask(moveRequest: MoveTaskRequest): Promise<void> {
+    async moveTask(
+        taskIdOrRequest: number | MoveTaskRequest,
+        columnId?: string | number,
+        position?: number,
+        previousColumnId?: string | number
+    ): Promise<Task> {
         try {
-            console.log('Вызов метода moveTask с параметрами:', JSON.stringify(moveRequest, null, 2));
+            let taskId: number;
+            let targetColumnId: string | number;
+            let targetPosition: number;
+            let sourcePreviousColumnId: string | number | undefined;
+            let typeId: number | null | undefined;
+            let statusId: number | null | undefined;
             
-            // Проверяем все обязательные поля
-            if (moveRequest.taskId === undefined || moveRequest.taskId === null) {
-                throw new Error('Не указан taskId');
-            }
-            if (moveRequest.sourceColumnId === undefined || moveRequest.sourceColumnId === null) {
-                throw new Error('Не указан sourceColumnId');
-            }
-            if (moveRequest.destinationColumnId === undefined || moveRequest.destinationColumnId === null) {
-                throw new Error('Не указан destinationColumnId');
-            }
-            if (moveRequest.newPosition === undefined || moveRequest.newPosition === null) {
-                throw new Error('Не указана новая позиция');
+            // Проверяем, передан ли объект или отдельные параметры
+            if (typeof taskIdOrRequest === 'object') {
+                // Используем объект MoveTaskRequest
+                const request = taskIdOrRequest;
+                taskId = request.taskId;
+                targetColumnId = request.destinationColumnId;
+                targetPosition = request.newPosition;
+                sourcePreviousColumnId = request.sourceColumnId;
+                typeId = request.typeId;
+                statusId = request.statusId;
+                
+                console.log(`Перемещение задачи ${taskId} в колонку ${targetColumnId}, позиция ${targetPosition}`);
+            } else {
+                // Используем отдельные параметры
+                taskId = taskIdOrRequest;
+                targetColumnId = columnId!;
+                targetPosition = position!;
+                sourcePreviousColumnId = previousColumnId;
+                
+                console.log(`Перемещение задачи ${taskId} в колонку ${targetColumnId}, позиция ${targetPosition}`);
             }
             
-            // Создаем копию запроса, чтобы не модифицировать оригинал
-            const requestData = {
-                ...moveRequest,
-                typeId: moveRequest.typeId || null,
-                statusId: moveRequest.statusId || null
+            const moveData = {
+                taskId,
+                columnId: targetColumnId,
+                position: targetPosition
             };
             
-            console.log('Отправка запроса на перемещение:', JSON.stringify(requestData, null, 2));
-            const response = await axiosInstance.post('/api/tasks/move', requestData);
-            console.log('Задача успешно перемещена, ответ сервера:', response.data);
-            return response.data;
+            // Добавляем typeId и statusId в запрос
+            if (typeId !== undefined) {
+                // @ts-ignore
+                moveData.typeId = typeId;
+            }
+            
+            if (statusId !== undefined) {
+                // @ts-ignore
+                moveData.statusId = statusId;
+            }
+            
+            console.log('Отправка данных для перемещения задачи:', moveData);
+            const response = await axiosInstance.post('/api/tasks/move', {
+                taskId,
+                sourceColumnId: sourcePreviousColumnId,
+                destinationColumnId: targetColumnId,
+                newPosition: targetPosition,
+                typeId: typeId !== undefined ? typeId : null,
+                statusId: statusId !== undefined ? statusId : null
+            });
+            console.log('Задача успешно перемещена:', response.data);
+            
+            // Создаем безопасную копию данных для возврата, чтобы избежать проблем с рекурсивными ссылками
+            const safeTaskData = this.sanitizeTaskData(response.data);
+            
+            // Если передан параметр previousColumnId, значит задача переместилась между колонками
+            if (sourcePreviousColumnId && sourcePreviousColumnId !== targetColumnId) {
+                try {
+                    // Добавляем запись в историю о перемещении между колонками
+                    await this.addHistoryEntry(taskId, {
+                        action: 'moved_between_columns',
+                        oldValue: `Колонка ID: ${sourcePreviousColumnId}`,
+                        newValue: `Колонка ID: ${targetColumnId}`
+                    });
+                    console.log('Добавлена запись в историю о перемещении задачи между колонками');
+                } catch (historyError) {
+                    console.error('Ошибка при добавлении записи в историю:', historyError);
+                    // Не выбрасываем ошибку, так как перемещение задачи уже выполнено
+                }
+            }
+            
+            return safeTaskData;
         } catch (error) {
-            console.error('Ошибка при перемещении задачи:', error);
-            throw error;
+            console.error('Failed to move task:', error);
+            throw new Error('Failed to move task');
         }
     },
 
@@ -470,4 +657,211 @@ export const taskService = {
     deleteTaskTemplate(templateId: number): Promise<AxiosResponse<void>> {
         return axiosInstance.delete(`/api/templates/${templateId}`);
     },
+
+    // Методы для работы с тегами
+    async getAllTags(): Promise<string[]> {
+        try {
+            // Если теги уже были загружены, возвращаем их из кэша
+            if (tagsCache !== null) {
+                return tagsCache;
+            }
+            
+            console.log('Запрашиваем теги с сервера...');
+            const response = await axiosInstance.get(`/api/tasks/tags`);
+            
+            // Сохраняем результат в кэш
+            tagsCache = response.data;
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при получении тегов:', error);
+            return [];
+        }
+    },
+    
+    async addTag(tag: string): Promise<string[]> {
+        try {
+            const response = await axiosInstance.post(`/api/tasks/tags`, { tag });
+            
+            // Обновляем кэш при добавлении нового тега
+            tagsCache = response.data;
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка при добавлении тега:', error);
+            return [];
+        }
+    },
+
+    // Методы для работы с историей задач
+    async getTaskHistory(taskId: number): Promise<TaskHistory[]> {
+        try {
+            console.log(`Запрашиваем историю задачи ${taskId}...`);
+            try {
+                const response = await axiosInstance.get(`/api/tasks/${taskId}/history`);
+                
+                // Проверяем, что ответ это массив
+                if (Array.isArray(response.data)) {
+                    // Извлечение только безопасных полей для каждой записи истории
+                    const optimizedHistory: TaskHistory[] = response.data.map((item: any) => ({
+                        id: item.id || Math.random(),
+                        username: item.username || 'Система',
+                        email: item.changedBy?.email,
+                        avatarUrl: item.avatarUrl,
+                        action: item.action || 'unknown_action',
+                        oldValue: item.oldValue,
+                        newValue: item.newValue,
+                        timestamp: item.timestamp || new Date().toISOString()
+                    }));
+                    
+                    console.log('Получены данные истории (безопасная версия):', optimizedHistory);
+                    return optimizedHistory;
+                } else {
+                    console.warn('Ответ от сервера не является массивом:', response.data);
+                    return [];
+                }
+            } catch (error) {
+                console.error('Ошибка при запросе истории задачи:', error);
+                return [];
+            }
+        } catch (error) {
+            console.error('Ошибка при получении истории задачи:', error);
+            return [];
+        }
+    },
+    
+    async addHistoryEntry(taskId: number, entry: {action: string, oldValue?: string, newValue?: string}): Promise<TaskHistory> {
+        try {
+            // Копируем объект entry, чтобы не изменять оригинал
+            const sanitizedEntry = {
+                action: entry.action,
+                oldValue: entry.oldValue ? this.sanitizeHtmlContent(entry.oldValue) : undefined,
+                newValue: entry.newValue ? this.sanitizeHtmlContent(entry.newValue) : undefined
+            };
+            
+            console.log(`Добавляем запись в историю задачи ${taskId}:`, sanitizedEntry);
+            
+            try {
+                // Делаем запрос с обработкой ошибок
+                const response = await axiosInstance.post(`/api/tasks/${taskId}/history`, sanitizedEntry);
+                
+                // Проверяем результат и создаем безопасный объект даже если ответ некорректный
+                const historyEntry: TaskHistory = {
+                    id: response.data?.id || Math.random(),
+                    username: response.data?.username || 'Система',
+                    email: response.data?.changedBy?.email,
+                    avatarUrl: response.data?.avatarUrl,
+                    action: response.data?.action || entry.action,
+                    oldValue: response.data?.oldValue || entry.oldValue,
+                    newValue: response.data?.newValue || entry.newValue,
+                    timestamp: response.data?.timestamp || new Date().toISOString()
+                };
+                
+                console.log('Запись в историю добавлена (безопасная версия):', historyEntry);
+                return historyEntry;
+            } catch (requestError) {
+                // В случае ошибки при запросе создаем локальную запись
+                console.warn('Не удалось отправить запись в историю на сервер:', requestError);
+                const localHistoryEntry: TaskHistory = {
+                    id: Math.random(),
+                    username: 'Система (локально)',
+                    action: entry.action,
+                    oldValue: entry.oldValue,
+                    newValue: entry.newValue,
+                    timestamp: new Date().toISOString()
+                };
+                console.log('Создана локальная запись истории:', localHistoryEntry);
+                return localHistoryEntry;
+            }
+        } catch (error) {
+            console.error('Ошибка при добавлении записи в историю:', error);
+            // Игнорируем ошибку, чтобы не ломать основной поток
+            console.log('Запись истории будет пропущена из-за ошибки');
+            // Возвращаем минимальный объект, чтобы поддержать интерфейс
+            return {
+                id: Math.random(),
+                username: 'Ошибка',
+                action: entry.action || 'unknown_action',
+                timestamp: new Date().toISOString()
+            } as TaskHistory;
+        }
+    },
+    
+    // Вспомогательный метод для удаления HTML-тегов
+    sanitizeHtmlContent(html: string): string {
+        // Если строка содержит HTML-теги, вернем только текстовое содержимое
+        if (html.includes('<') && html.includes('>')) {
+            // Базовое удаление HTML-тегов
+            return html.replace(/<[^>]*>/g, '');
+        }
+        return html;
+    },
+
+    // Метод для создания безопасной копии задачи без рекурсивных ссылок
+    sanitizeTaskData(taskData: any): Task {
+        // Создаем копию данных
+        const safeTask = { ...taskData };
+        
+        // Удаляем потенциально рекурсивные ссылки
+        if (safeTask.column && typeof safeTask.column === 'object') {
+            // Сохраняем только id и name колонки, удаляем рекурсивные ссылки
+            const columnId = safeTask.column.id;
+            const columnName = safeTask.column.name;
+            safeTask.column = { id: columnId, name: columnName };
+        }
+        
+        // Упрощаем связи с пользователями
+        if (safeTask.assignedUsers && Array.isArray(safeTask.assignedUsers)) {
+            safeTask.assignedUsers = safeTask.assignedUsers.map((user: any) => ({
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                avatarUrl: user.avatarUrl
+            }));
+        }
+        
+        // Упрощаем связи с комментариями
+        if (safeTask.comments && Array.isArray(safeTask.comments)) {
+            safeTask.comments = safeTask.comments.map((comment: any) => {
+                const safeComment = { ...comment };
+                if (safeComment.author) {
+                    safeComment.author = {
+                        id: comment.author.id,
+                        username: comment.author.username,
+                        avatarUrl: comment.author.avatarUrl
+                    };
+                }
+                return safeComment;
+            });
+        }
+        
+        return safeTask;
+    },
+
+    getBoardIdFromUrl(): number | null {
+        try {
+            // Пытаемся извлечь ID доски из URL
+            const url = window.location.pathname;
+            
+            // Поддержка различных форматов URL: /boards/123, /boards/123/tasks, /boards/123/columns, и т.д.
+            const boardPathRegex = /\/boards\/(\d+)(?:\/.*)?/;
+            const match = url.match(boardPathRegex);
+            
+            if (match && match[1]) {
+                return parseInt(match[1], 10);
+            }
+            
+            // Если не удалось найти ID в URL, проверяем наличие query-параметра boardId
+            const urlParams = new URLSearchParams(window.location.search);
+            const boardIdParam = urlParams.get('boardId');
+            
+            if (boardIdParam) {
+                return parseInt(boardIdParam, 10);
+            }
+            
+            console.log('Не удалось извлечь boardId из URL:', url);
+            return null;
+        } catch (error) {
+            console.error('Ошибка при получении ID доски из URL:', error);
+            return null;
+        }
+    }
 }; 

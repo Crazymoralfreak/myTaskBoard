@@ -31,6 +31,8 @@ import java.time.ZoneId;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
+import com.yourapp.model.TaskHistory;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -490,5 +492,99 @@ public class TaskController {
             task.getType() != null ? task.getType().getName() : "null",
             task.getCustomStatus() != null ? task.getCustomStatus().getName() : "null");
         return taskMapper.toResponse(task);
+    }
+
+    /**
+     * Получение всех тегов
+     */
+    @GetMapping("/tags")
+    public Set<String> getAllTags() {
+        logger.debug("Получен запрос на получение всех тегов");
+        return taskService.getAllTags();
+    }
+
+    /**
+     * Добавление нового тега
+     */
+    @PostMapping("/tags")
+    public Set<String> addTag(@RequestBody Map<String, String> request) {
+        String tag = request.get("tag");
+        logger.debug("Получен запрос на добавление тега: {}", tag);
+        return taskService.addTag(tag);
+    }
+
+    /**
+     * Получение истории задачи
+     */
+    @GetMapping("/{taskId}/history")
+    public List<Map<String, Object>> getTaskHistory(@PathVariable Long taskId) {
+        logger.debug("Получен запрос на получение истории задачи с ID: {}", taskId);
+        
+        // Получаем историю задачи
+        List<TaskHistory> historyEntries = taskService.getTaskHistoryByTaskId(taskId);
+        
+        // Преобразуем в упрощенный формат для предотвращения рекурсивной сериализации
+        return historyEntries.stream()
+            .map(entry -> {
+                Map<String, Object> simplifiedEntry = new HashMap<>();
+                simplifiedEntry.put("id", entry.getId());
+                simplifiedEntry.put("username", entry.getUsername() != null ? entry.getUsername() : 
+                                   (entry.getChangedBy() != null ? entry.getChangedBy().getUsername() : "Система"));
+                simplifiedEntry.put("action", entry.getAction());
+                simplifiedEntry.put("oldValue", entry.getOldValue());
+                simplifiedEntry.put("newValue", entry.getNewValue());
+                simplifiedEntry.put("timestamp", entry.getTimestamp());
+                
+                // Добавляем информацию о пользователе, если она доступна
+                if (entry.getChangedBy() != null) {
+                    simplifiedEntry.put("email", entry.getChangedBy().getEmail());
+                    simplifiedEntry.put("avatarUrl", entry.getChangedBy().getAvatarUrl());
+                }
+                
+                return simplifiedEntry;
+            })
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Добавление записи в историю задачи
+     */
+    @PostMapping("/{taskId}/history")
+    public Map<String, Object> addHistoryEntry(
+        @PathVariable Long taskId,
+        @RequestBody Map<String, Object> request,
+        @AuthenticationPrincipal User currentUser
+    ) {
+        logger.debug("Получен запрос на добавление записи в историю задачи с ID: {}", taskId);
+        
+        String action = (String) request.get("action");
+        String oldValue = (String) request.get("oldValue");
+        String newValue = (String) request.get("newValue");
+        
+        TaskHistory history = new TaskHistory();
+        history.setAction(action);
+        history.setOldValue(oldValue);
+        history.setNewValue(newValue);
+        
+        // Добавляем запись в историю и получаем сохраненный результат
+        TaskHistory savedEntry = taskService.addHistoryEntry(taskId, history, currentUser);
+        
+        // Преобразуем в упрощенный формат для предотвращения рекурсивной сериализации
+        Map<String, Object> simplifiedEntry = new HashMap<>();
+        simplifiedEntry.put("id", savedEntry.getId());
+        simplifiedEntry.put("username", savedEntry.getUsername() != null ? savedEntry.getUsername() : 
+                           (savedEntry.getChangedBy() != null ? savedEntry.getChangedBy().getUsername() : "Система"));
+        simplifiedEntry.put("action", savedEntry.getAction());
+        simplifiedEntry.put("oldValue", savedEntry.getOldValue());
+        simplifiedEntry.put("newValue", savedEntry.getNewValue());
+        simplifiedEntry.put("timestamp", savedEntry.getTimestamp());
+        
+        // Добавляем информацию о пользователе, если она доступна
+        if (savedEntry.getChangedBy() != null) {
+            simplifiedEntry.put("email", savedEntry.getChangedBy().getEmail());
+            simplifiedEntry.put("avatarUrl", savedEntry.getChangedBy().getAvatarUrl());
+        }
+        
+        return simplifiedEntry;
     }
 }

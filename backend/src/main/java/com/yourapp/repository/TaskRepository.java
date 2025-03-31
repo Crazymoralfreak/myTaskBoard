@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -33,4 +34,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus WHERE t.id = :id")
     Optional<Task> findByIdWithTypeAndStatus(@Param("id") Long id);
+
+    @Query("SELECT DISTINCT t FROM Task task JOIN task.tags t")
+    Set<String> findAllTags();
 }

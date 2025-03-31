@@ -115,16 +115,19 @@ CREATE TABLE attachments (
 -- Создание таблицы истории задач
 CREATE TABLE task_history (
     id BIGSERIAL PRIMARY KEY,
-    task_id BIGINT REFERENCES tasks(id),
-    changed_by_id BIGINT REFERENCES users(id),
-    username VARCHAR(255),
+    task_id BIGINT NOT NULL,
+    username VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(255),
     field_changed VARCHAR(255) NOT NULL,
     old_value TEXT,
     new_value TEXT,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    changed_by_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_task_history_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    CONSTRAINT fk_task_history_user FOREIGN KEY (changed_by_id) REFERENCES users(id)
 );
 
 -- Создание таблицы настроек уведомлений
@@ -252,8 +255,8 @@ CREATE INDEX idx_task_statuses_board ON task_statuses(board_id);
 CREATE INDEX idx_comments_task ON comments(task_id);
 CREATE INDEX idx_comments_author ON comments(author_id);
 CREATE INDEX idx_attachments_task ON attachments(task_id);
-CREATE INDEX idx_task_history_task ON task_history(task_id);
-CREATE INDEX idx_task_history_user ON task_history(changed_by_id);
+CREATE INDEX idx_task_history_task_id ON task_history(task_id);
+CREATE INDEX idx_task_history_timestamp ON task_history(timestamp);
 CREATE INDEX idx_notification_preferences_user ON notification_preferences(user_id);
 CREATE INDEX idx_checklists_task ON checklists(task_id);
 CREATE INDEX idx_checklist_items_checklist ON checklist_items(checklist_id);
@@ -319,6 +322,7 @@ COMMENT ON COLUMN tasks.end_date IS 'Дата окончания выполне�
 COMMENT ON COLUMN tasks.days_remaining IS 'Оставшееся количество дней до окончания задачи';
 COMMENT ON COLUMN task_history.username IS 'Имя пользователя, внесшего изменение';
 COMMENT ON COLUMN task_history.avatar_url IS 'URL аватара пользователя, внесшего изменение';
+COMMENT ON COLUMN task_history.field_changed IS 'Поле, которое было изменено';
 COMMENT ON COLUMN subtasks.position IS 'Позиция подзадачи в списке';
 COMMENT ON COLUMN subtasks.estimated_hours IS 'Оценка времени в часах';
 COMMENT ON COLUMN task_templates.name IS 'Название шаблона задачи';

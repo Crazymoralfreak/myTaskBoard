@@ -40,6 +40,7 @@ public class TaskService {
     private final TaskStatusRepository taskStatusRepository;
     private final TaskTypeRepository taskTypeRepository;
     private final CommentRepository commentRepository;
+    private final TaskHistoryRepository taskHistoryRepository;
     private static final Logger logger = LoggerFactory.getLogger(TaskService.class);
     
     @Value("${app.upload.max-file-size}")
@@ -701,5 +702,73 @@ public class TaskService {
         for (int i = 0; i < tasks.size(); i++) {
             tasks.get(i).setPosition(i);
         }
+    }
+
+    /**
+     * Получить все теги из всех задач
+     * @return множество всех уникальных тегов
+     */
+    public Set<String> getAllTags() {
+        logger.debug("Получение всех тегов из всех задач");
+        try {
+            return taskRepository.findAllTags();
+        } catch (Exception e) {
+            logger.error("Ошибка при получении всех тегов: {}", e.getMessage());
+            return new HashSet<>();
+        }
+    }
+
+    /**
+     * Добавить новый тег в глобальный список тегов
+     * @param tag новый тег
+     * @return обновленный список всех тегов
+     */
+    public Set<String> addTag(String tag) {
+        logger.debug("Добавление нового тега: {}", tag);
+        if (tag == null || tag.trim().isEmpty()) {
+            throw new IllegalArgumentException("Тег не может быть пустым");
+        }
+        
+        // В текущей реализации просто возвращаем обновленный список тегов
+        // Тег будет добавлен при следующем обновлении задачи
+        Set<String> allTags = getAllTags();
+        allTags.add(tag.trim());
+        return allTags;
+    }
+
+    /**
+     * Получить историю задачи
+     * @param taskId идентификатор задачи
+     * @return список записей истории
+     */
+    public List<TaskHistory> getTaskHistoryByTaskId(Long taskId) {
+        logger.debug("Получение истории задачи с ID: {}", taskId);
+        
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new RuntimeException("Задача не найдена"));
+        
+        return taskHistoryRepository.findByTaskIdOrderByTimestampDesc(taskId);
+    }
+
+    /**
+     * Добавить запись в историю задачи
+     * @param taskId идентификатор задачи
+     * @param historyEntry запись истории
+     * @param user пользователь, выполняющий действие
+     * @return созданная запись истории
+     */
+    public TaskHistory addHistoryEntry(Long taskId, TaskHistory historyEntry, User user) {
+        logger.debug("Добавление записи в историю задачи с ID: {}", taskId);
+        
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new RuntimeException("Задача не найдена"));
+        
+        historyEntry.setTask(task);
+        historyEntry.setChangedBy(user);
+        historyEntry.setUsername(user.getUsername());
+        historyEntry.setAvatarUrl(user.getAvatarUrl());
+        historyEntry.setTimestamp(LocalDateTime.now());
+        
+        return taskHistoryRepository.save(historyEntry);
     }
 }

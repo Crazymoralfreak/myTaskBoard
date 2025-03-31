@@ -40,7 +40,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import StyleIcon from '@mui/icons-material/Style';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import { Task, CreateTaskRequest, TaskPriority } from '../../../types/task';
+import { Task, CreateTaskRequest, TaskPriority, TaskTemplate } from '../../../types/task';
 import { BoardStatus, TaskType } from '../../../types/board';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -61,6 +61,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CommentIcon from '@mui/icons-material/Comment';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { useConfirmDialog } from '../../../context/ConfirmDialogContext';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -101,6 +102,7 @@ interface TaskModalProps {
     taskTypes?: TaskType[];
     onTaskCopy?: (task: Task) => void;
     disableBackdropClick?: boolean;
+    boardId?: number;
 }
 
 // Расширенный интерфейс для Task с новыми полями
@@ -134,7 +136,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     boardStatuses = [],
     taskTypes = [],
     onTaskCopy,
-    disableBackdropClick = false
+    disableBackdropClick = false,
+    boardId
 }) => {
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -149,7 +152,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [tabValue, setTabValue] = useState(0);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [mode, setMode] = useState<ModalMode>(initialMode);
     const [selectedTab, setSelectedTab] = useState(0);
     const [errors, setErrors] = useState<{
@@ -188,6 +190,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         'indent',
         'link'
     ];
+
+    const { showConfirmDialog } = useConfirmDialog();
 
     useEffect(() => {
         if (open) {
@@ -249,10 +253,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }, [open, initialMode, initialTask, boardStatuses, taskTypes]);
 
     useEffect(() => {
-        const storedTags = localStorage.getItem('taskTags');
-        if (storedTags) {
-            setAvailableTags(JSON.parse(storedTags));
-        }
+        const loadTags = async () => {
+            try {
+                const tags = await taskService.getAllTags();
+                setAvailableTags(tags);
+            } catch (error) {
+                console.error('Ошибка при загрузке тегов:', error);
+                setError('Не удалось загрузить теги');
+            }
+        };
+        
+        loadTags();
     }, []);
 
     useEffect(() => {
@@ -338,6 +349,60 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
         try {
             setIsSubmitting(true);
+            
+            // Проверяем, какие поля изменились
+            const updatedFields: Record<string, { oldValue?: string, newValue: string }> = {};
+            
+            if (title.trim() !== task.title) {
+                updatedFields.title = { 
+                    oldValue: task.title, 
+                    newValue: title.trim() 
+                };
+            }
+            
+            if (description !== task.description) {
+                updatedFields.description = { 
+                    oldValue: task.description, 
+                    newValue: description 
+                };
+            }
+            
+            if ((startDate?.toISOString() || null) !== task.startDate) {
+                updatedFields.startDate = { 
+                    oldValue: task.startDate || undefined, 
+                    newValue: startDate ? startDate.toISOString() : '' 
+                };
+            }
+            
+            if ((endDate?.toISOString() || null) !== task.endDate) {
+                updatedFields.endDate = { 
+                    oldValue: task.endDate || undefined, 
+                    newValue: endDate ? endDate.toISOString() : '' 
+                };
+            }
+            
+            if (priority !== task.priority) {
+                updatedFields.priority = { 
+                    oldValue: task.priority, 
+                    newValue: priority 
+                };
+            }
+            
+            if (selectedTypeId !== (task.type?.id || null)) {
+                updatedFields.type = { 
+                    oldValue: task.type?.name || undefined, 
+                    newValue: taskTypes.find(t => t.id === selectedTypeId)?.name || 'Нет типа' 
+                };
+            }
+            
+            if (selectedStatusId !== (task.customStatus?.id || null)) {
+                updatedFields.status = { 
+                    oldValue: task.customStatus?.name || undefined, 
+                    newValue: boardStatuses.find(s => s.id === selectedStatusId)?.name || 'Без статуса' 
+                };
+            }
+            
+            // Подготавливаем объект для обновления задачи
             const updatedTask = {
                 ...task,
                 title: title.trim(),
@@ -345,13 +410,55 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 startDate: startDate ? startDate.toISOString() : null,
                 endDate: endDate ? endDate.toISOString() : null,
                 priority: priority,
-                typeId: selectedTypeId || null,
-                statusId: selectedStatusId || null,
+                typeId: selectedTypeId,
+                statusId: selectedStatusId,
                 tags,
             };
 
             console.log('Отправка обновления задачи:', updatedTask);
+            
+            // Обновляем задачу на сервере
             const result = await taskService.updateTask(task.id, updatedTask);
+            
+            // Создаем записи истории для каждого измененного поля
+            // Оборачиваем в try-catch, чтобы ошибки не блокировали основной поток
+            try {
+                // Создаем оптимизированные записи истории, фильтруя значения для снижения объема данных
+                const historyPromises = Object.entries(updatedFields)
+                    .filter(([field, { oldValue, newValue }]) => {
+                        // Пропускаем поля без изменений или со слишком длинными значениями
+                        if (oldValue === newValue) return false;
+                        
+                        // Ограничиваем размер значений для истории
+                        if (oldValue && oldValue.length > 500) return false;
+                        if (newValue && newValue.length > 500) return false;
+                        
+                        return true;
+                    })
+                    .map(([field, { oldValue, newValue }]) => {
+                        // Сокращаем HTML-описания
+                        let processedOldValue = oldValue;
+                        let processedNewValue = newValue;
+                        
+                        if (field === 'description') {
+                            processedOldValue = oldValue ? 'Предыдущее описание' : undefined;
+                            processedNewValue = newValue ? 'Новое описание' : '';
+                        }
+                        
+                        return taskService.addHistoryEntry(task.id, {
+                            action: `${field}_changed`,
+                            oldValue: processedOldValue,
+                            newValue: processedNewValue,
+                        });
+                    });
+                
+                // Ждем выполнения всех промисов с записью истории
+                await Promise.allSettled(historyPromises);
+            } catch (historyError) {
+                console.error('Ошибка при создании записей истории:', historyError);
+                // Игнорируем ошибки истории, основное обновление задачи уже выполнено
+            }
+            
             console.log('Результат обновления задачи:', result);
             onTaskUpdate(result);
             handleClose();
@@ -378,7 +485,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             setError('Не удалось удалить задачу');
         } finally {
             setIsSubmitting(false);
-            setShowDeleteConfirm(false);
         }
     };
 
@@ -461,42 +567,30 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         setSaveTemplateDialogOpen(true);
     };
     
-    const saveTemplate = () => {
+    const saveTemplate = async () => {
         if (!templateName.trim()) {
             setError('Название шаблона обязательно');
             return;
         }
         
-        const templateData = {
-            id: Date.now(),
-            name: templateName.trim(),
-            taskData: {
-                title: title.trim(),
-                description: description.trim(),
-                typeId: selectedTypeId,
-                statusId: selectedStatusId,
-                priority: priority,
-                tags,
-            }
-        };
-        
         try {
-            // Получаем текущие шаблоны из localStorage
-            const savedTemplates = localStorage.getItem('taskTemplates');
-            let templates = [];
-            
-            if (savedTemplates) {
-                templates = JSON.parse(savedTemplates);
+            if (boardId) {
+                await taskService.createTaskTemplate(boardId, {
+                    name: templateName.trim(),
+                    taskData: {
+                        title: title.trim(),
+                        description: description.trim(),
+                        typeId: selectedTypeId,
+                        statusId: selectedStatusId,
+                        priority: priority,
+                        tags,
+                    }
+                } as TaskTemplate);
+                setTemplateName('');
+                setSaveTemplateDialogOpen(false);
+            } else {
+                setError('Не удалось определить доску для сохранения шаблона');
             }
-            
-            // Добавляем новый шаблон
-            templates.push(templateData);
-            
-            // Сохраняем обновленный список шаблонов
-            localStorage.setItem('taskTemplates', JSON.stringify(templates));
-            
-            setTemplateName('');
-            setSaveTemplateDialogOpen(false);
         } catch (e) {
             console.error('Ошибка при сохранении шаблона:', e);
             setError('Не удалось сохранить шаблон');
@@ -535,7 +629,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 return (
                     <>
                         <Button 
-                            onClick={() => setShowDeleteConfirm(true)} 
+                            onClick={() => showConfirmDialog({
+                                title: "Удалить задачу",
+                                message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                actionType: "delete",
+                                onConfirm: handleDelete,
+                                loading: isSubmitting
+                            })} 
                             color="error"
                             disabled={isSubmitting}
                         >
@@ -556,7 +656,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     <>
                         {onTaskDelete && (
                             <Button 
-                                onClick={() => setShowDeleteConfirm(true)} 
+                                onClick={() => showConfirmDialog({
+                                    title: "Удалить задачу",
+                                    message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                    actionType: "delete",
+                                    onConfirm: handleDelete,
+                                    loading: isSubmitting
+                                })} 
                                 color="error"
                             >
                                 Удалить
@@ -661,28 +767,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         return d.toLocaleString('ru-RU');
     };
 
-    // Создаем портал для диалога подтверждения удаления
-    const renderDeleteConfirmDialog = () => {
-        return ReactDOM.createPortal(
-            <ConfirmDialog
-                open={showDeleteConfirm}
-                title="Удалить задачу"
-                message="Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить."
-                onConfirm={handleDelete}
-                onClose={() => setShowDeleteConfirm(false)}
-                loading={isSubmitting}
-                actionType="delete"
-            />,
-            document.body // Монтируем напрямую в body
-        );
-    };
-
-    const handleAddNewTag = (tag: string) => {
+    const handleAddNewTag = async (tag: string) => {
         if (!tag || availableTags.includes(tag)) return;
         
-        const updatedTags = [...availableTags, tag];
-        setAvailableTags(updatedTags);
-        localStorage.setItem('taskTags', JSON.stringify(updatedTags));
+        try {
+            const updatedTags = await taskService.addTag(tag);
+            setAvailableTags(updatedTags);
+        } catch (error) {
+            console.error('Ошибка при добавлении тега:', error);
+            setError('Не удалось добавить тег');
+        }
     };
 
     const renderTagsSelector = () => (
@@ -776,7 +870,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 fullWidth
                 fullScreen={fullScreen}
                 disableEscapeKeyDown={disableBackdropClick}
-                disableEnforceFocus={showDeleteConfirm} // Отключаем фокус, если открыт диалог подтверждения удаления
             >
                 <DialogTitle>
                     {renderDialogTitle()}
@@ -1391,9 +1484,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 </DialogActions>
             </Dialog>
 
-            {/* Используем функцию для создания портала */}
-            {renderDeleteConfirmDialog()}
-            
             <Dialog open={saveTemplateDialogOpen} onClose={() => setSaveTemplateDialogOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Сохранить задачу как шаблон</DialogTitle>
                 <DialogContent>

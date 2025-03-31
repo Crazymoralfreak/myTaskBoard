@@ -69,7 +69,100 @@ export const boardService = {
 
     async getBoard(boardId: string): Promise<Board> {
         const response = await api.get<Board>(`/api/boards/${boardId}`);
-        return response.data;
+        const processedBoard = this.processBoard(response.data);
+        return processedBoard;
+    },
+
+    // Обрабатывает доску, добавляя типы и статусы к задачам
+    processBoard(board: Board): Board {
+        if (!board || !board.columns) return board;
+
+        console.log('Обработка доски:', board.id);
+        
+        // Создаем копию доски для изменения
+        const processedBoard = { ...board };
+        
+        // Создаем быстрый доступ к задачам по id
+        const tasksMap: Record<number, any> = {};
+        
+        // Сначала собираем все задачи из всех колонок
+        processedBoard.columns.forEach(column => {
+            if (column.tasks) {
+                column.tasks.forEach(task => {
+                    tasksMap[task.id] = task;
+                });
+            }
+        });
+        
+        // Устанавливаем типы задач - проверяем, соответствуют ли задачи в списке taskTypes
+        if (processedBoard.taskTypes) {
+            // В API могут быть задачи внутри taskTypes, даже если в типах они не объявлены
+            processedBoard.taskTypes.forEach(taskType => {
+                // Проверяем задачи в колонках, которые соответствуют данному типу
+                Object.values(tasksMap).forEach((task: any) => {
+                    // TypeId может прийти в ответе от сервера
+                    if (task.typeId === taskType.id) {
+                        task.type = {
+                            id: taskType.id,
+                            name: taskType.name,
+                            color: taskType.color,
+                            icon: taskType.icon
+                        };
+                        console.log(`Установлен тип ${taskType.name} для задачи ${task.id}`);
+                    }
+                });
+                
+                // В некоторых API-ответах задачи могут быть вложены в тип
+                if ((taskType as any).tasks && Array.isArray((taskType as any).tasks)) {
+                    (taskType as any).tasks.forEach((taskWithType: any) => {
+                        if (tasksMap[taskWithType.id]) {
+                            tasksMap[taskWithType.id].type = {
+                                id: taskType.id,
+                                name: taskType.name,
+                                color: taskType.color,
+                                icon: taskType.icon
+                            };
+                            console.log(`Установлен тип ${taskType.name} для задачи ${taskWithType.id} (из списка типов)`);
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Устанавливаем статусы задач
+        if (processedBoard.taskStatuses) {
+            processedBoard.taskStatuses.forEach(status => {
+                // Проверяем задачи в колонках, которые соответствуют данному статусу
+                Object.values(tasksMap).forEach((task: any) => {
+                    // StatusId может прийти в ответе от сервера
+                    if (task.statusId === status.id) {
+                        task.customStatus = {
+                            id: status.id,
+                            name: status.name,
+                            color: status.color
+                        };
+                        console.log(`Установлен статус ${status.name} для задачи ${task.id}`);
+                    }
+                });
+                
+                // В некоторых API-ответах задачи могут быть вложены в статус
+                if ((status as any).tasks && Array.isArray((status as any).tasks)) {
+                    (status as any).tasks.forEach((taskWithStatus: any) => {
+                        if (tasksMap[taskWithStatus.id]) {
+                            tasksMap[taskWithStatus.id].customStatus = {
+                                id: status.id,
+                                name: status.name,
+                                color: status.color
+                            };
+                            console.log(`Установлен статус ${status.name} для задачи ${taskWithStatus.id} (из списка статусов)`);
+                        }
+                    });
+                }
+            });
+        }
+        
+        console.log('Обработка доски завершена, задачи обновлены с типами и статусами');
+        return processedBoard;
     },
 
     async updateBoardDetails(boardId: string, updates: { name?: string; description?: string }): Promise<Board> {
@@ -133,6 +226,17 @@ export const boardService = {
                 payload
             );
             console.log('Ответ сервера:', response.data);
+            
+            // Обновляем кэш доски, чтобы получить актуальные данные для всех компонентов
+            try {
+                // Получаем обновленные данные доски
+                await this.getBoard(boardId);
+                console.log('Состояние доски обновлено после создания статуса');
+            } catch (refreshError) {
+                console.error('Ошибка при обновлении состояния доски:', refreshError);
+                // Не выбрасываем ошибку, так как основной запрос успешно выполнен
+            }
+            
             return response.data;
         } catch (error) {
             console.error('Ошибка при создании статуса задачи:', error);
@@ -213,6 +317,17 @@ export const boardService = {
             );
             
             console.log('Ответ сервера:', response.data);
+            
+            // Обновляем кэш доски, чтобы получить актуальные данные для всех компонентов
+            try {
+                // Получаем обновленные данные доски
+                await this.getBoard(boardId);
+                console.log('Состояние доски обновлено после создания типа задачи');
+            } catch (refreshError) {
+                console.error('Ошибка при обновлении состояния доски:', refreshError);
+                // Не выбрасываем ошибку, так как основной запрос успешно выполнен
+            }
+            
             return response.data;
         } catch (error) {
             console.error('Ошибка при создании типа задачи:', error);

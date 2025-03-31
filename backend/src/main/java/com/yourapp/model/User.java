@@ -67,6 +67,7 @@ public class User implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private NotificationPreferences notificationPreferences;
 
     @JsonManagedReference

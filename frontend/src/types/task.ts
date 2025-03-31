@@ -34,8 +34,11 @@ export interface TaskAttachment {
 export interface TaskHistory {
     id: number;
     username: string;
+    email?: string;
     avatarUrl?: string;
-    action: 'created' | 'updated' | 'comment_added' | 'file_added';
+    action: string;
+    oldValue?: string;
+    newValue?: string;
     timestamp: string;
     changes?: {
         field?: string;

@@ -27,6 +27,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
 import { BoardColumn } from '../components/board/BoardColumn';
@@ -109,6 +110,7 @@ export const BoardPage: React.FC = () => {
     const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<number[]>([]);
     const [filterTabValue, setFilterTabValue] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
         if (boardId) {
@@ -232,20 +234,51 @@ export const BoardPage: React.FC = () => {
         if (!boardId) return;
         try {
             setLoading(true);
-            const boardData = await boardService.getBoard(boardId);
-            setBoard(boardData);
             
-            // Если в доске нет типов задач, загружаем их с сервера
-            if (!boardData.taskTypes || boardData.taskTypes.length === 0) {
-                try {
-                    const types = await boardService.getBoardTaskTypes(boardId);
-                    setTaskTypes(types);
-                } catch (error) {
-                    console.error('Не удалось загрузить типы задач:', error);
-                }
-            } else {
-                setTaskTypes(boardData.taskTypes);
-            }
+            // Загружаем параллельно доску, типы задач и статусы
+            const [boardData, taskTypesData, taskStatusesData] = await Promise.all([
+                boardService.getBoard(boardId),
+                boardService.getBoardTaskTypes(boardId),
+                boardService.getBoardStatuses(boardId)
+            ]);
+            
+            // Обогащаем задачи на доске типами и статусами
+            const enrichedColumns = boardData.columns.map(column => ({
+                ...column,
+                tasks: column.tasks.map(task => {
+                    // Обновляем тип задачи
+                    let enrichedTask = { ...task };
+                    
+                    if (task.type && task.type.id) {
+                        const fullType = taskTypesData.find(t => t.id === task.type?.id);
+                        if (fullType) {
+                            enrichedTask.type = fullType;
+                        }
+                    }
+                    
+                    // Обновляем статус задачи
+                    if (task.customStatus && task.customStatus.id) {
+                        const fullStatus = taskStatusesData.find(s => s.id === task.customStatus?.id);
+                        if (fullStatus) {
+                            enrichedTask.customStatus = fullStatus;
+                        }
+                    }
+                    
+                    return enrichedTask;
+                })
+            }));
+            
+            // Обновляем доску с обогащенными данными
+            const enrichedBoard = {
+                ...boardData,
+                columns: enrichedColumns,
+                taskTypes: taskTypesData,
+                taskStatuses: taskStatusesData
+            };
+            
+            setBoard(enrichedBoard);
+            setTaskTypes(taskTypesData);
+            
         } catch (error) {
             console.error('Failed to load board:', error instanceof Error ? error.message : error);
             setError('Не удалось загрузить доску');
@@ -593,6 +626,39 @@ export const BoardPage: React.FC = () => {
         setFilterTabValue(newValue);
     };
 
+    // Функция для принудительного обновления доски
+    const handleRefreshBoard = async () => {
+        if (!boardId) return;
+        
+        try {
+            setIsRefreshing(true);
+            
+            // Загружаем параллельно доску, типы задач и статусы
+            const [boardData, taskTypesData, taskStatusesData] = await Promise.all([
+                boardService.getBoard(boardId),
+                boardService.getBoardTaskTypes(boardId),
+                boardService.getBoardStatuses(boardId)
+            ]);
+            
+            // Обновляем состояние доски с полными данными
+            const updatedBoard = {
+                ...boardData,
+                taskTypes: taskTypesData,
+                taskStatuses: taskStatusesData
+            };
+            
+            setBoard(updatedBoard);
+            setTaskTypes(taskTypesData); // Обновляем отдельно список типов задач
+            
+            toast.success('Доска обновлена');
+        } catch (error) {
+            console.error('Ошибка при обновлении доски:', error);
+            toast.error('Не удалось обновить доску');
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     if (loading) {
         return (
             <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -610,126 +676,132 @@ export const BoardPage: React.FC = () => {
     }
 
     return (
-        <Container maxWidth={false}>
-            <Box sx={{ mt: 2, mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Container maxWidth={false} sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <IconButton 
                         onClick={() => navigate('/')}
-                        title="Вернуться к списку досок (Esc)"
+                        sx={{ mr: 1 }}
+                        aria-label="Вернуться к списку досок"
                     >
                         <ArrowBackIcon />
                     </IconButton>
-                    <Typography variant="h5">{board?.name}</Typography>
-                    <Box sx={{ flexGrow: 1 }} />
+                    <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
+                        {board ? board.name : 'Загрузка...'}
+                    </Typography>
+                    
+                    {/* Кнопка обновления доски */}
+                    <IconButton 
+                        onClick={handleRefreshBoard} 
+                        sx={{ ml: 2 }}
+                        disabled={loading || isRefreshing}
+                        aria-label="Обновить доску"
+                        color="primary"
+                    >
+                        {isRefreshing ? <CircularProgress size={24} /> : <RefreshIcon />}
+                    </IconButton>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TextField
                         placeholder="Поиск задач..."
-                        size="small"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        sx={{ width: 300 }}
+                        size="small"
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <SearchIcon color="action" />
+                                    <SearchIcon />
                                 </InputAdornment>
                             ),
                             endAdornment: searchQuery && (
                                 <InputAdornment position="end">
-                                    <IconButton
-                                        size="small"
+                                    <IconButton 
+                                        size="small" 
                                         onClick={() => setSearchQuery('')}
-                                        title="Очистить поиск (Esc)"
+                                        aria-label="Очистить поиск"
                                     >
                                         <ClearIcon />
                                     </IconButton>
                                 </InputAdornment>
                             )
                         }}
-                        title="Поиск задач (Ctrl+F)"
+                        sx={{ width: 300 }}
                     />
                     <IconButton 
-                        onClick={handleFilterOpen}
-                        color={selectedStatuses.length > 0 || selectedTags.length > 0 ? "primary" : "default"}
-                        aria-label="Фильтры"
-                        title="Открыть фильтры (Ctrl+/)"
+                        onClick={handleFilterOpen} 
+                        color="primary"
+                        aria-label="Фильтровать задачи"
                     >
                         <FilterListIcon />
                     </IconButton>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setIsAddColumnModalOpen(true)}
-                        title="Добавить колонку (Ctrl+N)"
-                    >
-                        Добавить колонку
-                    </Button>
                     <IconButton 
                         onClick={handleBoardMenuOpen}
-                        title="Настройки доски (Ctrl+E)"
+                        aria-label="Меню доски"
                     >
                         <SettingsIcon />
                     </IconButton>
                 </Box>
-                {(selectedStatuses.length > 0 || selectedTypes.length > 0 || selectedTags.length > 0) && (
-                    <Box sx={{ mt: 2, ml: 6, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {selectedStatuses.map(statusId => {
-                            const status = board.taskStatuses.find(s => s.id === statusId);
-                            if (!status) return null;
-                            return (
-                                <Chip
-                                    key={status.id}
-                                    label={status.name}
-                                    onDelete={() => handleStatusToggle(statusId)}
-                                    sx={{ 
-                                        backgroundColor: status.color,
-                                        color: '#fff'
-                                    }}
-                                />
-                            );
-                        })}
-                        {selectedTypes.map(typeId => {
-                            const type = board.taskTypes.find(t => t.id === typeId);
-                            if (!type) return null;
-                            return (
-                                <Chip
-                                    key={type.id}
-                                    label={type.name}
-                                    onDelete={() => handleTypeToggle(typeId)}
-                                    sx={{ 
-                                        backgroundColor: type.color ? `${type.color}20` : undefined,
-                                        color: type.color,
-                                        borderColor: type.color,
-                                        borderWidth: type.color ? 1 : 0,
-                                        borderStyle: 'solid' 
-                                    }}
-                                />
-                            );
-                        })}
-                        {selectedTags.map(tag => (
-                            <Chip
-                                key={tag}
-                                label={tag}
-                                onDelete={() => handleTagToggle(tag)}
-                                variant="outlined"
-                            />
-                        ))}
-                        <Chip
-                            label="Сбросить все"
-                            onDelete={clearFilters}
-                            color="default"
-                        />
-                    </Box>
-                )}
-                {board.description && (
-                    <Typography 
-                        variant="body2" 
-                        color="text.secondary" 
-                        sx={{ mt: 1, ml: 6 }}
-                    >
-                        {board.description}
-                    </Typography>
-                )}
             </Box>
+            {(selectedStatuses.length > 0 || selectedTypes.length > 0 || selectedTags.length > 0) && (
+                <Box sx={{ mt: 2, ml: 6, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {selectedStatuses.map(statusId => {
+                        const status = board.taskStatuses.find(s => s.id === statusId);
+                        if (!status) return null;
+                        return (
+                            <Chip
+                                key={status.id}
+                                label={status.name}
+                                onDelete={() => handleStatusToggle(statusId)}
+                                sx={{ 
+                                    backgroundColor: status.color,
+                                    color: '#fff'
+                                }}
+                            />
+                        );
+                    })}
+                    {selectedTypes.map(typeId => {
+                        const type = board.taskTypes.find(t => t.id === typeId);
+                        if (!type) return null;
+                        return (
+                            <Chip
+                                key={type.id}
+                                label={type.name}
+                                onDelete={() => handleTypeToggle(typeId)}
+                                sx={{ 
+                                    backgroundColor: type.color ? `${type.color}20` : undefined,
+                                    color: type.color,
+                                    borderColor: type.color,
+                                    borderWidth: type.color ? 1 : 0,
+                                    borderStyle: 'solid' 
+                                }}
+                            />
+                        );
+                    })}
+                    {selectedTags.map(tag => (
+                        <Chip
+                            key={tag}
+                            label={tag}
+                            onDelete={() => handleTagToggle(tag)}
+                            variant="outlined"
+                        />
+                    ))}
+                    <Chip
+                        label="Сбросить все"
+                        onDelete={clearFilters}
+                        color="default"
+                    />
+                </Box>
+            )}
+            {board && board.description && (
+                <Typography 
+                    variant="body2" 
+                    color="text.secondary" 
+                    sx={{ mt: 1, ml: 6 }}
+                >
+                    {board.description}
+                </Typography>
+            )}
 
             <Popover
                 open={Boolean(filterAnchorEl)}
@@ -881,43 +953,76 @@ export const BoardPage: React.FC = () => {
                         gap: 2, 
                         overflowX: 'auto', 
                         pb: 2, 
-                        px: 2 
+                        px: 2,
+                        alignItems: 'flex-start'
                     }}
                 >
                     {filteredColumns && filteredColumns.length > 0 ? (
-                        filteredColumns.map((column: Column) => (
-                            <Droppable key={column.id} droppableId={column.id.toString()}>
-                                {(provided) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                    >
-                                        <BoardColumn
-                                            key={column.id}
-                                            column={column}
-                                            onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
-                                            canMoveLeft={board.columns.indexOf(column) > 0}
-                                            canMoveRight={board.columns.indexOf(column) < board.columns.length - 1}
-                                            boardStatuses={board.taskStatuses}
-                                            taskTypes={taskTypes}
-                                            onTasksChange={(updatedColumn) => {
-                                                if (!board) return;
-                                                const updatedColumns = board.columns.map(col =>
-                                                    col.id === updatedColumn.id ? updatedColumn : col
-                                                );
-                                                setBoard({
-                                                    ...board,
-                                                    columns: updatedColumns
-                                                });
-                                            }}
-                                            onEdit={(columnId, name, color) => handleEditColumn(columnId, name, color)}
-                                            onDelete={(columnId, name) => setDeleteColumnData({ id: columnId, name })}
-                                        />
-                                        {provided.placeholder}
-                                    </div>
-                                )}
-                            </Droppable>
-                        ))
+                        <>
+                            {filteredColumns.map((column: Column) => (
+                                <Droppable key={column.id} droppableId={column.id.toString()}>
+                                    {(provided) => (
+                                        <div
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                        >
+                                            <BoardColumn
+                                                key={column.id}
+                                                column={column}
+                                                onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
+                                                canMoveLeft={board.columns.indexOf(column) > 0}
+                                                canMoveRight={board.columns.indexOf(column) < board.columns.length - 1}
+                                                boardStatuses={board.taskStatuses}
+                                                taskTypes={taskTypes}
+                                                onTasksChange={(updatedColumn) => {
+                                                    if (!board) return;
+                                                    const updatedColumns = board.columns.map(col =>
+                                                        col.id === updatedColumn.id ? updatedColumn : col
+                                                    );
+                                                    setBoard({
+                                                        ...board,
+                                                        columns: updatedColumns
+                                                    });
+                                                }}
+                                                onEdit={(columnId, name, color) => handleEditColumn(columnId, name, color)}
+                                                onDelete={(columnId, name) => setDeleteColumnData({ id: columnId, name })}
+                                            />
+                                            {provided.placeholder}
+                                        </div>
+                                    )}
+                                </Droppable>
+                            ))}
+                            {/* Кнопка добавления новой колонки */}
+                            <Box 
+                                sx={{ 
+                                    minWidth: 280,
+                                    maxWidth: 280,
+                                    height: 80,
+                                    border: '2px dashed',
+                                    borderColor: 'primary.light',
+                                    borderRadius: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    mt: 0.5,
+                                    transition: 'all 0.2s',
+                                    bgcolor: 'background.paper',
+                                    '&:hover': {
+                                        borderColor: 'primary.main',
+                                        bgcolor: 'primary.lighter',
+                                    }
+                                }}
+                                onClick={() => setIsAddColumnModalOpen(true)}
+                            >
+                                <Button
+                                    startIcon={<AddIcon />}
+                                    color="primary"
+                                >
+                                    Добавить колонку
+                                </Button>
+                            </Box>
+                        </>
                     ) : (
                         searchQuery ? (
                             <Box sx={{ 

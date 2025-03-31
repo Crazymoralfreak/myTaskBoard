@@ -4,380 +4,300 @@ import {
     Typography,
     List,
     ListItem,
-    ListItemAvatar,
     ListItemText,
+    ListItemAvatar,
     Avatar,
+    Paper,
     Divider,
+    Chip,
     CircularProgress,
-    Paper
+    IconButton,
+    Tooltip
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ArrowRightIcon from '@mui/icons-material/ArrowRight';
-import EventIcon from '@mui/icons-material/Event';
-import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
-import LabelIcon from '@mui/icons-material/Label';
-import CategoryIcon from '@mui/icons-material/Category';
-import { Task } from '../../../types/task';
-
-// Тип для записи в истории
-interface HistoryEntry {
-    id: number;
-    taskId: number;
-    timestamp: string;
-    action: 'create' | 'update' | 'delete' | 'status_change' | 'type_change' | 'priority_change' | 'date_change';
-    user: {
-        id: number;
-        name: string;
-        avatar?: string;
-    };
-    details?: {
-        field?: string;
-        oldValue?: string;
-        newValue?: string;
-    };
-}
+import { Task, TaskHistory as TaskHistoryType } from '../../../types/task';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { taskService } from '../../../services/taskService';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 interface TaskHistoryProps {
     task: Task;
 }
 
 export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
-    const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [history, setHistory] = useState<TaskHistoryType[]>([]);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
-    // Загрузка истории из localStorage (в реальном приложении будет API запрос)
-    useEffect(() => {
+
+    const loadHistory = async () => {
         setLoading(true);
+        setError(null);
+        
         try {
-            // Имитируем загрузку данных
-            setTimeout(() => {
-                const savedHistory = localStorage.getItem(`task_history_${task.id}`);
-                if (savedHistory) {
-                    setHistoryEntries(JSON.parse(savedHistory));
-                } else {
-                    // Если истории нет, создаем начальную запись о создании задачи
-                    const initialHistory: HistoryEntry[] = [{
-                        id: 1,
-                        taskId: task.id,
-                        timestamp: task.startDate || new Date().toISOString(),
-                        action: 'create',
-                        user: {
-                            id: 1,
-                            name: 'Система',
-                            avatar: undefined
-                        }
-                    }];
-                    setHistoryEntries(initialHistory);
-                    localStorage.setItem(`task_history_${task.id}`, JSON.stringify(initialHistory));
-                }
-                setLoading(false);
-            }, 500);
+            // Загрузка истории с помощью API
+            console.log(`Загружаем историю для задачи ${task.id}...`);
+            if (!task || !task.id) {
+                console.warn('Попытка загрузить историю без ID задачи');
+                setHistory([]);
+                return;
+            }
+            
+            const historyData = await taskService.getTaskHistory(task.id);
+            
+            // Дополнительная проверка и фильтрация данных
+            const sanitizedHistoryData = Array.isArray(historyData) 
+                ? historyData
+                    .filter(item => item && typeof item === 'object') // Проверяем, что это объект
+                    .map(item => ({
+                        id: item.id || Math.random(),
+                        username: item.username || 'Неизвестный пользователь',
+                        email: item.email,
+                        avatarUrl: item.avatarUrl,
+                        action: item.action || 'unknown_action',
+                        oldValue: item.oldValue,
+                        newValue: item.newValue,
+                        timestamp: item.timestamp || new Date().toISOString()
+                    }))
+                : [];
+            
+            console.log('Обработанная история:', sanitizedHistoryData);
+            setHistory(sanitizedHistoryData);
         } catch (error) {
             console.error('Ошибка при загрузке истории:', error);
             setError('Не удалось загрузить историю задачи');
+            setHistory([]); // Устанавливаем пустой массив при ошибке
+        } finally {
             setLoading(false);
         }
-    }, [task.id, task.startDate]);
-    
-    // Обнаружение изменений задачи и добавление их в историю
+    };
+
     useEffect(() => {
-        // Проверяем, есть ли уже запись о создании
-        const hasCreateEntry = historyEntries.some(entry => entry.action === 'create');
-        
-        if (hasCreateEntry && historyEntries.length > 0) {
-            // Получаем последнее состояние задачи из localStorage
-            const lastTaskState = localStorage.getItem(`task_last_state_${task.id}`);
-            
-            if (lastTaskState) {
-                const previousTask = JSON.parse(lastTaskState);
-                
-                // Проверяем, изменились ли поля задачи
-                const changedFields = [];
-                
-                // Проверка изменения названия
-                if (previousTask.title !== task.title) {
-                    changedFields.push({
-                        field: 'title',
-                        oldValue: previousTask.title,
-                        newValue: task.title,
-                        action: 'update'
-                    });
-                }
-                
-                // Проверка изменения описания
-                if (previousTask.description !== task.description) {
-                    changedFields.push({
-                        field: 'description',
-                        oldValue: previousTask.description,
-                        newValue: task.description,
-                        action: 'update'
-                    });
-                }
-                
-                // Проверка изменения статуса
-                if (
-                    (previousTask.customStatus?.id !== task.customStatus?.id) || 
-                    (previousTask.customStatus?.name !== task.customStatus?.name)
-                ) {
-                    changedFields.push({
-                        field: 'status',
-                        oldValue: previousTask.customStatus?.name,
-                        newValue: task.customStatus?.name,
-                        action: 'status_change'
-                    });
-                }
-                
-                // Проверка изменения типа задачи
-                if (
-                    (previousTask.type?.id !== task.type?.id) || 
-                    (previousTask.type?.name !== task.type?.name)
-                ) {
-                    changedFields.push({
-                        field: 'type',
-                        oldValue: previousTask.type?.name,
-                        newValue: task.type?.name,
-                        action: 'type_change'
-                    });
-                }
-                
-                // Проверка изменения приоритета
-                if (previousTask.priority !== task.priority) {
-                    changedFields.push({
-                        field: 'priority',
-                        oldValue: previousTask.priority,
-                        newValue: task.priority,
-                        action: 'priority_change'
-                    });
-                }
-                
-                // Проверка изменения дат
-                if (previousTask.startDate !== task.startDate) {
-                    changedFields.push({
-                        field: 'startDate',
-                        oldValue: previousTask.startDate,
-                        newValue: task.startDate,
-                        action: 'date_change'
-                    });
-                }
-                
-                if (previousTask.endDate !== task.endDate) {
-                    changedFields.push({
-                        field: 'endDate',
-                        oldValue: previousTask.endDate,
-                        newValue: task.endDate,
-                        action: 'date_change'
-                    });
-                }
-                
-                // Если есть изменения, добавляем их в историю
-                if (changedFields.length > 0) {
-                    const newEntries: HistoryEntry[] = changedFields.map((change, index) => ({
-                        id: historyEntries[historyEntries.length - 1].id + index + 1,
-                        taskId: task.id,
-                        timestamp: new Date().toISOString(),
-                        action: change.action as any,
-                        user: {
-                            id: 1,
-                            name: 'Система',
-                        },
-                        details: {
-                            field: change.field,
-                            oldValue: change.oldValue || '',
-                            newValue: change.newValue || ''
-                        }
-                    }));
-                    
-                    const updatedHistory = [...historyEntries, ...newEntries];
-                    setHistoryEntries(updatedHistory);
-                    localStorage.setItem(`task_history_${task.id}`, JSON.stringify(updatedHistory));
-                }
-            }
+        if (task && task.id) {
+            loadHistory();
         }
-        
-        // Сохраняем текущее состояние задачи
-        localStorage.setItem(`task_last_state_${task.id}`, JSON.stringify(task));
-    }, [task, historyEntries]);
-    
-    // Форматирование даты с учётом часового пояса пользователя
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        
-        // Используем toLocaleString для форматирования в локальном часовом поясе пользователя
-        return date.toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        });
-    };
-    
-    // Получение иконки для действия
-    const getActionIcon = (action: HistoryEntry['action'], details?: HistoryEntry['details']) => {
-        switch (action) {
-            case 'create':
-                return <AddIcon color="success" />;
-            case 'update':
-                return <EditIcon color="primary" />;
-            case 'delete':
-                return <DeleteIcon color="error" />;
-            case 'status_change':
-                return <ArrowRightIcon color="info" />;
-            case 'type_change':
-                return <CategoryIcon color="secondary" />;
-            case 'priority_change':
-                return <PriorityHighIcon color="warning" />;
-            case 'date_change':
-                return <EventIcon color="action" />;
-            default:
-                return <EditIcon />;
+    }, [task.id]);
+
+    // Форматирование временной метки
+    const formatTimestamp = (timestamp: string) => {
+        try {
+            const date = new Date(timestamp);
+            return format(date, "d MMMM yyyy, HH:mm", { locale: ru });
+        } catch (e) {
+            return timestamp;
         }
     };
-    
-    // Получение текста для действия
-    const getActionText = (entry: HistoryEntry) => {
-        const { action, details, user } = entry;
+
+    // Функция для форматирования типа действия
+    const formatAction = (action: string): string => {
+        if (!action) return 'Неизвестное действие';
         
         switch (action) {
-            case 'create':
-                return `${user.name} создал(а) задачу`;
-            case 'update':
-                if (details?.field) {
-                    return `${user.name} изменил(а) поле "${details.field}" с "${details.oldValue || 'пусто'}" на "${details.newValue || 'пусто'}"`;
-                }
-                return `${user.name} обновил(а) задачу`;
-            case 'delete':
-                return `${user.name} удалил(а) задачу`;
-            case 'status_change':
-                return `${user.name} изменил(а) статус с "${details?.oldValue || 'не задан'}" на "${details?.newValue || 'не задан'}"`;
-            case 'type_change':
-                return `${user.name} изменил(а) тип задачи с "${details?.oldValue || 'не задан'}" на "${details?.newValue || 'не задан'}"`;
-            case 'priority_change':
-                return `${user.name} изменил(а) приоритет с "${details?.oldValue || 'не задан'}" на "${details?.newValue || 'не задан'}"`;
-            case 'date_change':
-                if (details?.field === 'startDate') {
-                    return `${user.name} изменил(а) дату начала с "${details.oldValue || 'не задана'}" на "${details.newValue || 'не задана'}"`;
-                } else {
-                    return `${user.name} изменил(а) дату окончания с "${details?.oldValue || 'не задана'}" на "${details?.newValue || 'не задана'}"`;
-                }
+            case 'created':
+                return 'Создание задачи';
+            case 'updated':
+                return 'Обновление задачи';
+            case 'status_changed':
+                return 'Изменение статуса';
+            case 'type_changed':
+                return 'Изменение типа';
+            case 'priority_changed':
+                return 'Изменение приоритета';
+            case 'description_changed':
+                return 'Изменение описания';
+            case 'dates_changed':
+                return 'Изменение дат';
+            case 'comment_added':
+                return 'Добавлен комментарий';
+            case 'file_added':
+                return 'Добавлен файл';
+            case 'moved_between_columns':
+                return 'Перемещение между колонками';
+            case 'task_created':
+                return 'Задача создана';
+            case 'column_changed':
+                return 'Смена колонки';
+            case 'startDate_changed':
+                return 'Изменение даты начала';
+            case 'endDate_changed':
+                return 'Изменение даты окончания';
+            case 'title_changed': 
+                return 'Изменение названия';
             default:
-                return `${user.name} выполнил(а) действие с задачей`;
+                return action.replace(/_/g, ' ');
         }
     };
-    
-    // Группировка истории по датам
-    const groupHistoryByDate = () => {
-        const grouped: Record<string, HistoryEntry[]> = {};
+
+    // Функция для безопасного отображения значений
+    const renderValue = (value: string | undefined): string => {
+        if (!value) return '';
         
-        historyEntries.forEach(entry => {
-            const date = new Date(entry.timestamp).toISOString().split('T')[0];
-            if (!grouped[date]) {
-                grouped[date] = [];
-            }
-            grouped[date].push(entry);
-        });
-        
-        return Object.entries(grouped)
-            .sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
-            .map(([date, entries]) => ({
-                date,
-                entries: entries.sort((a, b) => 
-                    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-                )
-            }));
-    };
-    
-    const groupedHistory = groupHistoryByDate();
-    
-    // Формат даты группы
-    const formatGroupDate = (dateString: string) => {
-        const date = new Date(dateString);
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        if (date.toDateString() === today.toDateString()) {
-            return 'Сегодня';
-        } else if (date.toDateString() === yesterday.toDateString()) {
-            return 'Вчера';
-        } else {
-            return date.toLocaleDateString('ru-RU', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-            });
+        // Если значение содержит HTML, извлекаем только текст
+        if (value.includes('<') && value.includes('>')) {
+            // Создаем временный div для извлечения текста из HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = value;
+            return tempDiv.textContent || tempDiv.innerText || value;
         }
+        
+        return value;
     };
-    
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box sx={{ p: 2 }}>
+                <Typography color="error">{error}</Typography>
+                <Box sx={{ mt: 2 }}>
+                    <IconButton onClick={loadHistory} color="primary">
+                        <RefreshIcon />
+                    </IconButton>
+                    <Typography variant="caption">Повторить загрузку</Typography>
+                </Box>
+            </Box>
+        );
+    }
+
+    if (history.length === 0) {
+        return (
+            <Box sx={{ p: 2 }}>
+                <Typography>История изменений пуста</Typography>
+            </Box>
+        );
+    }
+
     return (
         <Box>
-            <Typography variant="h6" gutterBottom>История изменений</Typography>
+            <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 2
+            }}>
+                <Typography variant="subtitle1">История изменений</Typography>
+                <Tooltip title="Обновить историю">
+                    <IconButton onClick={loadHistory} size="small">
+                        <RefreshIcon />
+                    </IconButton>
+                </Tooltip>
+            </Box>
             
-            {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                    <CircularProgress />
-                </Box>
-            ) : error ? (
-                <Typography color="error">{error}</Typography>
-            ) : historyEntries.length === 0 ? (
-                <Typography sx={{ textAlign: 'center', my: 4, color: 'text.secondary' }}>
-                    История изменений пуста
-                </Typography>
-            ) : (
-                <Box>
-                    {groupedHistory.map(group => (
-                        <Box key={group.date} sx={{ mb: 3 }}>
-                            <Typography 
-                                variant="subtitle1" 
-                                sx={{ 
-                                    fontWeight: 'bold', 
-                                    mb: 1, 
-                                    pb: 1, 
-                                    borderBottom: '1px solid', 
-                                    borderColor: 'divider' 
-                                }}
-                            >
-                                {formatGroupDate(group.date)}
-                            </Typography>
-                            
-                            <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-                                {group.entries.map((entry, index) => (
-                                    <React.Fragment key={entry.id}>
-                                        <ListItem alignItems="flex-start">
-                                            <ListItemAvatar>
-                                                <Avatar sx={{ bgcolor: 'background.default' }}>
-                                                    {getActionIcon(entry.action, entry.details)}
-                                                </Avatar>
-                                            </ListItemAvatar>
-                                            <ListItemText
-                                                primary={getActionText(entry)}
-                                                secondary={
-                                                    <React.Fragment>
+            <Paper variant="outlined">
+                <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+                    {history.map((item, index) => (
+                        <React.Fragment key={item.id || index}>
+                            {index > 0 && <Divider component="li" />}
+                            <ListItem alignItems="flex-start">
+                                <ListItemAvatar>
+                                    <Avatar 
+                                        alt={item.username} 
+                                        src={item.avatarUrl}
+                                        sx={{ width: 32, height: 32 }}
+                                    >
+                                        {item.username ? item.username[0].toUpperCase() : '?'}
+                                    </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText
+                                    primary={
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                                            <Tooltip title={item.email || 'Email не указан'}>
+                                                <Typography
+                                                    component="span"
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                    sx={{ fontWeight: 'bold' }}
+                                                >
+                                                    {item.username}
+                                                </Typography>
+                                            </Tooltip>
+                                            <Typography
+                                                component="span"
+                                                variant="body2"
+                                                color="text.secondary"
+                                            >
+                                                {formatTimestamp(item.timestamp)}
+                                            </Typography>
+                                        </Box>
+                                    }
+                                    secondary={
+                                        <Box sx={{ mt: 1 }}>
+                                            <Chip 
+                                                label={formatAction(item.action)}
+                                                size="small"
+                                                color="primary"
+                                                variant="outlined"
+                                            />
+                                            {(item.oldValue || item.newValue) && (
+                                                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                    {item.oldValue && (
                                                         <Typography
-                                                            component="span"
                                                             variant="body2"
                                                             color="text.secondary"
+                                                            sx={{ 
+                                                                textDecoration: 'line-through',
+                                                                display: 'flex',
+                                                                alignItems: 'center'
+                                                            }}
                                                         >
-                                                            {formatDate(entry.timestamp)}
+                                                            <Box sx={{ 
+                                                                width: '16px', 
+                                                                height: '16px',
+                                                                borderRadius: '50%',
+                                                                bgcolor: 'error.light',
+                                                                color: 'white',
+                                                                display: 'inline-flex',
+                                                                justifyContent: 'center',
+                                                                alignItems: 'center',
+                                                                fontSize: '10px',
+                                                                mr: 1
+                                                            }}>
+                                                                -
+                                                            </Box>
+                                                            {renderValue(item.oldValue)}
                                                         </Typography>
-                                                    </React.Fragment>
-                                                }
-                                            />
-                                        </ListItem>
-                                        {index < group.entries.length - 1 && (
-                                            <Divider variant="inset" component="li" />
-                                        )}
-                                    </React.Fragment>
-                                ))}
-                            </List>
-                        </Box>
+                                                    )}
+                                                    {item.newValue && (
+                                                        <Typography
+                                                            variant="body2"
+                                                            color="text.primary"
+                                                            sx={{ 
+                                                                display: 'flex',
+                                                                alignItems: 'center'
+                                                            }}
+                                                        >
+                                                            <Box sx={{ 
+                                                                width: '16px', 
+                                                                height: '16px',
+                                                                borderRadius: '50%',
+                                                                bgcolor: 'success.light',
+                                                                color: 'white',
+                                                                display: 'inline-flex',
+                                                                justifyContent: 'center',
+                                                                alignItems: 'center',
+                                                                fontSize: '10px',
+                                                                mr: 1
+                                                            }}>
+                                                                +
+                                                            </Box>
+                                                            {renderValue(item.newValue)}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                            )}
+                                        </Box>
+                                    }
+                                />
+                            </ListItem>
+                        </React.Fragment>
                     ))}
-                </Box>
-            )}
+                </List>
+            </Paper>
         </Box>
     );
 };
