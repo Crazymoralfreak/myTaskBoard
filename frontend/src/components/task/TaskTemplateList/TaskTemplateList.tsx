@@ -49,15 +49,21 @@ interface TaskTemplate {
 }
 
 interface TaskTemplateListProps {
-    boardId: number;
-    onTemplateSelect: (template: TaskTemplate) => void;
-    onTemplateEdit: (template: TaskTemplate) => void;
+    boardId?: number;
+    onTemplateSelect?: (template: TaskTemplate) => void;
+    onTemplateEdit?: (template: TaskTemplate) => void;
+    onUseTemplate: (template: TaskTemplate) => void;
+    boardStatuses?: BoardStatus[];
+    taskTypes?: TaskType[];
 }
 
 export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
     boardId,
     onTemplateSelect,
-    onTemplateEdit
+    onTemplateEdit,
+    onUseTemplate,
+    boardStatuses = [],
+    taskTypes = []
 }) => {
     const [templates, setTemplates] = useState<TaskTemplate[]>([]);
     const [loading, setLoading] = useState(false);
@@ -82,10 +88,14 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
     }, [boardId]);
 
     const loadTemplates = async () => {
+        if (!boardId) return;
+        
         try {
             setLoading(true);
             const response = await taskService.getTaskTemplates(boardId);
-            setTemplates(response.data);
+            if (response && response.data) {
+                setTemplates(response.data as unknown as TaskTemplate[]);
+            }
         } catch (error) {
             console.error('Failed to load templates:', error);
             enqueueSnackbar('Не удалось загрузить шаблоны', { variant: 'error' });
@@ -109,13 +119,13 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
         resetFormFields();
         
         // Выбираем первый тип и статус по умолчанию, если они есть
-        if (taskTypes.length > 0) {
-            const defaultType = taskTypes.find(type => type.isDefault) || taskTypes[0];
+        if (taskTypes && taskTypes.length > 0) {
+            const defaultType = taskTypes.find((type: TaskType) => type.isDefault) || taskTypes[0];
             setTemplateTypeId(defaultType.id);
         }
         
-        if (boardStatuses.length > 0) {
-            const defaultStatus = boardStatuses.find(status => status.isDefault) || boardStatuses[0];
+        if (boardStatuses && boardStatuses.length > 0) {
+            const defaultStatus = boardStatuses.find((status: BoardStatus) => status.isDefault) || boardStatuses[0];
             setTemplateStatusId(defaultStatus.id);
         }
         
@@ -141,7 +151,7 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
     };
 
     const handleUseTemplate = (template: TaskTemplate) => {
-        onTemplateSelect(template);
+        onUseTemplate(template);
     };
 
     const resetFormFields = () => {
@@ -381,7 +391,7 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
                                     edge="end"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        onTemplateEdit(template);
+                                        onTemplateEdit?.(template);
                                     }}
                                 >
                                     <EditIcon />
