@@ -19,10 +19,64 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { taskService } from '../../../services/taskService';
 import RefreshIcon from '@mui/icons-material/Refresh';
+// @ts-ignore
+import * as DiffLib from 'diff';
+
+// Типы для библиотеки diff
+interface DiffPart {
+    value: string;
+    added?: boolean;
+    removed?: boolean;
+}
 
 interface TaskHistoryProps {
     task: Task;
 }
+
+// Компонент для показа diff с подсветкой
+const DiffView = ({ oldText, newText }: { oldText: string, newText: string }) => {
+    // Генерируем diff между старым и новым текстом
+    const diff: DiffPart[] = DiffLib.diffWords(oldText || '', newText || '');
+    
+    return (
+        <Box>
+            {diff.map((part: DiffPart, index: number) => {
+                // Определяем цвет и стиль в зависимости от типа изменения
+                let color = 'inherit';
+                let backgroundColor = 'transparent';
+                let textDecoration = 'none';
+                
+                if (part.added) {
+                    color = 'success.main';
+                    backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                } else if (part.removed) {
+                    color = 'error.main';
+                    backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                    textDecoration = 'line-through';
+                }
+                
+                return (
+                    <Typography
+                        key={index}
+                        component="span"
+                        variant="body2"
+                        sx={{ 
+                            color, 
+                            backgroundColor, 
+                            textDecoration,
+                            p: part.added || part.removed ? '0 2px' : 0,
+                            borderRadius: '2px',
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'break-word'
+                        }}
+                    >
+                        {part.value}
+                    </Typography>
+                );
+            })}
+        </Box>
+    );
+};
 
 export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
     const [history, setHistory] = useState<TaskHistoryType[]>([]);
@@ -128,9 +182,53 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
     };
 
     // Функция для безопасного отображения значений
-    const renderValue = (value: string | undefined): string => {
+    const renderValue = (value: string | undefined, item: TaskHistoryType): React.ReactNode => {
         if (!value) return '';
         
+        // Если это изменение описания, используем DiffView компонент
+        if (item.action === 'description_changed') {
+            if (item.oldValue && item.newValue) {
+                // Если есть и старое и новое значения, извлекаем текст, если это HTML
+                const extractText = (html: string) => {
+                    // Если описание не является HTML, возвращаем как есть
+                    if (!html.includes('<') && !html.includes('>')) {
+                        return html;
+                    }
+                    
+                    try {
+                        // Создаем временный div для извлечения текста из HTML
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        return tempDiv.textContent || tempDiv.innerText || html;
+                    } catch {
+                        return html;
+                    }
+                };
+                
+                // Для изменения описания показываем diff между старым и новым значениями
+                if (item.oldValue === 'Предыдущее описание' && item.newValue === 'Новое описание') {
+                    // Это заглушка, у нас нет реальных данных для diff
+                    return <Typography variant="body2" fontStyle="italic">
+                        Содержимое описания изменено
+                    </Typography>;
+                }
+                
+                return <DiffView 
+                    oldText={extractText(item.oldValue)} 
+                    newText={extractText(item.newValue)} 
+                />;
+            }
+            
+            // Если есть только одно из значений
+            return item.oldValue || item.newValue;
+        }
+        
+        // Если это перемещение между колонками, меняем стиль отображения
+        if (item.action === 'moved_between_columns') {
+            return value;
+        }
+        
+        // Для остальных типов записей истории
         // Если значение содержит HTML, извлекаем только текст
         if (value.includes('<') && value.includes('>')) {
             // Создаем временный div для извлечения текста из HTML
@@ -235,58 +333,68 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                             />
                                             {(item.oldValue || item.newValue) && (
                                                 <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                                    {item.oldValue && (
-                                                        <Typography
-                                                            variant="body2"
-                                                            color="text.secondary"
-                                                            sx={{ 
-                                                                textDecoration: 'line-through',
-                                                                display: 'flex',
-                                                                alignItems: 'center'
-                                                            }}
-                                                        >
-                                                            <Box sx={{ 
-                                                                width: '16px', 
-                                                                height: '16px',
-                                                                borderRadius: '50%',
-                                                                bgcolor: 'error.light',
-                                                                color: 'white',
-                                                                display: 'inline-flex',
-                                                                justifyContent: 'center',
-                                                                alignItems: 'center',
-                                                                fontSize: '10px',
-                                                                mr: 1
-                                                            }}>
-                                                                -
-                                                            </Box>
-                                                            {renderValue(item.oldValue)}
-                                                        </Typography>
-                                                    )}
-                                                    {item.newValue && (
-                                                        <Typography
-                                                            variant="body2"
-                                                            color="text.primary"
-                                                            sx={{ 
-                                                                display: 'flex',
-                                                                alignItems: 'center'
-                                                            }}
-                                                        >
-                                                            <Box sx={{ 
-                                                                width: '16px', 
-                                                                height: '16px',
-                                                                borderRadius: '50%',
-                                                                bgcolor: 'success.light',
-                                                                color: 'white',
-                                                                display: 'inline-flex',
-                                                                justifyContent: 'center',
-                                                                alignItems: 'center',
-                                                                fontSize: '10px',
-                                                                mr: 1
-                                                            }}>
-                                                                +
-                                                            </Box>
-                                                            {renderValue(item.newValue)}
-                                                        </Typography>
+                                                    {item.action === 'description_changed' && item.oldValue && item.newValue ? (
+                                                        // Для изменения описания показываем DiffView
+                                                        <Box sx={{ mt: 1 }}>
+                                                            {renderValue(item.oldValue, item)}
+                                                        </Box>
+                                                    ) : (
+                                                        // Для всех остальных действий - стандартный вид
+                                                        <>
+                                                            {item.oldValue && (
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    color="text.secondary"
+                                                                    sx={{ 
+                                                                        textDecoration: 'line-through',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center'
+                                                                    }}
+                                                                >
+                                                                    <Box sx={{ 
+                                                                        width: '16px', 
+                                                                        height: '16px',
+                                                                        borderRadius: '50%',
+                                                                        bgcolor: 'error.light',
+                                                                        color: 'white',
+                                                                        display: 'inline-flex',
+                                                                        justifyContent: 'center',
+                                                                        alignItems: 'center',
+                                                                        fontSize: '10px',
+                                                                        mr: 1
+                                                                    }}>
+                                                                        -
+                                                                    </Box>
+                                                                    {renderValue(item.oldValue, item)}
+                                                                </Typography>
+                                                            )}
+                                                            {item.newValue && item.action !== 'description_changed' && (
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    color="text.primary"
+                                                                    sx={{ 
+                                                                        display: 'flex',
+                                                                        alignItems: 'center'
+                                                                    }}
+                                                                >
+                                                                    <Box sx={{ 
+                                                                        width: '16px', 
+                                                                        height: '16px',
+                                                                        borderRadius: '50%',
+                                                                        bgcolor: 'success.light',
+                                                                        color: 'white',
+                                                                        display: 'inline-flex',
+                                                                        justifyContent: 'center',
+                                                                        alignItems: 'center',
+                                                                        fontSize: '10px',
+                                                                        mr: 1
+                                                                    }}>
+                                                                        +
+                                                                    </Box>
+                                                                    {renderValue(item.newValue, item)}
+                                                                </Typography>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </Box>
                                             )}

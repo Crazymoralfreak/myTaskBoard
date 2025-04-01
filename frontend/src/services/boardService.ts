@@ -375,5 +375,35 @@ export const boardService = {
             console.error('Ошибка при удалении типа задачи:', error);
             throw error;
         }
+    },
+
+    // Получение информации о колонке по ID
+    getColumnById(boardId: string | number, columnId: string | number): Promise<{ id: string | number, name: string } | null> {
+        return new Promise(async (resolve) => {
+            try {
+                console.log(`Получение информации о колонке id=${columnId} на доске id=${boardId}`);
+                // Получаем доску целиком
+                const board = await this.getBoard(String(boardId));
+                
+                if (board && board.columns) {
+                    // Ищем колонку по ID
+                    const column = board.columns.find(col => 
+                        String(col.id) === String(columnId) || Number(col.id) === Number(columnId)
+                    );
+                    
+                    if (column) {
+                        console.log(`Найдена колонка: ${column.name} (ID: ${column.id})`);
+                        resolve({ id: column.id, name: column.name });
+                        return;
+                    }
+                }
+                
+                console.warn(`Колонка с ID ${columnId} не найдена на доске ${boardId}`);
+                resolve(null);
+            } catch (error) {
+                console.error('Ошибка при получении информации о колонке:', error);
+                resolve(null); // Возвращаем null вместо ошибки
+            }
+        });
     }
 }; 

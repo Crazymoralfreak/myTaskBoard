@@ -58,6 +58,7 @@ export interface Task {
     customStatus?: BoardStatus;
     type?: TaskType;
     columnId?: string;
+    boardId?: string | number;
     status?: 'todo' | 'in_progress' | 'completed';
     priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
@@ -108,6 +109,7 @@ export interface CreateTaskRequest {
     tags?: string[];
     columnColor?: string;
     columnId: string;
+    boardId?: string | number;
 }
 
 export interface TaskTemplate {

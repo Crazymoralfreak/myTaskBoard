@@ -4,6 +4,7 @@ import { CreateSubtaskRequest, UpdateSubtaskRequest } from '../types/subtask';
 import { JwtService } from './jwtService';
 import { AxiosResponse } from 'axios';
 import { Board } from '../types/board';
+import { boardService } from '../services/boardService';
 
 const jwtService = JwtService.getInstance();
 const axiosInstance = jwtService.getAxiosInstance();
@@ -198,6 +199,73 @@ export const taskService = {
             const response = await axiosInstance.put(`/api/tasks/${taskId}`, taskToUpdate);
             console.log('Задача успешно обновлена:', response.data);
             
+            // Создаем записи истории для каждого измененного поля
+            // Оборачиваем в try-catch, чтобы ошибки не блокировали основной поток
+            try {
+                // Получаем текущую задачу, чтобы сравнить поля
+                const currentTask = await this.getTask(taskId);
+                
+                // Проверяем, что было изменено
+                if (updatedTask.title && updatedTask.title !== currentTask.title) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'title_changed',
+                        oldValue: currentTask.title,
+                        newValue: updatedTask.title
+                    });
+                }
+                
+                if (updatedTask.description && updatedTask.description !== currentTask.description) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'description_changed',
+                        oldValue: currentTask.description || '',
+                        newValue: updatedTask.description
+                    });
+                }
+                
+                if (updatedTask.startDate && updatedTask.startDate !== currentTask.startDate) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'startDate_changed',
+                        oldValue: currentTask.startDate || '',
+                        newValue: updatedTask.startDate
+                    });
+                }
+                
+                if (updatedTask.endDate && updatedTask.endDate !== currentTask.endDate) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'endDate_changed',
+                        oldValue: currentTask.endDate || '',
+                        newValue: updatedTask.endDate
+                    });
+                }
+                
+                if (updatedTask.priority && updatedTask.priority !== currentTask.priority) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'priority_changed',
+                        oldValue: currentTask.priority,
+                        newValue: updatedTask.priority
+                    });
+                }
+                
+                if (updatedTask.typeId !== undefined && updatedTask.typeId !== (currentTask.type?.id || null)) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'type_changed',
+                        oldValue: currentTask.type?.name || 'Без типа',
+                        newValue: updatedTask.typeId ? `Тип ID: ${updatedTask.typeId}` : 'Без типа'
+                    });
+                }
+                
+                if (updatedTask.statusId !== undefined && updatedTask.statusId !== (currentTask.customStatus?.id || null)) {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'status_changed',
+                        oldValue: currentTask.customStatus?.name || 'Без статуса',
+                        newValue: updatedTask.statusId ? `Статус ID: ${updatedTask.statusId}` : 'Без статуса'
+                    });
+                }
+            } catch (historyError) {
+                console.error('Ошибка при создании записей истории:', historyError);
+                // Игнорируем ошибки истории, основное обновление задачи уже выполнено
+            }
+            
             // Возвращаем безопасную копию данных
             return this.sanitizeTaskData(response.data);
         } catch (error) {
@@ -230,6 +298,7 @@ export const taskService = {
             let sourcePreviousColumnId: string | number | undefined;
             let typeId: number | null | undefined;
             let statusId: number | null | undefined;
+            let boardId: string | number | null = null;
             
             // Проверяем, передан ли объект или отдельные параметры
             if (typeof taskIdOrRequest === 'object') {
@@ -287,11 +356,37 @@ export const taskService = {
             // Если передан параметр previousColumnId, значит задача переместилась между колонками
             if (sourcePreviousColumnId && sourcePreviousColumnId !== targetColumnId) {
                 try {
+                    // Попробуем получить ID доски
+                    const rawBoardId = safeTaskData.boardId || this.getBoardIdFromUrl();
+                    boardId = rawBoardId ? String(rawBoardId) : null;
+                    
+                    // Находим имена колонок для логирования
+                    let sourceColumnName = `Колонка ID: ${sourcePreviousColumnId}`;
+                    let targetColumnName = `Колонка ID: ${targetColumnId}`;
+                    
+                    // Получаем информацию о колонках через API
+                    if (boardId) {
+                        try {
+                            const sourceColumn = await boardService.getColumnById(boardId, sourcePreviousColumnId);
+                            const targetColumn = await boardService.getColumnById(boardId, targetColumnId);
+                            
+                            if (sourceColumn) {
+                                sourceColumnName = sourceColumn.name;
+                            }
+                            
+                            if (targetColumn) {
+                                targetColumnName = targetColumn.name;
+                            }
+                        } catch (colErr) {
+                            console.warn('Не удалось получить информацию о колонках:', colErr);
+                        }
+                    }
+                    
                     // Добавляем запись в историю о перемещении между колонками
                     await this.addHistoryEntry(taskId, {
                         action: 'moved_between_columns',
-                        oldValue: `Колонка ID: ${sourcePreviousColumnId}`,
-                        newValue: `Колонка ID: ${targetColumnId}`
+                        oldValue: sourceColumnName,
+                        newValue: targetColumnName
                     });
                     console.log('Добавлена запись в историю о перемещении задачи между колонками');
                 } catch (historyError) {
