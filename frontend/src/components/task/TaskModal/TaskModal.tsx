@@ -441,8 +441,29 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         let processedNewValue = newValue;
                         
                         if (field === 'description') {
-                            processedOldValue = oldValue ? 'Предыдущее описание' : undefined;
-                            processedNewValue = newValue ? 'Новое описание' : '';
+                            // Вместо заглушек используем реальные значения, но обрезаем их если нужно
+                            const truncateHtml = (html: string, maxLength = 250): string => {
+                                if (!html) return '';
+                                
+                                // Если HTML слишком длинный, извлекаем текст и обрезаем его
+                                if (html.length > maxLength) {
+                                    try {
+                                        // Извлекаем только текст из HTML
+                                        const tempDiv = document.createElement('div');
+                                        tempDiv.innerHTML = html;
+                                        const text = tempDiv.textContent || tempDiv.innerText || '';
+                                        return text.substring(0, maxLength) + '...';
+                                    } catch (e) {
+                                        // В случае ошибки просто обрезаем строку
+                                        return html.substring(0, maxLength) + '...';
+                                    }
+                                }
+                                
+                                return html;
+                            };
+                            
+                            processedOldValue = oldValue ? truncateHtml(oldValue) : undefined;
+                            processedNewValue = newValue ? truncateHtml(newValue) : '';
                         }
                         
                         return taskService.addHistoryEntry(task.id, {
@@ -768,14 +789,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
 
     const handleAddNewTag = async (tag: string) => {
-        if (!tag || availableTags.includes(tag)) return;
-        
         try {
-            const updatedTags = await taskService.addTag(tag);
-            setAvailableTags(updatedTags);
+            if (!tag) return;
+            
+            // Добавляем новый тег в глобальный список, если он новый
+            await taskService.addTag(tag, task?.id);
+            
+            // Обновляем теги в форме, если тег еще не добавлен
+            if (!tags.includes(tag)) {
+                setTags([...tags, tag]);
+            }
         } catch (error) {
-            console.error('Ошибка при добавлении тега:', error);
-            setError('Не удалось добавить тег');
+            console.error('Error adding tag:', error);
         }
     };
 
