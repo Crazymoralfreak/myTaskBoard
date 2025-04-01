@@ -10,6 +10,11 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import java.time.LocalDateTime;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.stream.Collectors;
 
 @Data
 @Builder
@@ -18,6 +23,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "boards")
 public class Board {
+    private static final Logger logger = LoggerFactory.getLogger(Board.class);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,15 +45,28 @@ public class Board {
     @JsonBackReference("board-owner")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User owner;
     
     @JsonManagedReference("board-columns")
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<BoardColumn> columns = new ArrayList<>();
     
     @JsonManagedReference("board-statuses")
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<TaskStatus> taskStatuses = new ArrayList<>();
+    
+    @JsonManagedReference("board-types")
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<TaskType> taskTypes = new ArrayList<>();
     
     public void addColumn(BoardColumn column) {
         column.setBoard(this);
@@ -60,14 +80,75 @@ public class Board {
     }
     
     public void moveColumn(BoardColumn column, int newPosition) {
+        // Сохраняем текущую позицию колонки
+        int currentPosition = column.getPosition();
+        logger.debug("Перемещение колонки с позиции {} на позицию {}", currentPosition, newPosition);
+        
+        // Если позиция не изменилась, ничего не делаем
+        if (currentPosition == newPosition) {
+            logger.debug("Позиция не изменилась, ничего не делаем");
+            return;
+        }
+        
+        // Проверяем, что колонка принадлежит этой доске
+        if (!columns.contains(column)) {
+            throw new IllegalArgumentException("Column not found in this board");
+        }
+        
+        // Сначала удаляем колонку из списка
         columns.remove(column);
+        logger.debug("Колонка удалена из списка, размер списка: {}", columns.size());
+        
+        // Проверяем, что новая позиция находится в допустимом диапазоне
+        if (newPosition < 0 || newPosition > columns.size()) {
+            // Возвращаем колонку на её оригинальную позицию
+            if (currentPosition < columns.size()) {
+                columns.add(currentPosition, column);
+            } else {
+                columns.add(column);
+            }
+            logger.error("Недопустимая позиция {}, допустимый диапазон: 0-{}", newPosition, columns.size());
+            throw new IllegalArgumentException("Invalid position: " + newPosition);
+        }
+        
+        // Добавляем колонку на новую позицию
         columns.add(newPosition, column);
+        logger.debug("Колонка добавлена на новую позицию {}", newPosition);
+        
+        // Обновляем позиции всех колонок
         reorderColumns();
+        logger.debug("Колонка успешно перемещена, новые позиции: {}", 
+            columns.stream().map(c -> c.getName() + ":" + c.getPosition()).collect(Collectors.joining(", ")));
     }
     
     private void reorderColumns() {
+        logger.debug("Переупорядочивание {} колонок", columns.size());
         for (int i = 0; i < columns.size(); i++) {
-            columns.get(i).setPosition(i);
+            BoardColumn col = columns.get(i);
+            col.setPosition(i);
+            logger.debug("Колонка '{}' теперь имеет позицию {}", col.getName(), col.getPosition());
         }
+    }
+    
+    public void addTaskStatus(TaskStatus status) {
+        status.setBoard(this);
+        status.setPosition(taskStatuses.size());
+        taskStatuses.add(status);
+    }
+    
+    public void removeTaskStatus(TaskStatus status) {
+        taskStatuses.remove(status);
+        status.setBoard(null);
+    }
+    
+    public void addTaskType(TaskType type) {
+        type.setBoard(this);
+        type.setPosition(taskTypes.size());
+        taskTypes.add(type);
+    }
+    
+    public void removeTaskType(TaskType type) {
+        taskTypes.remove(type);
+        type.setBoard(null);
     }
 }

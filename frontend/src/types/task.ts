@@ -1,4 +1,5 @@
 import { Subtask } from './subtask';
+import { TaskType, BoardStatus } from './board';
 
 export type DefaultTaskStatus = 'todo' | 'in_progress' | 'completed';
 export type TaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -33,8 +34,11 @@ export interface TaskAttachment {
 export interface TaskHistory {
     id: number;
     username: string;
+    email?: string;
     avatarUrl?: string;
-    action: 'created' | 'updated' | 'comment_added' | 'file_added';
+    action: string;
+    oldValue?: string;
+    newValue?: string;
     timestamp: string;
     changes?: {
         field?: string;
@@ -51,15 +55,10 @@ export interface Task {
     startDate: string | null;
     endDate: string | null;
     daysRemaining: number | null;
-    customStatus?: {
-        id: number;
-        name: string;
-        color: string;
-        isDefault: boolean;
-        isCustom: boolean;
-        position: number;
-    };
+    customStatus?: BoardStatus;
+    type?: TaskType;
     columnId?: string;
+    boardId?: string | number;
     status?: 'todo' | 'in_progress' | 'completed';
     priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
@@ -93,6 +92,8 @@ export interface Task {
         avatarUrl?: string;
     }>;
     subtasks?: Array<Subtask>;
+    commentCount: number;
+    attachmentCount: number;
 }
 
 export interface CreateTaskRequest {
@@ -102,9 +103,30 @@ export interface CreateTaskRequest {
     endDate?: string;
     dueDate?: string;
     status?: 'todo' | 'in_progress' | 'completed';
-    statusId?: number;
+    statusId?: number | null;
+    typeId?: number | null;
     priority?: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
     columnColor?: string;
     columnId: string;
+    boardId?: string | number;
+}
+
+export interface TaskTemplate {
+    id: number;
+    name: string;
+    description?: string;
+    taskData: {
+        title: string;
+        description?: string;
+        typeId?: number;
+        statusId?: number;
+        priority: TaskPriority;
+        dueDate?: string;
+        tags?: string[];
+    };
+    boardId: number;
+    createdBy: number;
+    createdAt: string;
+    updatedAt: string;
 } 

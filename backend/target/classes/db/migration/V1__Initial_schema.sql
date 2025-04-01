@@ -33,6 +33,18 @@ CREATE TABLE task_statuses (
     is_custom BOOLEAN DEFAULT FALSE
 );
 
+-- Создание таблицы типов задач
+CREATE TABLE task_types (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    icon VARCHAR(50),
+    position INTEGER NOT NULL,
+    board_id BIGINT REFERENCES boards(id),
+    is_default BOOLEAN DEFAULT FALSE,
+    is_custom BOOLEAN DEFAULT FALSE
+);
+
 -- Создание таблицы колонок
 CREATE TABLE board_columns (
     id BIGSERIAL PRIMARY KEY,
@@ -56,6 +68,7 @@ CREATE TABLE tasks (
     column_id BIGINT REFERENCES board_columns(id),
     assignee_id BIGINT REFERENCES users(id),
     status_id BIGINT REFERENCES task_statuses(id),
+    type_id BIGINT REFERENCES task_types(id),
     priority VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -102,16 +115,19 @@ CREATE TABLE attachments (
 -- Создание таблицы истории задач
 CREATE TABLE task_history (
     id BIGSERIAL PRIMARY KEY,
-    task_id BIGINT REFERENCES tasks(id),
-    changed_by_id BIGINT REFERENCES users(id),
-    username VARCHAR(255),
+    task_id BIGINT NOT NULL,
+    username VARCHAR(255) NOT NULL,
     avatar_url VARCHAR(255),
     field_changed VARCHAR(255) NOT NULL,
     old_value TEXT,
     new_value TEXT,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    changed_by_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_task_history_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    CONSTRAINT fk_task_history_user FOREIGN KEY (changed_by_id) REFERENCES users(id)
 );
 
 -- Создание таблицы настроек уведомлений
@@ -201,10 +217,37 @@ CREATE TABLE subtasks (
     estimated_hours INTEGER
 );
 
+-- Таблица шаблонов задач
+CREATE TABLE task_templates (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    board_id BIGINT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    created_by BIGINT NOT NULL REFERENCES users(id),
+    type_id BIGINT REFERENCES task_types(id),
+    status_id BIGINT REFERENCES task_statuses(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица тегов шаблонов
+CREATE TABLE task_template_tags (
+    template_id BIGINT NOT NULL REFERENCES task_templates(id) ON DELETE CASCADE,
+    tag VARCHAR(100) NOT NULL,
+    PRIMARY KEY (template_id, tag),
+    CONSTRAINT chk_tag_length CHECK (length(tag) >= 1 AND length(tag) <= 100)
+);
+
+-- Добавляем ограничение для проверки уникальности имени шаблона в пределах доски
+ALTER TABLE task_templates
+    ADD CONSTRAINT uq_task_template_name_per_board
+    UNIQUE (board_id, name);
+
 -- Индексы для оптимизации
 CREATE INDEX idx_tasks_column ON tasks(column_id);
 CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
 CREATE INDEX idx_tasks_status ON tasks(status_id);
+CREATE INDEX idx_tasks_type ON tasks(type_id);
 CREATE INDEX idx_task_start_date ON tasks(start_date);
 CREATE INDEX idx_task_end_date ON tasks(end_date);
 CREATE INDEX idx_board_columns_board ON board_columns(board_id);
@@ -212,8 +255,8 @@ CREATE INDEX idx_task_statuses_board ON task_statuses(board_id);
 CREATE INDEX idx_comments_task ON comments(task_id);
 CREATE INDEX idx_comments_author ON comments(author_id);
 CREATE INDEX idx_attachments_task ON attachments(task_id);
-CREATE INDEX idx_task_history_task ON task_history(task_id);
-CREATE INDEX idx_task_history_user ON task_history(changed_by_id);
+CREATE INDEX idx_task_history_task_id ON task_history(task_id);
+CREATE INDEX idx_task_history_timestamp ON task_history(timestamp);
 CREATE INDEX idx_notification_preferences_user ON notification_preferences(user_id);
 CREATE INDEX idx_checklists_task ON checklists(task_id);
 CREATE INDEX idx_checklist_items_checklist ON checklist_items(checklist_id);
@@ -225,6 +268,27 @@ CREATE INDEX idx_task_watchers_task ON task_watchers(task_id);
 CREATE INDEX idx_task_watchers_user ON task_watchers(user_id);
 CREATE INDEX idx_subtasks_parent ON subtasks(parent_task_id);
 CREATE INDEX idx_subtasks_assignee ON subtasks(assignee_id);
+CREATE INDEX idx_task_types_board ON task_types(board_id);
+CREATE INDEX idx_task_templates_board ON task_templates(board_id);
+CREATE INDEX idx_task_templates_user ON task_templates(created_by);
+CREATE INDEX idx_task_templates_type ON task_templates(type_id);
+CREATE INDEX idx_task_templates_status ON task_templates(status_id);
+CREATE INDEX idx_task_templates_name ON task_templates(name);
+CREATE INDEX idx_task_template_tags ON task_template_tags(tag);
+
+-- Добавляем триггер для автоматического обновления updated_at
+CREATE OR REPLACE FUNCTION update_task_template_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER task_template_updated_at
+    BEFORE UPDATE ON task_templates
+    FOR EACH ROW
+    EXECUTE FUNCTION update_task_template_updated_at();
 
 -- Комментарии к таблицам
 COMMENT ON TABLE users IS 'Таблица пользователей системы';
@@ -235,6 +299,7 @@ COMMENT ON TABLE task_tags IS 'Таблица тегов задач';
 COMMENT ON TABLE comments IS 'Таблица комментариев к задачам';
 COMMENT ON TABLE board_members IS 'Таблица участников досок';
 COMMENT ON TABLE task_statuses IS 'Таблица статусов задач';
+COMMENT ON TABLE task_types IS 'Таблица типов задач';
 COMMENT ON TABLE attachments IS 'Таблица вложений к задачам';
 COMMENT ON TABLE task_history IS 'Таблица истории изменений задач';
 COMMENT ON TABLE notification_preferences IS 'Таблица настроек уведомлений пользователей';
@@ -245,6 +310,8 @@ COMMENT ON TABLE time_estimates IS 'Таблица оценок времени �
 COMMENT ON TABLE task_links IS 'Таблица связей между задачами';
 COMMENT ON TABLE task_watchers IS 'Таблица наблюдателей задач';
 COMMENT ON TABLE subtasks IS 'Таблица подзадач';
+COMMENT ON TABLE task_templates IS 'Таблица шаблонов задач';
+COMMENT ON TABLE task_template_tags IS 'Таблица тегов шаблонов задач';
 
 -- Комментарии к колонкам
 COMMENT ON COLUMN users.telegram_id IS 'Идентификатор пользователя в Telegram';
@@ -255,5 +322,12 @@ COMMENT ON COLUMN tasks.end_date IS 'Дата окончания выполне�
 COMMENT ON COLUMN tasks.days_remaining IS 'Оставшееся количество дней до окончания задачи';
 COMMENT ON COLUMN task_history.username IS 'Имя пользователя, внесшего изменение';
 COMMENT ON COLUMN task_history.avatar_url IS 'URL аватара пользователя, внесшего изменение';
+COMMENT ON COLUMN task_history.field_changed IS 'Поле, которое было изменено';
 COMMENT ON COLUMN subtasks.position IS 'Позиция подзадачи в списке';
-COMMENT ON COLUMN subtasks.estimated_hours IS 'Оценка времени в часах'; 
+COMMENT ON COLUMN subtasks.estimated_hours IS 'Оценка времени в часах';
+COMMENT ON COLUMN task_templates.name IS 'Название шаблона задачи';
+COMMENT ON COLUMN task_templates.description IS 'Описание шаблона задачи';
+COMMENT ON COLUMN task_templates.board_id IS 'Идентификатор доски, к которой привязан шаблон';
+COMMENT ON COLUMN task_templates.created_by IS 'Идентификатор пользователя, создавшего шаблон';
+COMMENT ON COLUMN task_templates.type_id IS 'Идентификатор типа задачи для шаблона';
+COMMENT ON COLUMN task_templates.status_id IS 'Идентификатор статуса задачи для шаблона'; 

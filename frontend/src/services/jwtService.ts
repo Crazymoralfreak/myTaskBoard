@@ -11,7 +11,6 @@ export class JwtService {
         this.axiosInstance = axios.create({
             baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8081',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
             withCredentials: true
@@ -89,5 +88,14 @@ export class JwtService {
 
     public addRefreshSubscriber(callback: (token: string) => void): void {
         this.refreshSubscribers.push(callback);
+    }
+
+    private getAxiosInstanceWithoutToken() {
+        return axios.create({
+            baseURL: 'http://localhost:8081',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
     }
 } 

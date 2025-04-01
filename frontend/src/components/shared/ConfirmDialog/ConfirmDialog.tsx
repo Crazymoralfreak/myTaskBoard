@@ -54,10 +54,47 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 return loading ? 'Подтверждение...' : 'Подтвердить';
         }
     };
+    
+    // Обработчик нажатия клавиши Enter для подтверждения
+    const handleKeyDown = (event: React.KeyboardEvent) => {
+        if (event.key === 'Enter' && !loading) {
+            onConfirm();
+        }
+    };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{title}</DialogTitle>
+        <Dialog 
+            open={open} 
+            onClose={onClose} 
+            maxWidth="sm" 
+            fullWidth
+            aria-labelledby="confirm-dialog-title"
+            onKeyDown={handleKeyDown}
+            keepMounted={false}
+            disablePortal={false}
+            style={{ zIndex: 9999 }}
+            PaperProps={{
+                style: {
+                    zIndex: 10000,
+                    position: 'relative'
+                }
+            }}
+            BackdropProps={{
+                style: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    zIndex: 9998
+                }
+            }}
+            sx={{
+                '& .MuiDialog-container': {
+                    zIndex: 10000
+                },
+                '& .MuiBackdrop-root': {
+                    zIndex: 9998
+                }
+            }}
+        >
+            <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
             <DialogContent>
                 <Typography>{message}</Typography>
             </DialogContent>
@@ -69,6 +106,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     color={getActionColor()}
                     disabled={loading}
                     startIcon={loading ? <CircularProgress size={20} /> : null}
+                    autoFocus
                 >
                     {getActionText()}
                 </Button>

@@ -13,6 +13,8 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import java.util.List;
 import java.util.ArrayList;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 
 @Data
 @Builder
@@ -49,10 +51,22 @@ public class Task {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    @JsonBackReference("task-status")
-    @ManyToOne
+    @Column(name = "comment_count")
+    private Integer commentCount = 0;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "status_id")
+    @JsonBackReference("task-status")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private TaskStatus customStatus;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "type_id")
+    @JsonBackReference("task-type")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private TaskType type;
     
     @Enumerated(EnumType.STRING)
     @Column
@@ -63,9 +77,11 @@ public class Task {
     @Column(name = "tag")
     private Set<String> tags = new HashSet<>();
     
-    @JsonBackReference("column-tasks")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "column_id")
+    @JsonBackReference("column-tasks")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private BoardColumn column;
     
     @JsonBackReference("task-assignee")
@@ -95,5 +111,31 @@ public class Task {
     private List<Subtask> subtasks = new ArrayList<>();
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonBackReference("task-history")
     private List<TaskHistory> history = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
+    @JsonManagedReference("task-timetracking")
+    private List<TimeTracking> timeTrackings = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
+    @JsonManagedReference("task-timeestimate")
+    private List<TimeEstimate> timeEstimates = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "sourceTask", cascade = CascadeType.ALL)
+    @JsonManagedReference("task-source-links")
+    private List<TaskLink> sourceLinks = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "targetTask", cascade = CascadeType.ALL)
+    @JsonManagedReference("task-target-links")
+    private List<TaskLink> targetLinks = new ArrayList<>();
+
+    @Transient
+    public Integer getCommentCount() {
+        return commentCount;
+    }
+    
+    public void setCommentCount(Integer commentCount) {
+        this.commentCount = commentCount;
+    }
 }

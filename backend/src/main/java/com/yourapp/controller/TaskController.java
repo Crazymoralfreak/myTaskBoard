@@ -6,11 +6,12 @@ import com.yourapp.model.Task;
 import com.yourapp.model.User;
 import com.yourapp.model.TaskPriority;
 import com.yourapp.model.TaskStatus;
+import com.yourapp.model.TaskType;
 import com.yourapp.service.TaskService;
 import com.yourapp.repository.ColumnRepository;
 import com.yourapp.repository.TaskStatusRepository;
 import com.yourapp.repository.UserRepository;
-import com.yourapp.dto.CreateTaskRequest;
+import com.yourapp.repository.TaskTypeRepository;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -25,12 +26,13 @@ import org.slf4j.LoggerFactory;
 import com.yourapp.exception.ValidationException;
 import java.util.HashSet;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.Instant;
 import java.time.ZoneId;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
+import com.yourapp.model.TaskHistory;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -40,7 +42,7 @@ public class TaskController {
     private final TaskService taskService;
     private final ColumnRepository columnRepository;
     private final TaskStatusRepository taskStatusRepository;
-    private final UserRepository userRepository;
+    private final TaskTypeRepository taskTypeRepository;
     private final TaskMapper taskMapper;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -194,6 +196,32 @@ public class TaskController {
             }
         }
 
+        // Обработка типа задачи (опционально)
+        if (request.containsKey("typeId")) {
+            Object typeIdObj = request.get("typeId");
+            logger.debug("Обработка typeId. Значение: {}, Тип: {}", typeIdObj,
+                typeIdObj != null ? typeIdObj.getClass().getSimpleName() : "null");
+            
+            Long typeId = null;
+            if (typeIdObj instanceof String) {
+                typeId = Long.valueOf((String) typeIdObj);
+            } else if (typeIdObj instanceof Number) {
+                typeId = ((Number) typeIdObj).longValue();
+            }
+            
+            if (typeId != null) {
+                try {
+                    TaskType type = taskTypeRepository.findById(typeId)
+                        .orElseThrow(() -> new RuntimeException("Task type not found"));
+                    task.setType(type);
+                    logger.debug("Тип задачи успешно установлен: {}", type.getName());
+                } catch (Exception e) {
+                    logger.error("Ошибка при установке типа задачи {}: {}", typeId, e.getMessage());
+                    throw e;
+                }
+            }
+        }
+
         // Создаем задачу через сервис
         try {
             logger.debug("Отправка задачи в сервис для создания. UserId: {}", currentUser.getId());
@@ -228,16 +256,56 @@ public class TaskController {
         @RequestBody Map<String, Object> updates,
         @AuthenticationPrincipal User user
     ) {
-        logger.debug("Обновление задачи с id: {}. Данные обновления: {}", taskId, updates);
+        logger.debug("Обновление задачи {}. Данные обновления: {}", taskId, updates);
         
-        try {
-            Task task = taskService.updateTask(taskId, updates);
-            logger.debug("Задача успешно обновлена: {}", task.getId());
-            return taskMapper.toResponse(task);
-        } catch (Exception e) {
-            logger.error("Ошибка при обновлении задачи: {}", e.getMessage(), e);
-            throw e;
+        // Обработка typeId
+        if (updates.containsKey("typeId")) {
+            Object typeIdObj = updates.get("typeId");
+            logger.debug("Обработка typeId. Значение: {}, Тип: {}", typeIdObj,
+                typeIdObj != null ? typeIdObj.getClass().getSimpleName() : "null");
+            
+            if (typeIdObj == null) {
+                updates.put("type", null);
+            } else {
+                Long typeId = null;
+                if (typeIdObj instanceof String) {
+                    typeId = Long.valueOf((String) typeIdObj);
+                } else if (typeIdObj instanceof Number) {
+                    typeId = ((Number) typeIdObj).longValue();
+                }
+                if (typeId != null) {
+                    TaskType type = taskTypeRepository.findById(typeId)
+                        .orElseThrow(() -> new RuntimeException("Task type not found"));
+                    updates.put("type", type);
+                }
+            }
         }
+        
+        // Обработка statusId
+        if (updates.containsKey("statusId")) {
+            Object statusIdObj = updates.get("statusId");
+            logger.debug("Обработка statusId. Значение: {}, Тип: {}", statusIdObj,
+                statusIdObj != null ? statusIdObj.getClass().getSimpleName() : "null");
+            
+            if (statusIdObj == null) {
+                updates.put("customStatus", null);
+            } else {
+                Long statusId = null;
+                if (statusIdObj instanceof String) {
+                    statusId = Long.valueOf((String) statusIdObj);
+                } else if (statusIdObj instanceof Number) {
+                    statusId = ((Number) statusIdObj).longValue();
+                }
+                if (statusId != null) {
+                    TaskStatus status = taskStatusRepository.findById(statusId)
+                        .orElseThrow(() -> new RuntimeException("Status not found"));
+                    updates.put("customStatus", status);
+                }
+            }
+        }
+        
+        Task updatedTask = taskService.updateTask(taskId, updates);
+        return taskMapper.toResponse(updatedTask);
     }
 
     @PatchMapping("/{taskId}/move/{newColumnId}")
@@ -305,6 +373,23 @@ public class TaskController {
         return taskMapper.toResponse(task);
     }
 
+    @PutMapping("/{taskId}/comments/{commentId}")
+    public TaskResponse updateComment(
+        @PathVariable Long taskId,
+        @PathVariable Long commentId,
+        @RequestBody Map<String, String> request,
+        @AuthenticationPrincipal User user
+    ) {
+        logger.debug("Редактирование комментария {} к задаче {}. Пользователь: {}", commentId, taskId, user.getUsername());
+        
+        if (!request.containsKey("content")) {
+            throw new IllegalArgumentException("Comment content is required");
+        }
+        
+        Task task = taskService.updateComment(taskId, commentId, request.get("content"), user);
+        return taskMapper.toResponse(task);
+    }
+
     @PostMapping("/{taskId}/attachments")
     public TaskResponse addAttachment(
         @PathVariable Long taskId,
@@ -352,9 +437,7 @@ public class TaskController {
     }
 
     @PostMapping("/move")
-    public TaskResponse moveTaskWithPosition(
-        @RequestBody Map<String, Object> request
-    ) {
+    public TaskResponse moveTaskWithPosition(@RequestBody Map<String, Object> request) {
         logger.debug("Получен запрос на перемещение задачи: {}", request);
         
         Long taskId = Long.valueOf(request.get("taskId").toString());
@@ -362,8 +445,146 @@ public class TaskController {
         Long destinationColumnId = Long.valueOf(request.get("destinationColumnId").toString());
         Integer newPosition = (Integer) request.get("newPosition");
         
-        return taskMapper.toResponse(
-            taskService.moveTaskWithPosition(taskId, sourceColumnId, destinationColumnId, newPosition)
-        );
+        // Получаем typeId и statusId из запроса, если они существуют
+        Long typeId = null;
+        Long statusId = null;
+        
+        if (request.containsKey("typeId")) {
+            Object typeIdObj = request.get("typeId");
+            logger.debug("Обработка typeId. Значение: {}, Тип: {}", typeIdObj,
+                typeIdObj != null ? typeIdObj.getClass().getSimpleName() : "null");
+            
+            if (typeIdObj != null) {
+                try {
+                    if (typeIdObj instanceof String) {
+                        typeId = Long.valueOf((String) typeIdObj);
+                    } else if (typeIdObj instanceof Number) {
+                        typeId = ((Number) typeIdObj).longValue();
+                    }
+                    logger.debug("Получен typeId: {}", typeId);
+                } catch (Exception e) {
+                    logger.warn("Ошибка при преобразовании typeId: {}", e.getMessage());
+                }
+            }
+        }
+        
+        if (request.containsKey("statusId")) {
+            Object statusIdObj = request.get("statusId");
+            logger.debug("Обработка statusId. Значение: {}, Тип: {}", statusIdObj,
+                statusIdObj != null ? statusIdObj.getClass().getSimpleName() : "null");
+            
+            if (statusIdObj != null) {
+                try {
+                    if (statusIdObj instanceof String) {
+                        statusId = Long.valueOf((String) statusIdObj);
+                    } else if (statusIdObj instanceof Number) {
+                        statusId = ((Number) statusIdObj).longValue();
+                    }
+                    logger.debug("Получен statusId: {}", statusId);
+                } catch (Exception e) {
+                    logger.warn("Ошибка при преобразовании statusId: {}", e.getMessage());
+                }
+            }
+        }
+        
+        Task task = taskService.moveTaskWithPosition(taskId, sourceColumnId, destinationColumnId, newPosition, typeId, statusId);
+        logger.debug("Задача успешно перемещена. Тип: {}, Статус: {}", 
+            task.getType() != null ? task.getType().getName() : "null",
+            task.getCustomStatus() != null ? task.getCustomStatus().getName() : "null");
+        return taskMapper.toResponse(task);
+    }
+
+    /**
+     * Получение всех тегов
+     */
+    @GetMapping("/tags")
+    public Set<String> getAllTags() {
+        logger.debug("Получен запрос на получение всех тегов");
+        return taskService.getAllTags();
+    }
+
+    /**
+     * Добавление нового тега
+     */
+    @PostMapping("/tags")
+    public Set<String> addTag(@RequestBody Map<String, String> request) {
+        String tag = request.get("tag");
+        logger.debug("Получен запрос на добавление тега: {}", tag);
+        return taskService.addTag(tag);
+    }
+
+    /**
+     * Получение истории задачи
+     */
+    @GetMapping("/{taskId}/history")
+    public List<Map<String, Object>> getTaskHistory(@PathVariable Long taskId) {
+        logger.debug("Получен запрос на получение истории задачи с ID: {}", taskId);
+        
+        // Получаем историю задачи
+        List<TaskHistory> historyEntries = taskService.getTaskHistoryByTaskId(taskId);
+        
+        // Преобразуем в упрощенный формат для предотвращения рекурсивной сериализации
+        return historyEntries.stream()
+            .map(entry -> {
+                Map<String, Object> simplifiedEntry = new HashMap<>();
+                simplifiedEntry.put("id", entry.getId());
+                simplifiedEntry.put("username", entry.getUsername() != null ? entry.getUsername() : 
+                                   (entry.getChangedBy() != null ? entry.getChangedBy().getUsername() : "Система"));
+                simplifiedEntry.put("action", entry.getAction());
+                simplifiedEntry.put("oldValue", entry.getOldValue());
+                simplifiedEntry.put("newValue", entry.getNewValue());
+                simplifiedEntry.put("timestamp", entry.getTimestamp());
+                
+                // Добавляем информацию о пользователе, если она доступна
+                if (entry.getChangedBy() != null) {
+                    simplifiedEntry.put("email", entry.getChangedBy().getEmail());
+                    simplifiedEntry.put("avatarUrl", entry.getChangedBy().getAvatarUrl());
+                }
+                
+                return simplifiedEntry;
+            })
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Добавление записи в историю задачи
+     */
+    @PostMapping("/{taskId}/history")
+    public Map<String, Object> addHistoryEntry(
+        @PathVariable Long taskId,
+        @RequestBody Map<String, Object> request,
+        @AuthenticationPrincipal User currentUser
+    ) {
+        logger.debug("Получен запрос на добавление записи в историю задачи с ID: {}", taskId);
+        
+        String action = (String) request.get("action");
+        String oldValue = (String) request.get("oldValue");
+        String newValue = (String) request.get("newValue");
+        
+        TaskHistory history = new TaskHistory();
+        history.setAction(action);
+        history.setOldValue(oldValue);
+        history.setNewValue(newValue);
+        
+        // Добавляем запись в историю и получаем сохраненный результат
+        TaskHistory savedEntry = taskService.addHistoryEntry(taskId, history, currentUser);
+        
+        // Преобразуем в упрощенный формат для предотвращения рекурсивной сериализации
+        Map<String, Object> simplifiedEntry = new HashMap<>();
+        simplifiedEntry.put("id", savedEntry.getId());
+        simplifiedEntry.put("username", savedEntry.getUsername() != null ? savedEntry.getUsername() : 
+                           (savedEntry.getChangedBy() != null ? savedEntry.getChangedBy().getUsername() : "Система"));
+        simplifiedEntry.put("action", savedEntry.getAction());
+        simplifiedEntry.put("oldValue", savedEntry.getOldValue());
+        simplifiedEntry.put("newValue", savedEntry.getNewValue());
+        simplifiedEntry.put("timestamp", savedEntry.getTimestamp());
+        
+        // Добавляем информацию о пользователе, если она доступна
+        if (savedEntry.getChangedBy() != null) {
+            simplifiedEntry.put("email", savedEntry.getChangedBy().getEmail());
+            simplifiedEntry.put("avatarUrl", savedEntry.getChangedBy().getAvatarUrl());
+        }
+        
+        return simplifiedEntry;
     }
 }

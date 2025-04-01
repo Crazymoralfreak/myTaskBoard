@@ -3,6 +3,8 @@ package com.yourapp.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Data
@@ -32,10 +34,12 @@ public class TaskHistory {
     
     @ManyToOne
     @JoinColumn(name = "task_id")
+    @JsonIgnore
     private Task task;
     
     @ManyToOne
     @JoinColumn(name = "changed_by_id")
+    @JsonIgnore
     private User changedBy;
     
     @Column(name = "created_at")

@@ -38,6 +38,9 @@ public class TaskService {
     private final ColumnRepository columnRepository;
     private final UserRepository userRepository;
     private final TaskStatusRepository taskStatusRepository;
+    private final TaskTypeRepository taskTypeRepository;
+    private final CommentRepository commentRepository;
+    private final TaskHistoryRepository taskHistoryRepository;
     private static final Logger logger = LoggerFactory.getLogger(TaskService.class);
     
     @Value("${app.upload.max-file-size}")
@@ -93,25 +96,18 @@ public class TaskService {
             task.setPosition(newPosition);
             logger.debug("Установлена позиция задачи в колонке: {}", newPosition);
             
-            // Устанавливаем дефолтный статус из доски, если он не был установлен
-            if (task.getCustomStatus() == null && column.getBoard() != null) {
-                logger.debug("Поиск дефолтного статуса для доски: {}", column.getBoard().getId());
-                
-                TaskStatus defaultStatus = column.getBoard().getTaskStatuses().stream()
-                        .filter(TaskStatus::isDefault)
-                        .findFirst()
-                        .orElse(null);
-                
-                if (defaultStatus != null) {
-                    task.setCustomStatus(defaultStatus);
-                    logger.debug("Установлен дефолтный статус: {}", defaultStatus.getName());
-                } else {
-                    logger.warn("Дефолтный статус не найден для доски: {}", column.getBoard().getId());
-                }
+            // Проверяем статус задачи
+            if (task.getCustomStatus() == null) {
+                logger.debug("Статус задачи не установлен");
             }
         } else {
             logger.error("Не указана колонка для задачи");
             throw new IllegalArgumentException("Column is required for task creation");
+        }
+        
+        // Проверяем тип задачи
+        if (task.getType() == null) {
+            logger.debug("Тип задачи не установлен");
         }
         
         // Устанавливаем пользователя, создавшего задачу
@@ -189,9 +185,60 @@ public class TaskService {
             Map<String, Object> statusDetails = updates.get("customStatus") instanceof Map ? 
                 (Map<String, Object>) updates.get("customStatus") : 
                 new HashMap<>();
-            TaskStatus status = taskStatusRepository.findById(((Number) statusDetails.get("id")).longValue())
-                .orElseThrow(() -> new RuntimeException("Status not found"));
-            task.setCustomStatus(status);
+            Object statusIdObj = statusDetails.get("id");
+            if (statusIdObj != null) {
+                Long statusId = ((Number) statusIdObj).longValue();
+                TaskStatus status = taskStatusRepository.findById(statusId)
+                    .orElseThrow(() -> new RuntimeException("Status not found"));
+                task.setCustomStatus(status);
+            } else {
+                task.setCustomStatus(null);
+            }
+        }
+        
+        // Прямое обновление статуса по statusId
+        if (updates.containsKey("statusId")) {
+            Object statusIdObj = updates.get("statusId");
+            if (statusIdObj != null) {
+                Long statusId = ((Number) statusIdObj).longValue();
+                TaskStatus status = taskStatusRepository.findById(statusId)
+                    .orElseThrow(() -> new RuntimeException("Status not found"));
+                task.setCustomStatus(status);
+            } else {
+                // Если statusId равен null, сбрасываем статус
+                task.setCustomStatus(null);
+            }
+        }
+        
+        // Обновление типа задачи
+        if (updates.containsKey("type")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> typeDetails = updates.get("type") instanceof Map ? 
+                (Map<String, Object>) updates.get("type") : 
+                new HashMap<>();
+            Object typeIdObj = typeDetails.get("id");
+            if (typeIdObj != null) {
+                Long typeId = ((Number) typeIdObj).longValue();
+                TaskType type = taskTypeRepository.findById(typeId)
+                    .orElseThrow(() -> new RuntimeException("Task type not found"));
+                task.setType(type);
+            } else {
+                task.setType(null);
+            }
+        }
+        
+        // Прямое обновление типа задачи по typeId
+        if (updates.containsKey("typeId")) {
+            Object typeIdObj = updates.get("typeId");
+            if (typeIdObj != null) {
+                Long typeId = ((Number) typeIdObj).longValue();
+                TaskType type = taskTypeRepository.findById(typeId)
+                    .orElseThrow(() -> new RuntimeException("Task type not found"));
+                task.setType(type);
+            } else {
+                // Если typeId равен null, сбрасываем тип
+                task.setType(null);
+            }
         }
         
         // Обновление приоритета
@@ -266,7 +313,7 @@ public class TaskService {
     }
     
     public Task getTask(Long taskId) {
-        return taskRepository.findById(taskId)
+        return taskRepository.findByIdWithTypeAndStatus(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
     }
     
@@ -282,7 +329,20 @@ public class TaskService {
         BoardColumn targetColumn = columnRepository.findById(targetColumnId)
                 .orElseThrow(() -> new RuntimeException("Target column not found"));
         
+        // Сохраняем текущие значения типа и статуса
+        TaskType currentType = task.getType();
+        TaskStatus currentStatus = task.getCustomStatus();
+        
+        // Перемещаем задачу
         task.setColumn(targetColumn);
+        
+        // Восстанавливаем тип и статус
+        task.setType(currentType);
+        task.setCustomStatus(currentStatus);
+        
+        // Обновляем время изменения
+        task.setUpdatedAt(LocalDateTime.now());
+        
         return taskRepository.save(task);
     }
     
@@ -360,14 +420,25 @@ public class TaskService {
         comment.setContent(content.trim());
         comment.setAuthor(author);
         comment.setTask(task);
+        comment.setCreatedAt(LocalDateTime.now());
+        comment.setUpdatedAt(LocalDateTime.now());
         
         if (task.getComments() == null) {
             task.setComments(new ArrayList<>());
         }
+        
+        // Сначала сохраняем комментарий через CommentRepository
+        commentRepository.save(comment);
+        
+        // Затем добавляем его в список комментариев задачи
         task.getComments().add(comment);
+        
+        // Обновляем счетчик комментариев
+        task.setCommentCount(task.getComments().size());
         
         // Добавляем запись в историю
         TaskHistory history = new TaskHistory();
+        history.setTask(task);
         history.setUsername(author.getUsername());
         history.setAvatarUrl(author.getAvatarUrl());
         history.setAction("comment_added");
@@ -378,6 +449,7 @@ public class TaskService {
         }
         task.getHistory().add(history);
 
+        // Сохраняем обновленную задачу
         return taskRepository.save(task);
     }
 
@@ -385,6 +457,46 @@ public class TaskService {
     public Task deleteComment(Long taskId, Long commentId) {
         Task task = getTask(taskId);
         task.getComments().removeIf(comment -> comment.getId().equals(commentId));
+        // Обновляем счетчик комментариев
+        task.setCommentCount(task.getComments().size());
+        return taskRepository.save(task);
+    }
+
+    @Transactional
+    public Task updateComment(Long taskId, Long commentId, String content, User currentUser) {
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException("Comment content cannot be empty");
+        }
+
+        Task task = getTask(taskId);
+        
+        // Находим комментарий для обновления
+        Comment commentToUpdate = task.getComments().stream()
+            .filter(c -> c.getId().equals(commentId))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Comment not found"));
+        
+        // Проверяем права доступа - только автор может редактировать свой комментарий
+        if (!commentToUpdate.getAuthor().getId().equals(currentUser.getId())) {
+            throw new IllegalArgumentException("You can only edit your own comments");
+        }
+        
+        // Обновляем содержимое комментария
+        commentToUpdate.setContent(content.trim());
+        commentToUpdate.setUpdatedAt(LocalDateTime.now());
+        
+        // Добавляем запись в историю
+        TaskHistory history = new TaskHistory();
+        history.setUsername(currentUser.getUsername());
+        history.setAvatarUrl(currentUser.getAvatarUrl());
+        history.setAction("comment_updated");
+        history.setTimestamp(LocalDateTime.now());
+        
+        if (task.getHistory() == null) {
+            task.setHistory(new ArrayList<>());
+        }
+        task.getHistory().add(history);
+
         return taskRepository.save(task);
     }
 
@@ -431,10 +543,33 @@ public class TaskService {
         return taskRepository.save(task);
     }
 
+    /**
+     * Обновляет теги задачи
+     * 
+     * @param taskId идентификатор задачи
+     * @param tags набор тегов
+     * @return обновленная задача
+     */
     @Transactional
     public Task updateTags(Long taskId, Set<String> tags) {
+        logger.debug("Обновление тегов задачи {}: {}", taskId, tags);
+        
         Task task = getTask(taskId);
-        task.setTags(tags);
+        
+        // Обновляем набор тегов
+        task.setTags(tags != null ? tags : new HashSet<>());
+        
+        // Добавляем запись в историю
+        TaskHistory history = new TaskHistory();
+        history.setTask(task);
+        history.setAction("tags_updated");
+        history.setTimestamp(LocalDateTime.now());
+        
+        if (task.getHistory() == null) {
+            task.setHistory(new ArrayList<>());
+        }
+        task.getHistory().add(history);
+        
         return taskRepository.save(task);
     }
 
@@ -472,48 +607,168 @@ public class TaskService {
     }
 
     @Transactional
-    public Task moveTaskWithPosition(Long taskId, Long sourceColumnId, Long destinationColumnId, Integer newPosition) {
-        logger.debug("Перемещение задачи {} из колонки {} в колонку {} на позицию {}", 
-            taskId, sourceColumnId, destinationColumnId, newPosition);
+    public Task moveTaskWithPosition(Long taskId, Long sourceColumnId, Long destinationColumnId, Integer newPosition, Long typeId, Long statusId) {
+        logger.debug("Начало перемещения задачи. TaskId: {}, SourceColumnId: {}, DestinationColumnId: {}, NewPosition: {}, TypeId: {}, StatusId: {}", 
+            taskId, sourceColumnId, destinationColumnId, newPosition, typeId, statusId);
         
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> {
+                    logger.error("Задача с id {} не найдена", taskId);
+                    return new RuntimeException("Task not found");
+                });
         
-        BoardColumn sourceColumn = columnRepository.findById(sourceColumnId)
-                .orElseThrow(() -> new RuntimeException("Source column not found"));
-        
-        BoardColumn destinationColumn = columnRepository.findById(destinationColumnId)
-                .orElseThrow(() -> new RuntimeException("Destination column not found"));
-        
-        // Проверяем, что задача действительно находится в исходной колонке
+        // Проверяем, что задача находится в указанной исходной колонке
         if (!task.getColumn().getId().equals(sourceColumnId)) {
+            logger.error("Задача {} не находится в указанной исходной колонке {}", taskId, sourceColumnId);
             throw new IllegalArgumentException("Task is not in the specified source column");
         }
         
+        // Сохраняем текущие значения
+        TaskType currentType = task.getType();
+        TaskStatus currentStatus = task.getCustomStatus();
+        int commentCount = task.getComments() != null ? task.getComments().size() : 0;
+        
         // Обновляем позиции задач в исходной колонке
-        List<Task> sourceTasks = taskRepository.findByColumnId(sourceColumnId);
-        sourceTasks.stream()
-                .filter(t -> t.getPosition() > task.getPosition())
-                .forEach(t -> {
-                    t.setPosition(t.getPosition() - 1);
-                    taskRepository.save(t);
+        List<Task> sourceTasks = taskRepository.findByColumnIdOrderByPositionAsc(sourceColumnId);
+        sourceTasks.remove(task);
+        updatePositions(sourceTasks);
+        
+        // Находим целевую колонку
+        BoardColumn destinationColumn = columnRepository.findById(destinationColumnId)
+                .orElseThrow(() -> {
+                    logger.error("Целевая колонка с id {} не найдена", destinationColumnId);
+                    return new RuntimeException("Destination column not found");
                 });
         
-        // Обновляем позиции задач в целевой колонке
-        List<Task> destinationTasks = taskRepository.findByColumnId(destinationColumnId);
-        destinationTasks.stream()
-                .filter(t -> t.getPosition() >= newPosition)
-                .forEach(t -> {
-                    t.setPosition(t.getPosition() + 1);
-                    taskRepository.save(t);
-                });
+        // Получаем задачи в целевой колонке
+        List<Task> destinationTasks = taskRepository.findByColumnIdOrderByPositionAsc(destinationColumnId);
         
-        // Перемещаем задачу
+        // Устанавливаем новую колонку для задачи
         task.setColumn(destinationColumn);
-        task.setPosition(newPosition);
+        
+        // Обновляем тип и статус, если они предоставлены
+        if (typeId != null) {
+            TaskType taskType = taskTypeRepository.findById(typeId)
+                    .orElse(null);
+            if (taskType != null) {
+                task.setType(taskType);
+                logger.debug("Установлен новый тип задачи: {}", taskType.getName());
+            }
+        } else {
+            // Восстанавливаем текущий тип, если новый не предоставлен
+            task.setType(currentType);
+            logger.debug("Восстановлен текущий тип задачи: {}", currentType != null ? currentType.getName() : "null");
+        }
+        
+        if (statusId != null) {
+            TaskStatus taskStatus = taskStatusRepository.findById(statusId)
+                    .orElse(null);
+            if (taskStatus != null) {
+                task.setCustomStatus(taskStatus);
+                logger.debug("Установлен новый статус задачи: {}", taskStatus.getName());
+            }
+        } else {
+            // Восстанавливаем текущий статус, если новый не предоставлен
+            task.setCustomStatus(currentStatus);
+            logger.debug("Восстановлен текущий статус задачи: {}", currentStatus != null ? currentStatus.getName() : "null");
+        }
+        
+        task.setCommentCount(commentCount);
+        
+        // Вставляем задачу в новую позицию
+        if (newPosition != null) {
+            destinationTasks.add(newPosition, task);
+            updatePositions(destinationTasks);
+        } else {
+            // Если позиция не указана, добавляем в конец
+            task.setPosition(destinationTasks.size());
+        }
+        
         task.setUpdatedAt(LocalDateTime.now());
         
-        logger.debug("Задача успешно перемещена");
+        logger.debug("Задача успешно перемещена с сохранением типа {}, статуса {} и количества комментариев {}", 
+            task.getType() != null ? task.getType().getName() : "null",
+            task.getCustomStatus() != null ? task.getCustomStatus().getName() : "null",
+            commentCount);
+        
         return taskRepository.save(task);
+    }
+
+    /**
+     * Обновляет позиции задач в списке.
+     * @param tasks список задач для обновления позиций
+     */
+    private void updatePositions(List<Task> tasks) {
+        for (int i = 0; i < tasks.size(); i++) {
+            tasks.get(i).setPosition(i);
+        }
+    }
+
+    /**
+     * Получить все теги из всех задач
+     * @return множество всех уникальных тегов
+     */
+    public Set<String> getAllTags() {
+        logger.debug("Получение всех тегов из всех задач");
+        try {
+            return taskRepository.findAllTags();
+        } catch (Exception e) {
+            logger.error("Ошибка при получении всех тегов: {}", e.getMessage());
+            return new HashSet<>();
+        }
+    }
+
+    /**
+     * Добавить новый тег в глобальный список тегов
+     * @param tag новый тег
+     * @return обновленный список всех тегов
+     */
+    public Set<String> addTag(String tag) {
+        logger.debug("Добавление нового тега: {}", tag);
+        if (tag == null || tag.trim().isEmpty()) {
+            throw new IllegalArgumentException("Тег не может быть пустым");
+        }
+        
+        // В текущей реализации просто возвращаем обновленный список тегов
+        // Тег будет добавлен при следующем обновлении задачи
+        Set<String> allTags = getAllTags();
+        allTags.add(tag.trim());
+        return allTags;
+    }
+
+    /**
+     * Получить историю задачи
+     * @param taskId идентификатор задачи
+     * @return список записей истории
+     */
+    public List<TaskHistory> getTaskHistoryByTaskId(Long taskId) {
+        logger.debug("Получение истории задачи с ID: {}", taskId);
+        
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new RuntimeException("Задача не найдена"));
+        
+        return taskHistoryRepository.findByTaskIdOrderByTimestampDesc(taskId);
+    }
+
+    /**
+     * Добавить запись в историю задачи
+     * @param taskId идентификатор задачи
+     * @param historyEntry запись истории
+     * @param user пользователь, выполняющий действие
+     * @return созданная запись истории
+     */
+    public TaskHistory addHistoryEntry(Long taskId, TaskHistory historyEntry, User user) {
+        logger.debug("Добавление записи в историю задачи с ID: {}", taskId);
+        
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new RuntimeException("Задача не найдена"));
+        
+        historyEntry.setTask(task);
+        historyEntry.setChangedBy(user);
+        historyEntry.setUsername(user.getUsername());
+        historyEntry.setAvatarUrl(user.getAvatarUrl());
+        historyEntry.setTimestamp(LocalDateTime.now());
+        
+        return taskHistoryRepository.save(historyEntry);
     }
 }

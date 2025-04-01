@@ -7,14 +7,8 @@ export interface Board {
     createdAt: string;
     updatedAt: string;
     columns: Column[];
-    taskStatuses: Array<{
-        id: number;
-        name: string;
-        color: string;
-        isDefault: boolean;
-        isCustom: boolean;
-        position: number;
-    }>;
+    taskStatuses: BoardStatus[];
+    taskTypes: TaskType[];
 }
 
 export interface BoardStatus {
@@ -26,8 +20,18 @@ export interface BoardStatus {
     position: number;
 }
 
-export interface Column {
+export interface TaskType {
     id: number;
+    name: string;
+    color: string;
+    icon: string;
+    isDefault: boolean;
+    isCustom: boolean;
+    position: number;
+}
+
+export interface Column {
+    id: string;
     name: string;
     position: number;
     tasks: Task[];

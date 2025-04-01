@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "time_estimates")
@@ -16,6 +18,7 @@ public class TimeEstimate {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
+    @JsonBackReference("task-timeestimate")
     private Task task;
 
     @Column(name = "estimated_minutes", nullable = false)
@@ -23,6 +26,7 @@ public class TimeEstimate {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
+    @JsonIgnore
     private User createdBy;
 
     @Column(name = "created_at")

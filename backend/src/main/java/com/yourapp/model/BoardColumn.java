@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 
 @Data
 @Builder
@@ -33,9 +35,13 @@ public class BoardColumn {
     @JsonBackReference("board-columns")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Board board;
     
     @JsonManagedReference("column-tasks")
     @OneToMany(mappedBy = "column", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<Task> tasks = new ArrayList<>();
 } 

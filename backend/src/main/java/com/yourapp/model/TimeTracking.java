@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Table(name = "time_tracking")
@@ -16,6 +18,7 @@ public class TimeTracking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id")
+    @JsonBackReference("task-timetracking")
     private Task task;
 
     @Column(name = "started_at", nullable = false)
@@ -28,6 +31,7 @@ public class TimeTracking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
+    @JsonManagedReference("user-timetrackings")
     private User createdBy;
 
     @Column(name = "created_at")

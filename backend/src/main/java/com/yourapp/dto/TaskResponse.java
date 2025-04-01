@@ -21,13 +21,27 @@ public class TaskResponse {
     private TaskPriority priority;
     private Set<String> tags;
     private TaskStatusResponse customStatus;
+    private TaskTypeResponse type;
     private List<CommentResponse> comments;
+    private Long commentCount;
+    private Long attachmentCount;
 
     @Data
     public static class TaskStatusResponse {
         private Long id;
         private String name;
         private String color;
+        private Integer position;
+        private boolean isDefault;
+        private boolean isCustom;
+    }
+
+    @Data
+    public static class TaskTypeResponse {
+        private Long id;
+        private String name;
+        private String color;
+        private String icon;
         private Integer position;
         private boolean isDefault;
         private boolean isCustom;

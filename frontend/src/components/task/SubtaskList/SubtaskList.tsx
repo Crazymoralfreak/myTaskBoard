@@ -76,6 +76,50 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
             const updatedTask = await taskService.updateSubtask(task.id, subtaskId, {
                 completed: !completed
             });
+            
+            // Проверка всех подзадач на завершенность
+            const allSubtasksCompleted = updatedTask.subtasks?.every(subtask => subtask.completed) ?? false;
+            
+            // Если все подзадачи завершены и статус задачи еще не "Завершено"
+            if (allSubtasksCompleted && updatedTask.customStatus?.name !== "Завершено") {
+                // Проверяем, есть ли статус "Завершено" среди доступных статусов
+                const completedStatusNames = ["завершено", "выполнено", "готово"];
+                
+                // Получаем текущий статус задачи
+                const currentStatus = updatedTask.customStatus;
+                
+                if (currentStatus) {
+                    try {
+                        // Находим все задачи в текущей колонке
+                        const tasksInColumn = await taskService.getTasksByColumn(Number(updatedTask.columnId));
+                        
+                        // Извлекаем уникальные статусы из задач
+                        const availableStatuses = tasksInColumn
+                            .map(t => t.customStatus)
+                            .filter((status, index, self) => 
+                                status && self.findIndex(s => s?.id === status?.id) === index
+                            );
+                        
+                        // Ищем статус "Завершено" среди доступных
+                        const doneStatus = availableStatuses.find(status => 
+                            status && completedStatusNames.includes(status.name.toLowerCase())
+                        );
+                        
+                        // Если нашли статус "Завершено", обновляем задачу
+                        if (doneStatus) {
+                            console.log('Автоматически изменяем статус на:', doneStatus.name);
+                            const finalTask = await taskService.updateTask(task.id, {
+                                customStatus: doneStatus
+                            });
+                            onTaskUpdate(finalTask);
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при автоматическом обновлении статуса:', error);
+                    }
+                }
+            }
+            
             onTaskUpdate(updatedTask);
         } catch (error) {
             console.error('Failed to update subtask:', error);

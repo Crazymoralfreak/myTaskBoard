@@ -16,6 +16,8 @@ import com.yourapp.model.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import com.yourapp.dto.CreateBoardRequest;
+import com.yourapp.exception.ResourceNotFoundException;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(
@@ -61,9 +63,9 @@ public class BoardController {
         return boardService.getUserBoards(userId);
     }
 
-    @PutMapping("/{id}")
-    public Board updateBoard(@PathVariable Long id, @RequestBody Board board) {
-        return boardService.updateBoard(id, board);
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Board> updateBoard(@PathVariable Long id, @RequestBody Board boardDetails) {
+        return ResponseEntity.ok(boardService.updateBoard(id, boardDetails));
     }
 
     @PostMapping("/{boardId}/columns")
@@ -85,18 +87,72 @@ public class BoardController {
         return ResponseEntity.ok(boardService.addColumnToBoard(boardId, column));
     }
 
-    @DeleteMapping("/{boardId}/columns/{columnId}")
+    @DeleteMapping(value = "/{boardId}/columns/{columnId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Board removeColumn(@PathVariable Long boardId, @PathVariable Long columnId) {
         return boardService.removeColumnFromBoard(boardId, columnId);
     }
 
     @PatchMapping("/{boardId}/columns/{columnId}/move/{newPosition}")
-    public Board moveColumn(
+    public ResponseEntity<?> moveColumn(
         @PathVariable Long boardId,
         @PathVariable Long columnId,
         @PathVariable int newPosition
     ) {
-        return boardService.moveColumnInBoard(boardId, columnId, newPosition);
+        try {
+            logger.debug("Перемещение колонки {} в позицию {} на доске {}", columnId, newPosition, boardId);
+            
+            // Получаем доску для проверки корректности позиции
+            Board board = boardService.getBoardById(boardId);
+            int columnsCount = board.getColumns().size();
+            
+            logger.debug("Текущие колонки на доске: {}", 
+                board.getColumns().stream()
+                    .map(c -> String.format("id:%d, name:%s, position:%d", c.getId(), c.getName(), c.getPosition()))
+                    .collect(Collectors.joining(", ")));
+            
+            // Проверяем, есть ли колонка на доске
+            boolean columnExists = board.getColumns().stream()
+                .anyMatch(c -> c.getId().equals(columnId));
+                
+            if (!columnExists) {
+                logger.error("Колонка с ID {} не найдена на доске {}", columnId, boardId);
+                Map<String, String> error = new HashMap<>();
+                error.put("message", String.format("Column with ID %d not found on board %d", columnId, boardId));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            }
+            
+            // Проверяем, что новая позиция в допустимом диапазоне
+            if (newPosition < 0 || newPosition >= columnsCount) {
+                logger.error("Недопустимая позиция {}, допустимый диапазон: 0-{}", newPosition, columnsCount - 1);
+                Map<String, String> error = new HashMap<>();
+                error.put("message", String.format("Invalid position: %d, valid range: 0-%d", newPosition, columnsCount - 1));
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            }
+            
+            Board result = boardService.moveColumnInBoard(boardId, columnId, newPosition);
+            logger.debug("Колонка успешно перемещена");
+            logger.debug("Колонки после перемещения: {}", 
+                result.getColumns().stream()
+                    .map(c -> String.format("id:%d, name:%s, position:%d", c.getId(), c.getName(), c.getPosition()))
+                    .collect(Collectors.joining(", ")));
+                    
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            logger.error("Ошибка при перемещении колонки: {}", e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (ResourceNotFoundException e) {
+            logger.error("Ресурс не найден: {}", e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        } catch (Exception e) {
+            logger.error("Ошибка при перемещении колонки", e);
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 
     @PatchMapping("/{id}/archive")
@@ -109,7 +165,7 @@ public class BoardController {
         return ResponseEntity.ok(boardService.unarchiveBoard(id));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public void deleteBoard(@PathVariable Long id) {
         boardService.deleteBoard(id);
     }
