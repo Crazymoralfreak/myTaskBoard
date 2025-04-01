@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Column } from '../../types/board';
-import { Task } from '../../types/task';
+import { Column } from '../../../types/board';
+import { Task } from '../../../types/task';
 
 export interface BoardColumnProps {
     column: Column;
