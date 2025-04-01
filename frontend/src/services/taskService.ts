@@ -126,11 +126,23 @@ export const taskService = {
             // Добавляем запись в историю о создании задачи
             try {
                 if (response.data && response.data.id) {
+                    // Создаем структуру с исходными параметрами задачи для записи в историю
+                    const taskDetails = {
+                        title: response.data.title || cleanedTask.title,
+                        type: response.data.type?.name,
+                        status: response.data.customStatus?.name,
+                        priority: response.data.priority || cleanedTask.priority,
+                        tags: response.data.tags || cleanedTask.tags || [],
+                        dates: response.data.startDate || response.data.endDate ? 
+                            `${response.data.startDate || 'не указана'} - ${response.data.endDate || 'не указана'}` : 
+                            undefined
+                    };
+                    
                     await this.addHistoryEntry(response.data.id, {
                         action: 'task_created',
-                        newValue: 'Задача создана'
+                        newValue: JSON.stringify(taskDetails)
                     });
-                    console.log('Добавлена запись в историю о создании задачи');
+                    console.log('Добавлена запись в историю о создании задачи с параметрами');
                 }
             } catch (historyError) {
                 console.error('Ошибка при записи истории создания задачи:', historyError);
@@ -260,6 +272,28 @@ export const taskService = {
                         oldValue: currentTask.customStatus?.name || 'Без статуса',
                         newValue: updatedTask.statusId ? `Статус ID: ${updatedTask.statusId}` : 'Без статуса'
                     });
+                }
+
+                // Проверяем, изменились ли теги
+                if (updatedTask.tags && Array.isArray(updatedTask.tags)) {
+                    // Преобразуем массивы в множества для сравнения
+                    const oldTags = new Set<string>(currentTask.tags || []);
+                    const newTags = new Set<string>(updatedTask.tags);
+                    
+                    // Проверяем, действительно ли теги изменились
+                    if (oldTags.size !== newTags.size || 
+                        [...oldTags].some(tag => !newTags.has(tag)) || 
+                        [...newTags].some(tag => !oldTags.has(tag))) {
+                        
+                        const oldTagsStr = Array.isArray(currentTask.tags) ? (currentTask.tags as string[]).join(', ') : 'Без тегов';
+                        const newTagsStr = (updatedTask.tags as string[]).join(', ') || 'Без тегов';
+                        
+                        await this.addHistoryEntry(taskId, {
+                            action: 'tags_changed',
+                            oldValue: oldTagsStr,
+                            newValue: newTagsStr
+                        });
+                    }
                 }
             } catch (historyError) {
                 console.error('Ошибка при создании записей истории:', historyError);
@@ -773,12 +807,27 @@ export const taskService = {
         }
     },
     
-    async addTag(tag: string): Promise<string[]> {
+    async addTag(tag: string, taskId?: number): Promise<string[]> {
         try {
             const response = await axiosInstance.post(`/api/tasks/tags`, { tag });
             
             // Обновляем кэш при добавлении нового тега
             tagsCache = response.data;
+            
+            // Если тег добавлен к задаче (передан taskId в параметрах)
+            if (taskId) {
+                // Добавляем запись в историю о добавлении тега
+                try {
+                    await this.addHistoryEntry(taskId, {
+                        action: 'tag_added',
+                        newValue: tag
+                    });
+                    console.log(`Добавлена запись в историю о добавлении тега "${tag}" к задаче ${taskId}`);
+                } catch (historyError) {
+                    console.error('Ошибка при записи истории добавления тега:', historyError);
+                }
+            }
+            
             return response.data;
         } catch (error) {
             console.error('Ошибка при добавлении тега:', error);
@@ -796,16 +845,24 @@ export const taskService = {
                 // Проверяем, что ответ это массив
                 if (Array.isArray(response.data)) {
                     // Извлечение только безопасных полей для каждой записи истории
-                    const optimizedHistory: TaskHistory[] = response.data.map((item: any) => ({
-                        id: item.id || Math.random(),
-                        username: item.username || 'Система',
-                        email: item.changedBy?.email,
-                        avatarUrl: item.avatarUrl,
-                        action: item.action || 'unknown_action',
-                        oldValue: item.oldValue,
-                        newValue: item.newValue,
-                        timestamp: item.timestamp || new Date().toISOString()
-                    }));
+                    const optimizedHistory: TaskHistory[] = response.data.map((item: any) => {
+                        // Проверяем и выбираем наиболее подходящие значения для имени пользователя
+                        const username = item.changedBy?.name || 
+                                         item.changedBy?.username || 
+                                         item.username || 
+                                         (item.changedBy?.email ? item.changedBy.email.split('@')[0] : 'Система');
+                        
+                        return {
+                            id: item.id || Math.random(),
+                            username: username,
+                            email: item.changedBy?.email,
+                            avatarUrl: item.avatarUrl,
+                            action: item.action || 'unknown_action',
+                            oldValue: item.oldValue,
+                            newValue: item.newValue,
+                            timestamp: item.timestamp || new Date().toISOString()
+                        };
+                    });
                     
                     console.log('Получены данные истории (безопасная версия):', optimizedHistory);
                     return optimizedHistory;
@@ -825,6 +882,24 @@ export const taskService = {
     
     async addHistoryEntry(taskId: number, entry: {action: string, oldValue?: string, newValue?: string}): Promise<TaskHistory> {
         try {
+            // Если старое и новое значение одинаковые, пропускаем запись события (кроме создания задачи и некоторых типов событий)
+            if (entry.oldValue !== undefined && 
+                entry.newValue !== undefined && 
+                this.areValuesEqual(entry.oldValue, entry.newValue) &&
+                entry.action !== 'task_created' && 
+                !entry.action.includes('added') &&
+                !entry.action.includes('deleted') &&
+                !entry.action.includes('removed')) {
+                console.log(`Запись истории пропущена для задачи ${taskId} (значения идентичны):`, entry);
+                // Возвращаем пустой объект, соответствующий интерфейсу TaskHistory
+                return {
+                    id: Math.random(),
+                    username: 'Система',
+                    action: 'skipped',
+                    timestamp: new Date().toISOString()
+                } as TaskHistory;
+            }
+            
             // Копируем объект entry, чтобы не изменять оригинал
             const sanitizedEntry = {
                 action: entry.action,
@@ -838,10 +913,16 @@ export const taskService = {
                 // Делаем запрос с обработкой ошибок
                 const response = await axiosInstance.post(`/api/tasks/${taskId}/history`, sanitizedEntry);
                 
+                // Выбираем подходящее значение для username
+                const username = response.data?.username || 
+                                 response.data?.changedBy?.name || 
+                                 response.data?.changedBy?.username || 
+                                 (response.data?.changedBy?.email ? response.data.changedBy.email.split('@')[0] : 'Система');
+                
                 // Проверяем результат и создаем безопасный объект даже если ответ некорректный
                 const historyEntry: TaskHistory = {
                     id: response.data?.id || Math.random(),
-                    username: response.data?.username || 'Система',
+                    username: username,
                     email: response.data?.changedBy?.email,
                     avatarUrl: response.data?.avatarUrl,
                     action: response.data?.action || entry.action,
@@ -880,12 +961,25 @@ export const taskService = {
         }
     },
     
-    // Вспомогательный метод для удаления HTML-тегов
+    // Вспомогательный метод для удаления HTML-тегов с сохранением форматирования
     sanitizeHtmlContent(html: string): string {
-        // Если строка содержит HTML-теги, вернем только текстовое содержимое
+        // Если строка содержит HTML-теги, обрабатываем ее
         if (html.includes('<') && html.includes('>')) {
-            // Базовое удаление HTML-тегов
-            return html.replace(/<[^>]*>/g, '');
+            // Заменяем HTML-теги переноса строк на их текстовые эквиваленты
+            let processedHtml = html
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/p>\s*<p>/gi, '\n\n')
+                .replace(/<\/div>\s*<div>/gi, '\n')
+                .replace(/<p>/gi, '')
+                .replace(/<\/p>/gi, '\n')
+                .replace(/<div>/gi, '')
+                .replace(/<\/div>/gi, '\n');
+            
+            // Удаляем все оставшиеся HTML-теги
+            processedHtml = processedHtml.replace(/<[^>]*>/g, '');
+            
+            // Возвращаем текстовое содержимое с сохраненными переносами строк
+            return processedHtml.trim();
         }
         return html;
     },
@@ -958,5 +1052,25 @@ export const taskService = {
             console.error('Ошибка при получении ID доски из URL:', error);
             return null;
         }
+    },
+
+    // Специальный метод для сравнения значений в истории с учетом HTML-форматирования
+    areValuesEqual(oldValue?: string, newValue?: string): boolean {
+        // Если оба значения отсутствуют или равны undefined/null, считаем их равными
+        if (!oldValue && !newValue) return true;
+        
+        // Если только одно из значений отсутствует, они не равны
+        if (!oldValue || !newValue) return false;
+        
+        // Если это простые строки без HTML, сравниваем напрямую
+        if (!oldValue.includes('<') && !newValue.includes('<')) {
+            return oldValue.trim() === newValue.trim();
+        }
+        
+        // Для HTML-контента - сравниваем очищенные версии
+        const cleanOldValue = this.sanitizeHtmlContent(oldValue).trim();
+        const cleanNewValue = this.sanitizeHtmlContent(newValue).trim();
+        
+        return cleanOldValue === cleanNewValue;
     }
 }; 

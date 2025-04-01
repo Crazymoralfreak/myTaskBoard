@@ -42,7 +42,8 @@ export const boardService = {
 
     async addColumn(boardId: string, column: Partial<Column>): Promise<Board> {
         const response = await api.post<Board>(`/api/boards/${boardId}/columns`, column);
-        return response.data;
+        // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами
+        return this.processBoard(response.data);
     },
 
     async removeColumn(boardId: string, columnId: string): Promise<Board> {
@@ -60,7 +61,10 @@ export const boardService = {
             );
             
             console.log('Ответ от сервера на moveColumn:', response.data);
-            return response.data;
+            
+            // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами
+            const processedBoard = this.processBoard(response.data);
+            return processedBoard;
         } catch (error: any) {
             console.error('Error moving column:', error.response?.data || error.message);
             throw error;
@@ -182,7 +186,10 @@ export const boardService = {
             console.log('Updating column:', { boardId, columnId, updates });
             const response = await api.put<Board>(`/api/boards/${boardId}/columns/${columnId}`, updates);
             console.log('Обновление колонки успешно:', response.data);
-            return response.data;
+            
+            // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами
+            const processedBoard = this.processBoard(response.data);
+            return processedBoard;
         } catch (error) {
             console.error('Ошибка при обновлении колонки:', error);
             throw error;
@@ -194,7 +201,10 @@ export const boardService = {
             console.log('Deleting column:', { boardId, columnId });
             const response = await api.delete<Board>(`/api/boards/${boardId}/columns/${columnId}`);
             console.log('Удаление колонки успешно:', response.data);
-            return response.data;
+            
+            // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами
+            const processedBoard = this.processBoard(response.data);
+            return processedBoard;
         } catch (error) {
             console.error('Ошибка при удалении колонки:', error);
             throw error;
@@ -273,6 +283,17 @@ export const boardService = {
                 payload
             );
             console.log('Ответ сервера:', response.data);
+            
+            // Обновляем данные доски, чтобы обновить связи задач со статусами
+            try {
+                // Получаем обновленные данные доски
+                await this.getBoard(boardId);
+                console.log('Состояние доски обновлено после изменения статуса задачи');
+            } catch (refreshError) {
+                console.error('Ошибка при обновлении состояния доски:', refreshError);
+                // Не выбрасываем ошибку, так как основной запрос успешно выполнен
+            }
+            
             return response.data;
         } catch (error) {
             console.error('Ошибка при обновлении статуса задачи:', error);
@@ -359,6 +380,17 @@ export const boardService = {
             );
             
             console.log('Ответ сервера:', response.data);
+            
+            // Обновляем данные доски, чтобы обновить связи задач с типами
+            try {
+                // Получаем обновленные данные доски
+                await this.getBoard(boardId);
+                console.log('Состояние доски обновлено после изменения типа задачи');
+            } catch (refreshError) {
+                console.error('Ошибка при обновлении состояния доски:', refreshError);
+                // Не выбрасываем ошибку, так как основной запрос успешно выполнен
+            }
+            
             return response.data;
         } catch (error) {
             console.error('Ошибка при обновлении типа задачи:', error);

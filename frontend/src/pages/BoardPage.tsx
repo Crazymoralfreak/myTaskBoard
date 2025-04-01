@@ -30,14 +30,14 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
-import { BoardColumn } from '../components/board/BoardColumn';
+import { BoardColumn } from '../components/Board/BoardColumn';
 import { Column, BoardStatus, TaskType } from '../types/board';
-import { AddColumnModal } from '../components/board/AddColumnModal/AddColumnModal';
+import { AddColumnModal } from '../components/Board/AddColumnModal/AddColumnModal';
 import { Task } from '../types/task';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { taskService } from '../services/taskService';
-import { EditBoardModal } from '../components/board/EditBoardModal/EditBoardModal';
-import { EditColumnModal } from '../components/board/EditColumnModal/EditColumnModal';
+import { EditBoardModal } from '../components/Board/EditBoardModal/EditBoardModal';
+import { EditColumnModal } from '../components/Board/EditColumnModal/EditColumnModal';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog/ConfirmDialog';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { TaskFilters } from '../components/task/TaskFilters';
@@ -643,12 +643,15 @@ export const BoardPage: React.FC = () => {
             // Обновляем состояние доски с полными данными
             const updatedBoard = {
                 ...boardData,
-                taskTypes: taskTypesData,
-                taskStatuses: taskStatusesData
+                taskTypes: taskTypesData || boardData.taskTypes || [],
+                taskStatuses: taskStatusesData || boardData.taskStatuses || []
             };
             
-            setBoard(updatedBoard);
-            setTaskTypes(taskTypesData); // Обновляем отдельно список типов задач
+            // Обрабатываем доску, чтобы добавить связи между задачами, типами и статусами
+            const processedBoard = boardService.processBoard(updatedBoard);
+            
+            setBoard(processedBoard);
+            setTaskTypes(taskTypesData || []); // Обновляем отдельно список типов задач
             
             toast.success('Доска обновлена');
         } catch (error) {
