@@ -58,6 +58,18 @@ public class User implements UserDetails {
     private String telegramId;
     private String telegramChatId;
 
+    @Column(name = "display_name")
+    private String displayName;
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "position")
+    private String position;
+
+    @Column(name = "bio", length = 1000)
+    private String bio;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
@@ -69,6 +81,12 @@ public class User implements UserDetails {
     @EqualsAndHashCode.Exclude
     @JsonIgnore
     private NotificationPreferences notificationPreferences;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private UserSettings userSettings;
 
     @JsonManagedReference
     @OneToMany(mappedBy = "owner")
@@ -148,6 +166,11 @@ public class User implements UserDetails {
                 .id(this.id)
                 .email(this.email)
                 .username(this.username)
+                .displayName(this.displayName)
+                .avatarUrl(this.avatarUrl)
+                .phoneNumber(this.phoneNumber)
+                .position(this.position)
+                .bio(this.bio)
                 .build();
     }
 }

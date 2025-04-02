@@ -1,24 +1,38 @@
 import { api } from '../api/api';
-
-interface User {
-    id: number;
-    username: string;
-    avatarUrl?: string;
-}
+import { User } from '../types/user';
+import { UserSettings } from '../types/settings';
 
 export const userService = {
-    async searchUsers(query: string): Promise<User[]> {
-        const response = await api.get<User[]>(`/api/users/search?query=${encodeURIComponent(query)}`);
+    searchUsers: async (query: string): Promise<User[]> => {
+        const response = await api.get(`/api/users/search?query=${query}`);
         return response.data;
     },
 
-    async getCurrentUser(): Promise<User> {
-        const response = await api.get<User>('/api/users/current');
+    getCurrentUser: async (): Promise<User> => {
+        const response = await api.get('/api/users/current');
         return response.data;
     },
 
-    async updateUser(userId: number, updates: Partial<User>): Promise<User> {
-        const response = await api.put<User>(`/api/users/${userId}`, updates);
+    updateUser: async (userId: number, updates: Partial<User>): Promise<User> => {
+        const response = await api.put(`/api/users/${userId}`, updates);
         return response.data;
+    },
+
+    getUserSettings: async (): Promise<UserSettings> => {
+        const response = await api.get('/api/users/settings');
+        return response.data;
+    },
+
+    updateUserSettings: async (settings: UserSettings): Promise<UserSettings> => {
+        const response = await api.put('/api/users/settings', settings);
+        return response.data;
+    },
+
+    clearCache: async (): Promise<void> => {
+        await api.post('/api/users/clear-cache');
+    },
+
+    deleteUserData: async (): Promise<void> => {
+        await api.delete('/api/users/data');
     }
 }; 

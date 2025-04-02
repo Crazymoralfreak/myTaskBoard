@@ -1,27 +1,27 @@
-declare module '@twa-dev/sdk' {
-    interface WebAppUser {
-        id: string;
-        username?: string;
-        first_name?: string;
-        last_name?: string;
+declare global {
+    interface Window {
+        Telegram: {
+            WebApp: {
+                initDataUnsafe: {
+                    user?: {
+                        id: number;
+                        first_name: string;
+                        last_name?: string;
+                        username?: string;
+                        language_code?: string;
+                        is_premium?: boolean;
+                        photo_url?: string;
+                    };
+                };
+                close: () => void;
+                MainButton: {
+                    isVisible: boolean;
+                    show: () => void;
+                    hide: () => void;
+                };
+            };
+        };
     }
+}
 
-    interface WebAppInitData {
-        user?: WebAppUser;
-    }
-
-    interface MainButton {
-        isVisible: boolean;
-        show: () => void;
-        hide: () => void;
-    }
-
-    interface WebApp {
-        initDataUnsafe: WebAppInitData;
-        MainButton: MainButton;
-        ready: () => void;
-        close: () => void;
-    }
-
-    export const WebApp: WebApp;
-} 
+export {}; 
