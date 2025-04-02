@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Typography, Avatar, TextField, Button, Grid } from '@mui/material';
-import { User } from '../types/user';
+import { User } from '../../types/user';
 
 interface UserProfileProps {
     user: User | null;
