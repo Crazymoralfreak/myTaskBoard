@@ -36,7 +36,7 @@ export const AuthPage: React.FC = () => {
     const handleRegister = async (event: React.FormEvent) => {
         event.preventDefault();
         try {
-            const response = await authService.register(registerData.email, registerData.password, registerData.email);
+            const response = await authService.register(registerData.email, registerData.password, registerData.name);
             if (response.token) {
                 localStorage.setItem('token', response.token);
                 localStorage.setItem('user', JSON.stringify(response.user));
