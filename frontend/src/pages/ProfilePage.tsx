@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, ChangeEvent, FormEvent, useRef } from 'react';
 import { 
   Container, 
   Typography, 
@@ -21,17 +21,19 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  DialogContentText
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
-import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar } from '../api/api';
+import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar, uploadUserAvatar, getFullAvatarUrl } from '../api/api';
 import AvatarUploader from '../components/AvatarUploader';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import * as authService from '../services/authService';
+import { styled } from '@mui/system';
 
 // Стандартные аватары
 const AVATAR_OPTIONS = [
@@ -64,7 +66,7 @@ export const ProfilePage = () => {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error'
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning'
   });
   
   // Состояния для диалогов
@@ -81,6 +83,16 @@ export const ProfilePage = () => {
   const [avatarUploaderOpen, setAvatarUploaderOpen] = useState(false);
   const [avatarMenuAnchor, setAvatarMenuAnchor] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [openPasswordDialog, setOpenPasswordDialog] = useState<boolean>(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState<boolean>(false);
+  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -110,6 +122,7 @@ export const ProfilePage = () => {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
+      setSaving(true);
       // Больше не включаем avatarUrl в обновление профиля
       const profileToUpdate = {
         ...profile
@@ -134,6 +147,7 @@ export const ProfilePage = () => {
       });
     } finally {
       setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -148,18 +162,23 @@ export const ProfilePage = () => {
   };
 
   // Функция для обновления пароля
-  const handlePasswordChange = async () => {
-    setPasswordError('');
+  const handlePasswordChange = async (e: FormEvent) => {
+    e.preventDefault();
     
-    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      setPasswordError('Все поля должны быть заполнены');
-      return;
-    }
+    // Открываем диалог с предупреждением
+    setOpenPasswordDialog(true);
+  };
+  
+  const closePasswordDialog = () => {
+    setOpenPasswordDialog(false);
+  };
+  
+  const confirmPasswordChange = async () => {
+    // Закрываем модальное окно
+    setOpenPasswordDialog(false);
     
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError('Новый пароль и подтверждение не совпадают');
-      return;
-    }
+    // Начинаем процесс смены пароля и показываем индикатор загрузки
+    setChangePasswordLoading(true);
     
     try {
       const result = await authService.changePassword(
@@ -167,27 +186,36 @@ export const ProfilePage = () => {
         passwordData.newPassword
       );
       
-      if (result.success) {
-        // Очищаем пароли
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-        
-        // Показываем сообщение об успехе
-        toast.success(result.message);
-        
-        // Перенаправляем на страницу логина
-        setTimeout(() => {
-          navigate('/login');
-        }, 1500);
-      } else {
-        setPasswordError(result.message);
-      }
+      // Показываем сообщение об успехе
+      setSnackbarMessage(result.message);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      
+      // После успешной смены пароля сбрасываем форму
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      // Через 2 секунды перенаправляем на страницу логина
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      
     } catch (error: any) {
-      setPasswordError(error.message || 'Произошла ошибка при смене пароля');
+      // Показываем сообщение об ошибке
+      setSnackbarMessage(error.message || 'Произошла ошибка при смене пароля');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      // Скрываем индикатор загрузки
+      setChangePasswordLoading(false);
     }
+  };
+  
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
   };
 
   // Функция для открытия меню аватара
@@ -249,7 +277,7 @@ export const ProfilePage = () => {
       setProfile(updatedProfile);
       setOriginalProfile(updatedProfile);
       setSelectedAvatar(avatarUrl);
-      setAvatarDialogOpen(false);
+      setAvatarMenuAnchor(null); // Закрываем меню
       setSnackbar({
         open: true,
         message: 'Аватар успешно обновлен',
@@ -264,6 +292,72 @@ export const ProfilePage = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Валидация формы пароля
+  const isPasswordFormValid = 
+    passwordData.currentPassword.length > 0 && 
+    passwordData.newPassword.length > 0 && 
+    passwordData.confirmPassword.length > 0 && 
+    passwordData.newPassword === passwordData.confirmPassword;
+
+  // Функция для открытия диалога выбора файла
+  const handleOpenFileDialog = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // Функция для обработки выбора файла
+  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      setSelectedFile(file);
+      
+      // Загружаем выбранный файл аватара
+      handleFileUpload(file);
+    }
+  };
+  
+  // Функция для загрузки файла аватара
+  const handleFileUpload = async (file: File) => {
+    try {
+      setUploading(true);
+      setSnackbarMessage('Загрузка аватара...');
+      setSnackbarSeverity('info');
+      setSnackbarOpen(true);
+      
+      // Загружаем файл на сервер
+      const result = await uploadUserAvatar(file);
+      
+      // Обновляем профиль с новым URL аватара
+      if (result && result.avatarUrl) {
+        setProfile({
+          ...profile!,
+          avatarUrl: result.avatarUrl
+        });
+        
+        // Показываем сообщение об успехе
+        setSnackbarMessage('Аватар успешно обновлен');
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+      }
+    } catch (error: any) {
+      console.error('Ошибка при загрузке аватара:', error);
+      
+      // Показываем сообщение об ошибке
+      setSnackbarMessage(error.message || 'Произошла ошибка при загрузке аватара');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setUploading(false);
+      setSelectedFile(null);
+      // Сбрасываем значение input, чтобы можно было загрузить тот же файл еще раз
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -288,7 +382,7 @@ export const ProfilePage = () => {
               <Box sx={{ position: 'relative' }}>
                 <Avatar 
                   sx={{ width: 100, height: 100, mr: 3 }}
-                  src={selectedAvatar || profile.avatarUrl || undefined}
+                  src={getFullAvatarUrl(selectedAvatar || profile.avatarUrl)}
                 >
                   {profile.username?.charAt(0) || 'U'}
                 </Avatar>
@@ -404,8 +498,8 @@ export const ProfilePage = () => {
                 }}
                 onClick={() => setShowSecuritySection(!showSecuritySection)}
               >
-                <Typography variant="h6">
-                  Безопасность
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+                  <LockIcon sx={{ mr: 1 }} /> Безопасность
                 </Typography>
                 <IconButton>
                   {showSecuritySection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -413,23 +507,79 @@ export const ProfilePage = () => {
               </Box>
               
               <Collapse in={showSecuritySection}>
-                <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
-                  <LockIcon sx={{ mr: 2 }} />
-                  <Box>
-                    <Typography variant="body1">Пароль</Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      ••••••••
-                    </Typography>
-                  </Box>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    sx={{ ml: 'auto' }}
-                    onClick={() => setPasswordDialogOpen(true)}
-                  >
-                    Изменить
-                  </Button>
-                </Box>
+                <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                    Изменение пароля
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Для обеспечения безопасности используйте надежный пароль и меняйте его регулярно. 
+                    После изменения пароля вам потребуется войти снова.
+                  </Typography>
+                  
+                  <form onSubmit={handlePasswordChange}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Текущий пароль"
+                          type="password"
+                          variant="outlined"
+                          value={passwordData.currentPassword}
+                          onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                          required
+                          error={!!passwordError}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Новый пароль"
+                          type="password"
+                          variant="outlined"
+                          value={passwordData.newPassword}
+                          onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                          required
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Подтвердите новый пароль"
+                          type="password"
+                          variant="outlined"
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                          error={passwordData.newPassword !== passwordData.confirmPassword && !!passwordData.confirmPassword}
+                          helperText={
+                            passwordData.newPassword !== passwordData.confirmPassword && !!passwordData.confirmPassword
+                              ? 'Пароли не совпадают'
+                              : ''
+                          }
+                          required
+                        />
+                      </Grid>
+                      {passwordError && (
+                        <Grid item xs={12}>
+                          <Alert severity="error">
+                            {passwordError}
+                          </Alert>
+                        </Grid>
+                      )}
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <Button 
+                            type="submit" 
+                            variant="contained" 
+                            color="primary"
+                            disabled={!isPasswordFormValid || changePasswordLoading}
+                          >
+                            {changePasswordLoading ? <CircularProgress size={24} /> : 'Изменить пароль'}
+                          </Button>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </form>
+                </Paper>
               </Collapse>
             </Box>
             
@@ -447,9 +597,9 @@ export const ProfilePage = () => {
                     variant="contained" 
                     color="primary"
                     onClick={handleSaveProfile}
-                    disabled={loading}
+                    disabled={loading || saving}
                   >
-                    {loading ? <CircularProgress size={24} /> : 'Сохранить изменения'}
+                    {loading || saving ? <CircularProgress size={24} /> : 'Сохранить изменения'}
                   </Button>
                 </>
               ) : (
@@ -477,83 +627,101 @@ export const ProfilePage = () => {
         )}
       </Paper>
       
-      {/* Диалог изменения пароля */}
-      <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)}>
-        <DialogTitle>Изменение пароля</DialogTitle>
+      {/* Диалог подтверждения смены пароля */}
+      <Dialog
+        open={openPasswordDialog}
+        onClose={closePasswordDialog}
+      >
+        <DialogTitle>Подтверждение смены пароля</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Текущий пароль"
-            type="password"
-            fullWidth
-            variant="outlined"
-            value={passwordData.currentPassword}
-            onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-          />
-          <TextField
-            margin="dense"
-            label="Новый пароль"
-            type="password"
-            fullWidth
-            variant="outlined"
-            value={passwordData.newPassword}
-            onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-          />
-          <TextField
-            margin="dense"
-            label="Подтвердите новый пароль"
-            type="password"
-            fullWidth
-            variant="outlined"
-            value={passwordData.confirmPassword}
-            onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-            error={!!passwordError}
-            helperText={passwordError}
-          />
+          <DialogContentText>
+            После смены пароля вы будете автоматически разлогинены из системы и перенаправлены на страницу входа.
+            Вам потребуется снова авторизоваться с новым паролем.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPasswordDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handlePasswordChange} variant="contained" color="primary">
-            Сохранить
+          <Button onClick={closePasswordDialog} color="primary">
+            Отмена
+          </Button>
+          <Button onClick={confirmPasswordChange} color="primary" variant="contained">
+            Подтвердить
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Индикатор загрузки при смене пароля */}
+      {changePasswordLoading && (
+        <Box sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          bgcolor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <CircularProgress />
+            <Typography sx={{ mt: 2 }}>Изменение пароля...</Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>Вы будете перенаправлены на страницу входа</Typography>
+          </Paper>
+        </Box>
+      )}
+      
       {/* Диалог выбора аватара */}
-      <Dialog open={avatarDialogOpen} onClose={() => setAvatarDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={Boolean(avatarMenuAnchor)} onClose={() => setAvatarMenuAnchor(null)}>
         <DialogTitle>Выберите аватар</DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
             {AVATAR_OPTIONS.map((avatar, index) => (
-              <Grid item key={index} xs={6} sm={4} md={3}>
-                <Box 
-                  sx={{ 
-                    border: selectedAvatar === avatar ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                    borderRadius: '4px',
-                    p: 1,
-                    cursor: 'pointer',
-                    '&:hover': {
-                      borderColor: '#1976d2'
-                    },
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '80px'
-                  }}
+              <Grid item key={index}>
+                <Avatar
+                  src={getFullAvatarUrl(avatar)}
+                  alt={`Аватар ${index + 1}`}
+                  sx={{ width: 64, height: 64, cursor: 'pointer' }}
                   onClick={() => handleSelectAvatar(avatar)}
-                >
-                  <Avatar
-                    src={avatar}
-                    sx={{ width: 64, height: 64 }}
-                  />
-                </Box>
+                />
               </Grid>
             ))}
           </Grid>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          {/* Добавляем возможность загрузить свой аватар */}
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="body1" gutterBottom>
+              Или загрузите свой аватар
+            </Typography>
+            
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept="image/*"
+              onChange={handleFileSelect}
+            />
+            
+            <Button 
+              variant="contained"
+              onClick={handleOpenFileDialog}
+              disabled={uploading}
+              startIcon={uploading ? <CircularProgress size={20} /> : null}
+            >
+              {uploading ? 'Загрузка...' : 'Выбрать файл'}
+            </Button>
+            
+            {selectedFile && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Выбран файл: {selectedFile.name}
+              </Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAvatarDialogOpen(false)}>Отмена</Button>
+          <Button onClick={() => setAvatarMenuAnchor(null)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
       
@@ -565,6 +733,18 @@ export const ProfilePage = () => {
       >
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
           {snackbar.message}
+        </Alert>
+      </Snackbar>
+      
+      {/* Уведомление */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
         </Alert>
       </Snackbar>
     </Container>

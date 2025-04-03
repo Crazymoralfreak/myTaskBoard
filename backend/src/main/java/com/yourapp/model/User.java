@@ -32,6 +32,7 @@ import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hibernate.annotations.UpdateTimestamp;
+import java.util.Date;
 
 @Data
 @Builder
@@ -177,6 +178,24 @@ public class User implements UserDetails {
                 .position(this.position)
                 .bio(this.bio)
                 .build();
+    }
+
+    /**
+     * Проверяет, меняли ли пароль после выдачи указанного токена
+     * @param tokenIssuedAt дата выдачи токена
+     * @return true если пароль меняли после выдачи токена, false в противном случае
+     */
+    public boolean isPasswordChangedAfterTokenIssued(Date tokenIssuedAt) {
+        // Если нет даты сброса пароля или даты выдачи токена, считаем пароль валидным
+        if (lastPasswordResetDate == null || tokenIssuedAt == null) {
+            return false;
+        }
+        
+        // Преобразуем LocalDateTime в Date для сравнения
+        Date passwordResetDate = java.sql.Timestamp.valueOf(lastPasswordResetDate);
+        
+        // Если токен был выдан до сброса пароля, то считаем, что пароль изменен после выдачи токена
+        return tokenIssuedAt.before(passwordResetDate);
     }
 }
 

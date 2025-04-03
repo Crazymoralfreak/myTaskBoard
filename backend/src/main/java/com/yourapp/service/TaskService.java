@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashSet;
+import com.yourapp.service.FileStorageService;
 
 @Service
 @RequiredArgsConstructor
@@ -41,21 +42,15 @@ public class TaskService {
     private final TaskTypeRepository taskTypeRepository;
     private final CommentRepository commentRepository;
     private final TaskHistoryRepository taskHistoryRepository;
+    private final FileStorageService fileStorageService;
     private static final Logger logger = LoggerFactory.getLogger(TaskService.class);
     
     @Value("${app.upload.max-file-size}")
     private long maxFileSize;
 
-    @Value("${app.upload.directory:${user.home}/taskboard/uploads}")
-    private String uploadDirectory;
-
     @PostConstruct
     public void init() {
-        try {
-            Files.createDirectories(Paths.get(uploadDirectory));
-        } catch (IOException e) {
-            throw new RuntimeException("Could not create upload directory!", e);
-        }
+        logger.info("Инициализация TaskService");
     }
     
     @Transactional
@@ -513,7 +508,8 @@ public class TaskService {
         
         try {
             String fileName = file.getOriginalFilename();
-            String filePath = saveFile(file);
+            // Используем FileStorageService для сохранения файла
+            String filePath = fileStorageService.storeFile(file, "attachments");
             
             Attachment attachment = new Attachment();
             attachment.setFileName(fileName);
@@ -587,23 +583,6 @@ public class TaskService {
         Task task = getTask(taskId);
         task.setPriority(priority);
         return taskRepository.save(task);
-    }
-
-    private String saveFile(MultipartFile file) throws IOException {
-        // Генерируем уникальное имя файла
-        String originalFilename = file.getOriginalFilename();
-        String fileExtension = originalFilename != null ? 
-            originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-        String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
-        
-        // Создаем путь к файлу
-        Path targetLocation = Paths.get(uploadDirectory).resolve(uniqueFilename);
-        
-        // Сохраняем файл
-        Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-        
-        // Возвращаем относительный путь к файлу
-        return uniqueFilename;
     }
 
     @Transactional

@@ -30,14 +30,21 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import io.jsonwebtoken.JwtException;
+import com.yourapp.service.FileStorageService;
+import com.yourapp.service.TaskService;
+import com.yourapp.service.UserSettingsService;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/users")
+@RequiredArgsConstructor
 public class UserController {
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final TaskService taskService;
+    private final UserSettingsService userSettingsService;
+    private final FileStorageService fileStorageService;
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
@@ -257,110 +264,40 @@ public class UserController {
     }
 
     /**
-     * Загрузка аватара в виде файла
+     * Загрузка файла аватара пользователя
      */
     @PostMapping("/profile/avatar/upload")
-    public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file, Authentication authentication) {
         try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                    "error", "Unauthorized",
-                    "message", "Authentication required"
-                ));
-            }
-            
-            String currentUsername = authentication.getName();
-            Logger logger = LoggerFactory.getLogger(UserController.class);
-            logger.debug("Загрузка аватара для пользователя: {}", currentUsername);
-            
-            // Проверяем, что файл не пустой
+            log.info("Получен запрос на загрузку аватара, размер файла: {}", file.getSize());
+
             if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Bad Request",
-                    "message", "Empty file"
-                ));
+                log.warn("Загружаемый файл пуст");
+                return ResponseEntity.badRequest().body(Map.of("error", "Файл пуст"));
             }
-            
-            // Проверяем тип файла
-            String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Bad Request",
-                    "message", "File must be an image"
-                ));
-            }
-            
-            // Пробуем найти пользователя по email или username
-            Optional<User> userOptional = userService.findByUsername(currentUsername);
-            if (!userOptional.isPresent()) {
-                userOptional = userService.getUserByEmail(currentUsername);
-            }
-            
-            if (!userOptional.isPresent()) {
-                logger.error("Пользователь не найден: {}", currentUsername);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                    "error", "Not Found",
-                    "message", "User not found"
-                ));
-            }
-            
-            User user = userOptional.get();
-            
-            // Получаем расширение файла
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            } else {
-                // Получаем расширение из типа контента
-                if (contentType.equals("image/jpeg") || contentType.equals("image/jpg")) {
-                    extension = ".jpg";
-                } else if (contentType.equals("image/png")) {
-                    extension = ".png";
-                } else if (contentType.equals("image/gif")) {
-                    extension = ".gif";
-                } else if (contentType.equals("image/svg+xml")) {
-                    extension = ".svg";
-                } else {
-                    extension = ".jpg"; // По умолчанию
-                }
-            }
-            
-            // Создаем уникальное имя файла
-            String fileName = "avatar_" + user.getId() + "_" + System.currentTimeMillis() + extension;
-            
-            // Создаем директорию если она не существует
-            File uploadDir = new File(uploadPath + "/avatars");
-            if (!uploadDir.exists()) {
-                uploadDir.mkdirs();
-            }
-            
-            // Сохраняем файл
-            File destFile = new File(uploadDir.getAbsolutePath() + File.separator + fileName);
-            file.transferTo(destFile);
-            
-            // URL для доступа к аватару
-            String avatarUrl = "/uploads/avatars/" + fileName;
-            
-            // Обновляем пользователя
-            User userToUpdate = new User();
-            userToUpdate.setId(user.getId());
-            userToUpdate.setAvatarUrl(avatarUrl);
-            
-            User updatedUser = userService.updateUser(user.getId(), userToUpdate);
-            
-            return ResponseEntity.ok(Map.of(
-                "avatarUrl", avatarUrl,
-                "message", "Avatar updated successfully"
-            ));
+
+            // Получаем пользователя из контекста безопасности
+            User user = (User) authentication.getPrincipal();
+            log.info("Загрузка аватара для пользователя: {}", user.getUsername());
+
+            // Используем FileStorageService для сохранения файла
+            String avatarUrl = fileStorageService.storeFile(file, "avatars");
+            log.info("Аватар успешно сохранен, URL: {}", avatarUrl);
+
+            // Обновляем URL аватара пользователя в базе данных
+            user.setAvatarUrl(avatarUrl);
+            userService.updateUser(user.getId(), user);
+
+            // Возвращаем URL для доступа к аватару
+            Map<String, String> response = new HashMap<>();
+            response.put("avatarUrl", avatarUrl);
+            response.put("message", "Avatar updated successfully");
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Logger logger = LoggerFactory.getLogger(UserController.class);
-            logger.error("Ошибка при загрузке аватара", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "Internal Server Error",
-                "message", e.getMessage()
-            ));
+            log.error("Ошибка при загрузке аватара", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Ошибка при загрузке аватара: " + e.getMessage()));
         }
     }
 }

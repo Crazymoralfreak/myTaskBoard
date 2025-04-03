@@ -47,6 +47,10 @@ public class UserService implements UserDetailsService {
 
     public User createUser(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        // Устанавливаем дату последнего сброса пароля при создании пользователя
+        if (user.getLastPasswordResetDate() == null) {
+            user.setLastPasswordResetDate(LocalDateTime.now());
+        }
         return userRepository.save(user);
     }
 

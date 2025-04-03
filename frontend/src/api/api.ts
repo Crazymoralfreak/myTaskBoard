@@ -316,3 +316,80 @@ export const changePassword = async (passwordData: { currentPassword: string; ne
     throw error;
   }
 };
+
+// Загрузка файла аватара пользователя
+export const uploadUserAvatar = async (file: File) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('Токен отсутствует при попытке загрузки аватара');
+      throw new Error('Ошибка авторизации: отсутствует токен');
+    }
+    
+    // Создаем FormData для отправки файла
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    console.log('Отправка файла аватара на сервер', { filename: file.name, size: file.size, type: file.type });
+    
+    const response = await api.post('/api/users/profile/avatar/upload', formData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    console.log('Ответ сервера при загрузке аватара:', response.data);
+    
+    if (response.data && response.data.avatarUrl) {
+      // Полный URL для аватара
+      const fullAvatarUrl = getFullAvatarUrl(response.data.avatarUrl);
+      
+      // Обновляем данные пользователя в localStorage
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      userData.avatarUrl = response.data.avatarUrl; // Сохраняем оригинальный URL для API
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Возвращаем данные с полным URL для отображения
+      return {
+        ...response.data,
+        avatarUrl: fullAvatarUrl
+      };
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('Ошибка при загрузке аватара:', error);
+    
+    if (error.response && error.response.status === 401) {
+      console.warn('Перенаправление на страницу логина из-за ошибки авторизации');
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    
+    throw error;
+  }
+};
+
+// Утилитарная функция для формирования полного URL для загруженных аватаров
+export const getFullAvatarUrl = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  
+  // Если это абсолютный URL или data URL, возвращаем как есть
+  if (url.startsWith('http') || url.startsWith('data:')) {
+    return url;
+  }
+  
+  // Если это URL загруженного на сервер аватара, добавляем базовый URL API
+  if (url.startsWith('/uploads/')) {
+    return `${api.defaults.baseURL}${url}`;
+  }
+  
+  // Если это относительный путь без слеша в начале, добавляем слеш
+  if (!url.startsWith('/')) {
+    return `${api.defaults.baseURL}/uploads/avatars/${url}`;
+  }
+  
+  // Для любых других случаев, возвращаем как есть
+  return url;
+};

@@ -50,7 +50,20 @@ export const authService = {
     },
 
     logout() {
+        // Очищаем все данные пользователя из localStorage и sessionStorage
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('avatar');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        
+        // Очищаем все куки, связанные с авторизацией
+        document.cookie.split(';').forEach(cookie => {
+            const [name] = cookie.trim().split('=');
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        });
+        
+        // Перенаправляем на страницу входа
         window.location.href = '/login';
     },
 
@@ -102,12 +115,20 @@ export const changePassword = async (currentPassword: string, newPassword: strin
 
     console.log('Ответ от сервера:', { status: response.status, data: response.data });
 
-    // После смены пароля инвалидируем текущий токен и перенаправляем на страницу логина
+    // После смены пароля полностью очищаем все данные пользователя
     if (response.status === 200) {
-      // Сохраняем данные пользователя перед выходом
-      const userData = localStorage.getItem('user');
-      // Очищаем токен
+      // Очищаем все данные пользователя из localStorage и sessionStorage
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('avatar');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      
+      // Очищаем все куки, связанные с авторизацией
+      document.cookie.split(';').forEach(cookie => {
+        const [name] = cookie.trim().split('=');
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      });
       
       // Для безопасности перенаправляем на страницу логина, так как токен теперь недействителен
       return { 
