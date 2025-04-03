@@ -17,12 +17,21 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  Collapse
+  Collapse,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { fetchUserProfile, updateUserProfile, changePassword } from '../api/api';
+import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
+import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar } from '../api/api';
+import AvatarUploader from '../components/AvatarUploader';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
+import * as authService from '../services/authService';
 
 // Стандартные аватары
 const AVATAR_OPTIONS = [
@@ -32,6 +41,19 @@ const AVATAR_OPTIONS = [
   '/avatars/avatar4.png',
   '/avatars/avatar5.png',
   '/avatars/avatar6.png',
+  '/avatars/avatar7.png',
+  '/avatars/avatar8.png',
+  '/avatars/avatar9.png',
+  '/avatars/avatar10.png',
+  '/avatars/avatar11.png',
+  '/avatars/avatar12.png',
+  '/avatars/avatar13.png',
+  '/avatars/avatar14.png',
+  '/avatars/avatar15.png',
+  '/avatars/avatar16.png',
+  '/avatars/avatar17.png',
+  '/avatars/avatar18.png',
+  '/avatars/avatar19.png'
 ];
 
 export const ProfilePage = () => {
@@ -56,6 +78,9 @@ export const ProfilePage = () => {
   const [passwordError, setPasswordError] = useState('');
   const [showSecuritySection, setShowSecuritySection] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState('');
+  const [avatarUploaderOpen, setAvatarUploaderOpen] = useState(false);
+  const [avatarMenuAnchor, setAvatarMenuAnchor] = useState<null | HTMLElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadUserProfile();
@@ -85,10 +110,10 @@ export const ProfilePage = () => {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      // Добавляем выбранный аватар в профиль перед сохранением
+      // Больше не включаем avatarUrl в обновление профиля
       const profileToUpdate = {
-        ...profile,
-        avatarUrl: selectedAvatar
+        ...profile
+        // avatarUrl обновляется отдельным методом
       };
       
       await updateUserProfile(profileToUpdate);
@@ -123,54 +148,123 @@ export const ProfilePage = () => {
   };
 
   // Функция для обновления пароля
-  const handleChangePassword = async () => {
+  const handlePasswordChange = async () => {
     setPasswordError('');
     
-    // Проверка совпадения паролей
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError('Все поля должны быть заполнены');
+      return;
+    }
+    
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setPasswordError('Новый пароль и подтверждение не совпадают');
       return;
     }
     
-    // Проверка длины пароля
-    if (passwordData.newPassword.length < 6) {
-      setPasswordError('Новый пароль должен содержать минимум 6 символов');
-      return;
-    }
-    
     try {
-      await changePassword({
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
+      const result = await authService.changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
       
-      setPasswordDialogOpen(false);
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-      
-      setSnackbar({
-        open: true,
-        message: 'Пароль успешно изменен',
-        severity: 'success'
-      });
-    } catch (error: any) {
-      console.error('Ошибка изменения пароля:', error);
-      
-      if (error.response?.status === 400) {
-        setPasswordError('Текущий пароль указан неверно');
+      if (result.success) {
+        // Очищаем пароли
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        
+        // Показываем сообщение об успехе
+        toast.success(result.message);
+        
+        // Перенаправляем на страницу логина
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
       } else {
-        setPasswordError('Не удалось изменить пароль. Попробуйте позже.');
+        setPasswordError(result.message);
       }
+    } catch (error: any) {
+      setPasswordError(error.message || 'Произошла ошибка при смене пароля');
     }
   };
 
-  // Функция для выбора аватара
-  const handleSelectAvatar = (avatarUrl: string) => {
-    setSelectedAvatar(avatarUrl);
-    setAvatarDialogOpen(false);
+  // Функция для открытия меню аватара
+  const handleAvatarMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAvatarMenuAnchor(event.currentTarget);
+  };
+
+  // Функция для закрытия меню аватара
+  const handleAvatarMenuClose = () => {
+    setAvatarMenuAnchor(null);
+  };
+
+  // Функция для выбора из стандартных аватаров
+  const handleOpenStandardAvatars = () => {
+    handleAvatarMenuClose();
+    setAvatarDialogOpen(true);
+  };
+
+  // Функция для открытия загрузчика аватарок
+  const handleOpenAvatarUploader = () => {
+    handleAvatarMenuClose();
+    setAvatarUploaderOpen(true);
+  };
+
+  // Функция для сохранения загруженного аватара
+  const handleAvatarUpload = async (imageUrl: string) => {
+    try {
+      setLoading(true);
+      await updateUserAvatar(imageUrl);
+      // Обновляем профиль после изменения аватара
+      const updatedProfile = {...profile, avatarUrl: imageUrl};
+      setProfile(updatedProfile);
+      setOriginalProfile(updatedProfile);
+      setSelectedAvatar(imageUrl);
+      setSnackbar({
+        open: true,
+        message: 'Аватар успешно обновлен',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Ошибка обновления аватара:', error);
+      setSnackbar({
+        open: true,
+        message: 'Не удалось обновить аватар',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Функция для выбора стандартного аватара
+  const handleSelectAvatar = async (avatarUrl: string) => {
+    try {
+      setLoading(true);
+      await updateUserAvatar(avatarUrl);
+      // Обновляем профиль после изменения аватара
+      const updatedProfile = {...profile, avatarUrl};
+      setProfile(updatedProfile);
+      setOriginalProfile(updatedProfile);
+      setSelectedAvatar(avatarUrl);
+      setAvatarDialogOpen(false);
+      setSnackbar({
+        open: true,
+        message: 'Аватар успешно обновлен',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Ошибка обновления аватара:', error);
+      setSnackbar({
+        open: true,
+        message: 'Не удалось обновить аватар',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading && !profile) {
@@ -191,26 +285,54 @@ export const ProfilePage = () => {
         {profile ? (
           <>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-              <Avatar 
-                sx={{ width: 100, height: 100, mr: 3 }}
-                src={selectedAvatar || profile.avatarUrl || undefined}
-              >
-                {profile.username?.charAt(0) || 'U'}
-              </Avatar>
+              <Box sx={{ position: 'relative' }}>
+                <Avatar 
+                  sx={{ width: 100, height: 100, mr: 3 }}
+                  src={selectedAvatar || profile.avatarUrl || undefined}
+                >
+                  {profile.username?.charAt(0) || 'U'}
+                </Avatar>
+                {isEditing && (
+                  <IconButton 
+                    sx={{ 
+                      position: 'absolute', 
+                      bottom: 0, 
+                      right: 12, 
+                      backgroundColor: 'white',
+                      boxShadow: 1,
+                      '&:hover': {
+                        backgroundColor: '#f5f5f5'
+                      }
+                    }}
+                    size="small"
+                    onClick={handleAvatarMenuOpen}
+                  >
+                    <AddAPhotoIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
               <Box>
                 <Typography variant="h5" gutterBottom>
                   {profile.username || 'Пользователь'}
                 </Typography>
-                {isEditing && (
-                  <Button 
-                    variant="outlined" 
-                    size="small"
-                    onClick={() => setAvatarDialogOpen(true)}
-                  >
-                    Изменить фото
-                  </Button>
-                )}
+                <Typography variant="body2" color="text.secondary">
+                  {profile.position || 'Должность не указана'}
+                </Typography>
               </Box>
+              
+              {/* Меню выбора способа обновления аватара */}
+              <Menu
+                anchorEl={avatarMenuAnchor}
+                open={Boolean(avatarMenuAnchor)}
+                onClose={handleAvatarMenuClose}
+              >
+                <MenuItem onClick={handleOpenStandardAvatars}>
+                  Выбрать из стандартных
+                </MenuItem>
+                <MenuItem onClick={handleOpenAvatarUploader}>
+                  Загрузить свой аватар
+                </MenuItem>
+              </Menu>
             </Box>
             
             <Divider sx={{ mb: 3 }} />
@@ -340,6 +462,13 @@ export const ProfilePage = () => {
                 </Button>
               )}
             </Box>
+            
+            {/* Добавляем компонент для загрузки и кропа аватара */}
+            <AvatarUploader
+              open={avatarUploaderOpen}
+              onClose={() => setAvatarUploaderOpen(false)}
+              onSave={handleAvatarUpload}
+            />
           </>
         ) : (
           <Typography>
@@ -385,19 +514,19 @@ export const ProfilePage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPasswordDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleChangePassword} variant="contained" color="primary">
+          <Button onClick={handlePasswordChange} variant="contained" color="primary">
             Сохранить
           </Button>
         </DialogActions>
       </Dialog>
       
       {/* Диалог выбора аватара */}
-      <Dialog open={avatarDialogOpen} onClose={() => setAvatarDialogOpen(false)}>
+      <Dialog open={avatarDialogOpen} onClose={() => setAvatarDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Выберите аватар</DialogTitle>
         <DialogContent>
           <Grid container spacing={2}>
             {AVATAR_OPTIONS.map((avatar, index) => (
-              <Grid item key={index} xs={4}>
+              <Grid item key={index} xs={6} sm={4} md={3}>
                 <Box 
                   sx={{ 
                     border: selectedAvatar === avatar ? '2px solid #1976d2' : '1px solid #e0e0e0',
@@ -406,13 +535,17 @@ export const ProfilePage = () => {
                     cursor: 'pointer',
                     '&:hover': {
                       borderColor: '#1976d2'
-                    }
+                    },
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '80px'
                   }}
                   onClick={() => handleSelectAvatar(avatar)}
                 >
                   <Avatar
                     src={avatar}
-                    sx={{ width: 64, height: 64, margin: '0 auto' }}
+                    sx={{ width: 64, height: 64 }}
                   />
                 </Box>
               </Grid>

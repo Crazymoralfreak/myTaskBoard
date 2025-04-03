@@ -21,6 +21,7 @@ export const TelegramLogin = ({ botName, onAuth }: { botName: string; onAuth: (u
     script.setAttribute('data-size', 'large');
     script.setAttribute('data-onauth', 'TelegramLoginWidget.dataOnauth(user)');
     script.setAttribute('data-request-access', 'write');
+    script.setAttribute('data-userpic', 'true');
 
     document.body.appendChild(script);
 

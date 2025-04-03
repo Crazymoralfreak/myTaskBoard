@@ -10,14 +10,19 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @RequiredArgsConstructor
 public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -59,6 +64,27 @@ public class UserService implements UserDetailsService {
         if (userDetails.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
         }
+        if (userDetails.getAvatarUrl() != null) {
+            user.setAvatarUrl(userDetails.getAvatarUrl());
+        }
+        if (userDetails.getPhoneNumber() != null) {
+            user.setPhoneNumber(userDetails.getPhoneNumber());
+        }
+        if (userDetails.getPosition() != null) {
+            user.setPosition(userDetails.getPosition());
+        }
+        if (userDetails.getBio() != null) {
+            user.setBio(userDetails.getBio());
+        }
+        if (userDetails.getTelegramId() != null) {
+            user.setTelegramId(userDetails.getTelegramId());
+        }
+        if (userDetails.getTelegramChatId() != null) {
+            user.setTelegramChatId(userDetails.getTelegramChatId());
+        }
+        if (userDetails.getDisplayName() != null) {
+            user.setDisplayName(userDetails.getDisplayName());
+        }
         
         return userRepository.save(user);
     }
@@ -82,24 +108,24 @@ public class UserService implements UserDetailsService {
 
     /**
      * Изменение пароля пользователя
-     * @param userId ID пользователя
+     * @param email email пользователя
      * @param currentPassword текущий пароль
      * @param newPassword новый пароль
-     * @return true если пароль успешно изменен, false если текущий пароль неверен
      */
-    public boolean changePassword(Long userId, String currentPassword, String newPassword) {
-        User user = getUserById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        // Проверяем текущий пароль
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            return false;
+            throw new IllegalArgumentException("Current password is incorrect");
         }
-        
-        // Задаем новый пароль
+
         user.setPassword(passwordEncoder.encode(newPassword));
+        // Устанавливаем дату последнего сброса пароля
+        user.setLastPasswordResetDate(LocalDateTime.now());
         userRepository.save(user);
         
-        return true;
+        log.info("Password changed successfully for user: {}", email);
     }
 }

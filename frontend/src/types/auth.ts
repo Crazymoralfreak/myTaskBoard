@@ -19,4 +19,5 @@ export interface TelegramAuthRequest {
     username: string;
     firstName?: string;
     lastName?: string;
+    photo_url?: string;
 } 

@@ -150,8 +150,8 @@ export const updateUserProfile = async (profileData: any) => {
       email: profileData.email,
       phoneNumber: profileData.phone, // Обратите внимание на маппинг phone -> phoneNumber
       position: profileData.position,
-      bio: profileData.bio,
-      avatarUrl: profileData.avatarUrl
+      bio: profileData.bio
+      // Удаляем avatarUrl отсюда, так как теперь мы обновляем его отдельно
     };
     
     const response = await api.put('/api/users/profile', profileUpdateDto);
@@ -166,6 +166,80 @@ export const updateUserProfile = async (profileData: any) => {
     return response.data;
   } catch (error) {
     console.error('Error updating user profile:', error);
+    throw error;
+  }
+};
+
+// Обновление только аватара пользователя (принимает как URL, так и base64)
+export const updateUserAvatar = async (avatarUrl: string) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('Токен отсутствует при попытке обновления аватара');
+      throw new Error('Ошибка авторизации: отсутствует токен');
+    }
+    
+    // Если это base64 изображение, конвертируем в FormData и отправляем на отдельный endpoint
+    if (avatarUrl.startsWith('data:image')) {
+      return await uploadBase64Avatar(avatarUrl);
+    }
+    
+    // Если это URL, отправляем как обычно
+    const response = await api.put('/api/users/profile/avatar', { avatarUrl });
+    
+    // Обновляем данные пользователя в localStorage
+    if (response.data) {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      userData.avatarUrl = avatarUrl;
+      localStorage.setItem('user', JSON.stringify(userData));
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('Error updating user avatar:', error);
+    if (error.response && error.response.status === 401) {
+      // Если 401 Unauthorized, перенаправляем на страницу логина
+      console.warn('Перенаправление на страницу логина из-за ошибки авторизации');
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    throw error;
+  }
+};
+
+// Загрузка аватара в формате base64
+export const uploadBase64Avatar = async (base64Image: string) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Ошибка авторизации: отсутствует токен');
+    }
+    
+    // Конвертируем base64 в blob
+    const blob = await fetch(base64Image).then(res => res.blob());
+    
+    // Создаем FormData
+    const formData = new FormData();
+    formData.append('file', blob, 'avatar.jpg');
+    
+    // Отправляем запрос
+    const response = await api.post('/api/users/profile/avatar/upload', formData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    // Обновляем данные пользователя в localStorage
+    if (response.data && response.data.avatarUrl) {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      userData.avatarUrl = response.data.avatarUrl;
+      localStorage.setItem('user', JSON.stringify(userData));
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
     throw error;
   }
 };
