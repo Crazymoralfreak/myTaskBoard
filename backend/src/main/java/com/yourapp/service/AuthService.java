@@ -90,4 +90,20 @@ public class AuthService {
                 .message("Telegram auth successful")
                 .build();
     }
+    
+    /**
+     * Генерирует новый токен для пользователя после обновления профиля
+     */
+    public AuthResponse refreshTokenAfterProfileUpdate(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        String token = jwtService.generateToken(user);
+        
+        return AuthResponse.builder()
+                .token(token)
+                .user(user.toDto())
+                .message("Token refreshed after profile update")
+                .build();
+    }
 } 

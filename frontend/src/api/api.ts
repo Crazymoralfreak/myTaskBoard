@@ -131,12 +131,55 @@ export const createBoard = async (boardData: { title: string; userId: string }) 
 };
 
 // Получение данных пользователя
-export const fetchUserProfile = async (userId: string) => {
+export const fetchUserProfile = async () => {
   try {
-    const response = await api.get(`/users/${userId}`);
+    const response = await api.get('/api/users/profile');
     return response.data;
   } catch (error) {
     console.error('Error fetching user profile:', error);
+    throw error;
+  }
+};
+
+// Обновление профиля пользователя
+export const updateUserProfile = async (profileData: any) => {
+  try {
+    // Создаем новый объект, содержащий только поля из UserProfileUpdateDto
+    const profileUpdateDto = {
+      username: profileData.username,
+      email: profileData.email,
+      phoneNumber: profileData.phone, // Обратите внимание на маппинг phone -> phoneNumber
+      position: profileData.position,
+      bio: profileData.bio,
+      avatarUrl: profileData.avatarUrl
+    };
+    
+    const response = await api.put('/api/users/profile', profileUpdateDto);
+    
+    // После успешного обновления профиля, получаем новый JWT токен
+    try {
+      await refreshTokenAfterProfileUpdate(response.data.id);
+    } catch (tokenError) {
+      console.warn('Не удалось обновить токен после изменения профиля:', tokenError);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+};
+
+// Обновление токена после изменения профиля
+export const refreshTokenAfterProfileUpdate = async (userId: number) => {
+  try {
+    const response = await api.post(`/api/auth/refresh-after-update/${userId}`);
+    if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error refreshing token after profile update:', error);
     throw error;
   }
 };
@@ -185,6 +228,17 @@ export const fetchTaskHistory = async (taskId: string) => {
     return response.data;
   } catch (error) {
     console.error('Error fetching task history:', error);
+    throw error;
+  }
+};
+
+// Смена пароля пользователя
+export const changePassword = async (passwordData: { currentPassword: string; newPassword: string }) => {
+  try {
+    const response = await api.post('/api/users/change-password', passwordData);
+    return response.data;
+  } catch (error) {
+    console.error('Error changing password:', error);
     throw error;
   }
 };

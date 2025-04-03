@@ -71,4 +71,35 @@ public class UserService implements UserDetailsService {
     public Optional<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
     }
+
+    public Optional<User> getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    public Optional<UserDetails> loadUserById(Long id) {
+        return getUserById(id).map(user -> (UserDetails) user);
+    }
+
+    /**
+     * Изменение пароля пользователя
+     * @param userId ID пользователя
+     * @param currentPassword текущий пароль
+     * @param newPassword новый пароль
+     * @return true если пароль успешно изменен, false если текущий пароль неверен
+     */
+    public boolean changePassword(Long userId, String currentPassword, String newPassword) {
+        User user = getUserById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Проверяем текущий пароль
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            return false;
+        }
+        
+        // Задаем новый пароль
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        return true;
+    }
 }
