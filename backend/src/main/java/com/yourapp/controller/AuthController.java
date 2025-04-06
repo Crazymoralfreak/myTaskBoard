@@ -67,4 +67,17 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
     }
+    
+    @PostMapping("/refresh-after-update/{userId}")
+    public ResponseEntity<?> refreshTokenAfterProfileUpdate(@PathVariable Long userId) {
+        try {
+            AuthResponse response = authService.refreshTokenAfterProfileUpdate(userId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Token refresh after profile update failed", e);
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
 } 

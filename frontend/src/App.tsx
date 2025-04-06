@@ -9,12 +9,15 @@ import { AuthPage } from './pages/AuthPage';
 import { CreateBoardPage } from './pages/CreateBoardPage';
 import { PrivateRoute } from './components/auth';
 import { BoardPage } from './pages/BoardPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { SettingsPage } from './pages/SettingsPage';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ru } from 'date-fns/locale';
 import { ConfirmDialogProvider } from './context/ConfirmDialogContext';
 import { migrateLocalStorageToApi } from './utils/localStorageMigration';
 import { authService } from './services/authService';
+import { Layout } from './components/layout';
 
 function App() {
     // Запуск миграции данных при инициализации приложения
@@ -41,7 +44,9 @@ function App() {
                                     path="/"
                                     element={
                                         <PrivateRoute>
-                                            <HomePage />
+                                            <Layout>
+                                                <HomePage />
+                                            </Layout>
                                         </PrivateRoute>
                                     }
                                 />
@@ -49,7 +54,9 @@ function App() {
                                     path="/boards/new"
                                     element={
                                         <PrivateRoute>
-                                            <CreateBoardPage />
+                                            <Layout>
+                                                <CreateBoardPage />
+                                            </Layout>
                                         </PrivateRoute>
                                     }
                                 />
@@ -57,7 +64,29 @@ function App() {
                                     path="/boards/:boardId"
                                     element={
                                         <PrivateRoute>
-                                            <BoardPage />
+                                            <Layout>
+                                                <BoardPage />
+                                            </Layout>
+                                        </PrivateRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/settings"
+                                    element={
+                                        <PrivateRoute>
+                                            <Layout>
+                                                <SettingsPage />
+                                            </Layout>
+                                        </PrivateRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/profile"
+                                    element={
+                                        <PrivateRoute>
+                                            <Layout>
+                                                <ProfilePage />
+                                            </Layout>
                                         </PrivateRoute>
                                     }
                                 />

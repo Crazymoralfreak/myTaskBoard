@@ -3,6 +3,7 @@ package com.yourapp.service;
 import com.yourapp.dto.AuthRequest;
 import com.yourapp.dto.AuthResponse;
 import com.yourapp.dto.RegisterRequest;
+import com.yourapp.model.AuthType;
 import com.yourapp.model.TelegramAuthRequest;
 import com.yourapp.model.User;
 import com.yourapp.model.NotificationPreferences;
@@ -15,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +40,8 @@ public class AuthService {
                     .username(request.getUsername())
                     .email(request.getEmail())
                     .password(passwordEncoder.encode(request.getPassword()))
+                    .lastPasswordResetDate(LocalDateTime.now())
+                    .authType(AuthType.WEB)
                     .build();
             
             user = userRepository.save(user);
@@ -69,6 +74,10 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
                 
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
+                
         String token = jwtService.generateToken(user);
         
         return AuthResponse.builder()
@@ -79,8 +88,55 @@ public class AuthService {
     }
 
     public AuthResponse telegramAuth(TelegramAuthRequest request) {
-        User user = userRepository.findByTelegramId(request.getTelegramId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        logger.info("Обработка запроса аутентификации через Telegram: {}", request.getTelegramId());
+        
+        // Ищем пользователя по telegramId
+        Optional<User> existingUser = userRepository.findByTelegramId(request.getTelegramId());
+        User user;
+        
+        if (existingUser.isPresent()) {
+            // Пользователь существует, обновляем информацию
+            user = existingUser.get();
+            logger.info("Найден существующий пользователь Telegram: {}", user.getUsername());
+            
+            // Обновляем фото профиля, если оно пришло
+            if (request.getPhoto_url() != null && !request.getPhoto_url().isEmpty()) {
+                user.setAvatarUrl(request.getPhoto_url());
+            }
+        } else {
+            // Создаем нового пользователя с типом TELEGRAM
+            logger.info("Создание нового пользователя Telegram: {}", request.getUsername());
+            
+            user = User.builder()
+                    .username(request.getUsername())
+                    .telegramId(request.getTelegramId())
+                    .authType(AuthType.TELEGRAM)
+                    .password(passwordEncoder.encode("telegram_" + request.getTelegramId())) // генерируем пароль
+                    .lastPasswordResetDate(LocalDateTime.now())
+                    .build();
+                    
+            // Устанавливаем фото профиля, если оно пришло
+            if (request.getPhoto_url() != null && !request.getPhoto_url().isEmpty()) {
+                user.setAvatarUrl(request.getPhoto_url());
+            }
+            
+            user = userRepository.save(user);
+            
+            // Создаем настройки уведомлений
+            NotificationPreferences preferences = NotificationPreferences.builder()
+                    .user(user)
+                    .globalNotificationsEnabled(true)
+                    .taskAssignedNotifications(true)
+                    .taskMovedNotifications(true)
+                    .taskUpdatedNotifications(true)
+                    .mentionNotifications(true)
+                    .build();
+            
+            user.setNotificationPreferences(preferences);
+        }
+        
+        // В любом случае сохраняем обновленного пользователя
+        user = userRepository.save(user);
                 
         String token = jwtService.generateToken(user);
         
@@ -88,6 +144,22 @@ public class AuthService {
                 .token(token)
                 .user(user.toDto())
                 .message("Telegram auth successful")
+                .build();
+    }
+    
+    /**
+     * Генерирует новый токен для пользователя после обновления профиля
+     */
+    public AuthResponse refreshTokenAfterProfileUpdate(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+                
+        String token = jwtService.generateToken(user);
+        
+        return AuthResponse.builder()
+                .token(token)
+                .user(user.toDto())
+                .message("Token refreshed after profile update")
                 .build();
     }
 } 

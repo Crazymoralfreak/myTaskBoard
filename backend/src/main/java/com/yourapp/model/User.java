@@ -31,6 +31,10 @@ import lombok.ToString;
 import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.util.Date;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 
 @Data
 @Builder
@@ -55,20 +59,48 @@ public class User implements UserDetails {
     @Column(name = "password_hash", nullable = false)
     private String password;
     
+    @Column(unique = true)
     private String telegramId;
+    
     private String telegramChatId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_type", nullable = false)
+    private AuthType authType = AuthType.WEB;
+
+    @Column(name = "display_name")
+    private String displayName;
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "position")
+    private String position;
+
+    @Column(name = "bio", length = 1000)
+    private String bio;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
+    @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    @Column(name = "last_password_reset_date")
+    private LocalDateTime lastPasswordResetDate;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @JsonIgnore
     private NotificationPreferences notificationPreferences;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private UserSettings userSettings;
 
     @JsonManagedReference
     @OneToMany(mappedBy = "owner")
@@ -103,13 +135,13 @@ public class User implements UserDetails {
     private Set<Task> watchedTasks = new HashSet<>();
 
     @PrePersist
-    protected void onCreate() {
+    public void prePersist() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
-    protected void onUpdate() {
+    public void preUpdate() {
         updatedAt = LocalDateTime.now();
     }
 
@@ -148,7 +180,30 @@ public class User implements UserDetails {
                 .id(this.id)
                 .email(this.email)
                 .username(this.username)
+                .displayName(this.displayName)
+                .avatarUrl(this.avatarUrl)
+                .phoneNumber(this.phoneNumber)
+                .position(this.position)
+                .bio(this.bio)
                 .build();
+    }
+
+    /**
+     * Проверяет, меняли ли пароль после выдачи указанного токена
+     * @param tokenIssuedAt дата выдачи токена
+     * @return true если пароль меняли после выдачи токена, false в противном случае
+     */
+    public boolean isPasswordChangedAfterTokenIssued(Date tokenIssuedAt) {
+        // Если нет даты сброса пароля или даты выдачи токена, считаем пароль валидным
+        if (lastPasswordResetDate == null || tokenIssuedAt == null) {
+            return false;
+        }
+        
+        // Преобразуем LocalDateTime в Date для сравнения
+        Date passwordResetDate = java.sql.Timestamp.valueOf(lastPasswordResetDate);
+        
+        // Если токен был выдан до сброса пароля, то считаем, что пароль изменен после выдачи токена
+        return tokenIssuedAt.before(passwordResetDate);
     }
 }
 

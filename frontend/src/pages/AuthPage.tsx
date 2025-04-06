@@ -36,7 +36,7 @@ export const AuthPage: React.FC = () => {
     const handleRegister = async (event: React.FormEvent) => {
         event.preventDefault();
         try {
-            const response = await authService.register(registerData.email, registerData.password, registerData.email);
+            const response = await authService.register(registerData.email, registerData.password, registerData.name);
             if (response.token) {
                 localStorage.setItem('token', response.token);
                 localStorage.setItem('user', JSON.stringify(response.user));
@@ -47,13 +47,36 @@ export const AuthPage: React.FC = () => {
         }
     };
 
-    const handleTelegramAuth = (authResponse: TelegramAuthResponse) => {
+    const handleTelegramAuth = async (authResponse: any) => {
         console.log('Telegram auth response:', authResponse);
-        if (authResponse.token) {
-            localStorage.setItem('token', authResponse.token);
-            navigate('/');
-        } else {
-            console.error('Invalid Telegram auth response:', authResponse);
+        try {
+            // Проверяем наличие необходимых полей для аутентификации
+            if (!authResponse.id || !authResponse.first_name) {
+                console.error('Invalid Telegram auth response:', authResponse);
+                return;
+            }
+
+            // Подготавливаем данные для отправки на сервер
+            const telegramAuthData = {
+                telegramId: authResponse.id.toString(),
+                username: authResponse.username || authResponse.first_name,
+                firstName: authResponse.first_name,
+                lastName: authResponse.last_name,
+                photo_url: authResponse.photo_url // Добавляем ссылку на аватар из Telegram
+            };
+
+            console.log('Отправляем данные Telegram для авторизации:', telegramAuthData);
+
+            // Отправляем запрос на аутентификацию
+            const response = await authService.telegramAuth(telegramAuthData);
+            
+            if (response.token) {
+                navigate('/');
+            } else {
+                console.error('Authentication failed, no token received');
+            }
+        } catch (error) {
+            console.error('Telegram authentication error:', error);
         }
     };
 

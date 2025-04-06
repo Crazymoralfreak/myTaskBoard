@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +34,9 @@ public class JwtService {
     private long jwtExpiration;
 
     private final UserDetailsService userDetailsService;
+    
+    @Autowired
+    private com.yourapp.service.UserService userService;
 
     public JwtService(UserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
@@ -102,8 +106,16 @@ public class JwtService {
     public String refreshToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
-            String userEmail = claims.getSubject();
-            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            Long userId = claims.get("id", Long.class);
+            
+            if (userId == null) {
+                throw new JwtException("Token does not contain user ID");
+            }
+            
+            // Загружаем пользователя по ID, а не по username (email)
+            org.springframework.security.core.userdetails.UserDetails userDetails = 
+                userService.loadUserById(userId)
+                    .orElseThrow(() -> new JwtException("User not found by ID: " + userId));
             
             // Проверяем, не истек ли токен слишком давно (например, более 24 часов)
             if (claims.getExpiration().toInstant().isBefore(Instant.now().minus(24, ChronoUnit.HOURS))) {
@@ -113,8 +125,15 @@ public class JwtService {
             return generateToken(userDetails);
         } catch (ExpiredJwtException e) {
             // Если токен просто истек, но не слишком давно, мы все равно можем его обновить
-            String userEmail = e.getClaims().getSubject();
-            UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+            Long userId = e.getClaims().get("id", Long.class);
+            if (userId == null) {
+                throw new JwtException("Token does not contain user ID");
+            }
+            
+            org.springframework.security.core.userdetails.UserDetails userDetails = 
+                userService.loadUserById(userId)
+                    .orElseThrow(() -> new JwtException("User not found by ID: " + userId));
+                    
             return generateToken(userDetails);
         } catch (JwtException e) {
             throw new JwtException("Invalid token for refresh", e);
