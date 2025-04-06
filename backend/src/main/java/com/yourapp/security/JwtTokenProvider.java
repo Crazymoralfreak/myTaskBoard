@@ -149,6 +149,7 @@ public class JwtTokenProvider {
      */
     public boolean validateToken(String token) {
         try {
+            log.debug("Начата проверка JWT токена");
             Claims claims = getAllClaimsFromToken(token);
             
             // Проверяем не просрочен ли токен
@@ -184,11 +185,11 @@ public class JwtTokenProvider {
                     Date passwordResetDate = java.sql.Timestamp.valueOf(user.getLastPasswordResetDate());
                     log.debug("Дата сброса пароля: {}", passwordResetDate);
                     
-                    // Проверяем, был ли выдан токен до сброса пароля
-                    boolean tokenIssuedBeforePasswordReset = tokenIssuedAt.before(passwordResetDate);
-                    log.debug("Токен был выдан до сброса пароля: {}", tokenIssuedBeforePasswordReset);
+                    // Строгая проверка: токен должен быть выдан ПОСЛЕ сброса пароля
+                    boolean tokenIssuedAfterPasswordReset = tokenIssuedAt.after(passwordResetDate);
+                    log.debug("Токен выдан после сброса пароля: {}", tokenIssuedAfterPasswordReset);
                     
-                    if (tokenIssuedBeforePasswordReset) {
+                    if (!tokenIssuedAfterPasswordReset) {
                         log.info("JWT токен недействителен - выдан до сброса пароля. Токен: {}, Сброс: {}", 
                                  tokenIssuedAt, passwordResetDate);
                         return false;

@@ -121,15 +121,38 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+        // Строгая проверка текущего пароля
+        boolean isPasswordValid = passwordEncoder.matches(currentPassword, user.getPassword());
+        if (!isPasswordValid) {
+            log.error("Неверный текущий пароль для пользователя: {}", email);
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
+        log.info("Валидация пройдена, меняем пароль для: {}", email);
+        // Устанавливаем новый пароль
         user.setPassword(passwordEncoder.encode(newPassword));
-        // Устанавливаем дату последнего сброса пароля
-        user.setLastPasswordResetDate(LocalDateTime.now());
+        
+        // Устанавливаем дату последнего сброса пароля - 
+        // это критически важно для инвалидации всех имеющихся токенов
+        LocalDateTime now = LocalDateTime.now();
+        user.setLastPasswordResetDate(now);
+        
+        log.info("Дата сброса пароля установлена на: {}", now);
         userRepository.save(user);
         
-        log.info("Password changed successfully for user: {}", email);
+        log.info("Пароль успешно изменен для пользователя: {}", email);
+    }
+    
+    /**
+     * Проверка пароля пользователя без его изменения
+     * @param user пользователь
+     * @param password пароль для проверки
+     * @return true если пароль совпадает, false в противном случае
+     */
+    public boolean checkPassword(User user, String password) {
+        if (user == null || password == null || password.isEmpty()) {
+            return false;
+        }
+        return passwordEncoder.matches(password, user.getPassword());
     }
 }

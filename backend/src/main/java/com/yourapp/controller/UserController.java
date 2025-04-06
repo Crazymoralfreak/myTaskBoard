@@ -178,6 +178,20 @@ public class UserController {
             User user = userOptional.get();
             log.info("Найден пользователь: {} ({})", user.getUsername(), user.getEmail());
             
+            // Проверяем текущий пароль перед отправкой в сервис
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isEmpty()) {
+                log.warn("Текущий пароль не указан");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Текущий пароль не указан"));
+            }
+            
+            // Проверяем пароль с помощью PasswordEncoder
+            if (!userService.checkPassword(user, request.getCurrentPassword())) {
+                log.warn("Неверный текущий пароль для пользователя: {}", user.getEmail());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Неверный текущий пароль"));
+            }
+            
             // Изменяем пароль
             userService.changePassword(user.getEmail(), request.getCurrentPassword(), request.getNewPassword());
             

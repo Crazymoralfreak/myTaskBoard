@@ -33,6 +33,8 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.util.Date;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 
 @Data
 @Builder
@@ -57,8 +59,14 @@ public class User implements UserDetails {
     @Column(name = "password_hash", nullable = false)
     private String password;
     
+    @Column(unique = true)
     private String telegramId;
+    
     private String telegramChatId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_type", nullable = false)
+    private AuthType authType = AuthType.WEB;
 
     @Column(name = "display_name")
     private String displayName;

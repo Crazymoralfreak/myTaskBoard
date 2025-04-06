@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class TelegramAuthRequest {
     private String username;
     private String telegramId;
+    private String photo_url;
 } 

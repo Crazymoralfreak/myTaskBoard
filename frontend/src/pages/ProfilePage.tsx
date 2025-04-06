@@ -607,8 +607,9 @@ export const ProfilePage = () => {
                   variant="contained" 
                   color="primary"
                   onClick={() => setIsEditing(true)}
+                  disabled={loading}
                 >
-                  Редактировать профиль
+                  {loading ? <CircularProgress size={24} /> : 'Редактировать профиль'}
                 </Button>
               )}
             </Box>
