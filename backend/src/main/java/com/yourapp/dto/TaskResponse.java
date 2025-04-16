@@ -61,5 +61,7 @@ public class TaskResponse {
         private Long id;
         private String username;
         private String avatarUrl;
+        private String email;
+        private String displayName;
     }
 } 

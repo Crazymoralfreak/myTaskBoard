@@ -20,7 +20,8 @@ import {
     Fade,
     Chip,
     useTheme,
-    alpha
+    alpha,
+    Tooltip
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -31,6 +32,7 @@ import { Task, TaskComment } from '../../../types/task';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { useAuth } from '../../../hooks/useAuth';
 import { taskService } from '../../../services/taskService';
+import { getFullAvatarUrl } from '../../../api/api';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -162,11 +164,24 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             
             // Обновляем список комментариев из полученных данных
             if (updatedTask && updatedTask.comments) {
-                // Заменяем временный комментарий на реальный
-                const updatedComments = updatedTask.comments as CommentWithReplies[];
-                setComments(updatedComments);
-                setCommentCount(updatedComments.length);
+                // Находим реальный добавленный комментарий (предполагаем, что он последний в списке)
+                const realComment = updatedTask.comments[updatedTask.comments.length - 1] as CommentWithReplies;
+                
+                // Обновляем список: заменяем временный комментарий реальным
+                setComments(prev => 
+                    prev.map(c => c.id === tempId ? { ...realComment, isNew: true } : c)
+                );
+                // Устанавливаем таймаут для удаления флага isNew, чтобы анимация не повторялась
+                setTimeout(() => {
+                    setComments(prev => prev.map(c => c.id === realComment.id ? { ...c, isNew: false } : c));
+                }, 1500); // Длительность анимации + небольшой запас
+                
+                setCommentCount(updatedTask.comments.length);
                 console.log('Комментарий успешно добавлен, задача обновлена:', updatedTask);
+            } else {
+                // Если ответ не содержит комментариев (неожиданно), удаляем временный
+                setComments(prev => prev.filter(c => c.id !== tempId));
+                setCommentCount(prev => prev - 1); // Уменьшаем счетчик обратно
             }
             
             // Обновляем только счетчик комментариев, не всю задачу
@@ -352,382 +367,261 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
     };
     
     // Проверка, может ли пользователь редактировать комментарий
-    const canEditComment = (comment: CommentWithReplies) => {
-        if (!user || !comment.author) return false;
+    const canEditComment = (comment: CommentWithReplies): boolean => {
+        if (!user || !comment.author) {
+            // Добавляем лог для случая отсутствия данных
+            console.log('[canEditComment] Проверка невозможна: Нет user или comment.author', {
+                userId: user?.id,
+                authorId: comment.author?.id
+            });
+            return false;
+        }
+        
+        // ИСПРАВЛЕНИЕ: Добавляем console.log для диагностики ID
+        console.log('[canEditComment] Сравнение ID:', {
+            userId: user.id,
+            authorId: comment.author.id,
+            userIdType: typeof user.id,
+            authorIdType: typeof comment.author.id,
+            isMatch: user.id === comment.author.id
+        });
+        
         return user.id === comment.author.id;
     };
     
-    // Рендер комментария
+    // Функция для рендеринга комментария
     const renderComment = (comment: CommentWithReplies, isReply = false) => {
-        const isEditing = editingCommentId === comment.id;
-        
-        // Защита от неопределенных данных
         if (!comment || !comment.author) {
+            console.warn("Попытка отрисовать некорректный комментарий:", comment);
             return null;
         }
         
+        const isCurrentUserComment = comment.author && user && comment.author.id === user.id;
+        const animationDuration = 1000; // Длительность анимации
+        
         return (
-            <Fade in key={comment.id} timeout={500}>
-                <Card 
-                    elevation={0} 
-                    sx={{ 
-                        p: 2, 
+            <Zoom 
+                key={comment.id} 
+                in={true} 
+                timeout={comment.isNew ? animationDuration : 0}
+                mountOnEnter
+                unmountOnExit
+            >
+                <Box 
+                    sx={{
+                        display: 'flex', 
                         mb: 2, 
-                        ml: isReply ? 4 : 0,
-                        bgcolor: comment.isNew ? alpha(theme.palette.primary.light, 0.1) : 'background.paper',
-                        borderLeft: comment.isNew ? `4px solid ${theme.palette.primary.main}` : undefined,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                            boxShadow: 1
-                        }
+                        pl: isReply ? 4 : 0,
+                        position: 'relative',
+                        bgcolor: comment.isNew ? alpha(theme.palette.primary.light, 0.1) : 'transparent',
+                        transition: `background-color ${animationDuration}ms ease-out`,
+                        borderRadius: 1,
+                        p: comment.isNew ? 1 : 0,
+                        mx: comment.isNew ? -1 : 0,
+                        '&:hover .comment-actions': {
+                            opacity: 1,
+                        },
                     }}
                 >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ mr: 1.5, flexShrink: 0 }}>
+                        <Tooltip title={comment.author?.username || 'Пользователь'}>
                             <Avatar 
-                                // У автора комментария может не быть avatarUrl
-                                src={undefined} 
-                                alt={comment.author?.username || 'Пользователь'}
+                                alt={comment.author?.username}
+                                src={comment.author?.avatarUrl ? getFullAvatarUrl(comment.author.avatarUrl) : undefined}
                                 sx={{ width: 32, height: 32 }}
                             >
-                                {comment.author?.username?.[0]?.toUpperCase() || 'U'}
+                                {comment.author?.username ? comment.author.username.charAt(0).toUpperCase() : '?'}
                             </Avatar>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: comment.isNew ? 'bold' : 'normal' }}>
+                        </Tooltip>
+                    </Box>
+                    <Paper 
+                        variant="outlined" 
+                        sx={{ 
+                            p: 2, 
+                            borderRadius: '8px',
+                            backgroundColor: theme.palette.background.paper,
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                                     {comment.author?.username || 'Пользователь'}
-                                    {comment.author?.id === user?.id && 
+                                    {isCurrentUserComment && 
                                         <Chip size="small" label="Вы" sx={{ ml: 1, height: 16, fontSize: '0.7rem' }} />
                                     }
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
                                     {formatDate(comment.createdAt)}
-                                    {comment.updatedAt && comment.updatedAt !== comment.createdAt && 
+                                    {comment.createdAt !== comment.updatedAt && 
                                         ` (изменено ${formatDate(comment.updatedAt)})`}
                                 </Typography>
                             </Box>
-                        </Box>
-                        
-                        {canEditComment(comment) && (
-                            <IconButton 
-                                size="small" 
-                                onClick={(e) => handleMenuOpen(e, comment.id)}
-                            >
-                                <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                        )}
-                    </Box>
-                    
-                    {isEditing ? (
-                        <Box sx={{ mt: 2 }}>
-                            <ReactQuill
-                                value={editContent}
-                                onChange={setEditContent}
-                                modules={quillModules}
-                                formats={quillFormats}
-                                theme="snow"
-                                style={{ height: '100px', marginBottom: '30px' }}
-                            />
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 1 }}>
-                                <Button 
-                                    size="small" 
-                                    onClick={() => setEditingCommentId(null)}
-                                >
-                                    Отмена
-                                </Button>
-                                <Button 
-                                    size="small" 
-                                    variant="contained" 
-                                    onClick={handleEditComment}
-                                    disabled={!editContent.trim()}
-                                >
-                                    Сохранить
-                                </Button>
+                            
+                            <Box className="comment-actions" sx={{ opacity: 0, transition: 'opacity 0.2s' }}> 
+                                {editingCommentId !== comment.id && (
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => handleMenuOpen(e, comment.id)}
+                                    >
+                                        <MoreVertIcon fontSize="small" />
+                                    </IconButton>
+                                )}
                             </Box>
                         </Box>
-                    ) : (
-                        <>
-                            <Box
-                                sx={{ mt: 1 }}
-                                dangerouslySetInnerHTML={{ __html: comment.content }}
-                            />
-                            
-                            {!isReply && (
-                                <Box sx={{ mt: 2 }}>
+                        
+                        {editingCommentId === comment.id ? (
+                            <Box sx={{ mt: 1 }}>
+                                <ReactQuill 
+                                    theme="snow"
+                                    value={editContent}
+                                    onChange={setEditContent}
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    placeholder="Введите комментарий..."
+                                />
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
+                                    <Button size="small" onClick={() => setEditingCommentId(null)}>
+                                        Отмена
+                                    </Button>
                                     <Button 
                                         size="small" 
+                                        variant="contained" 
+                                        onClick={handleEditComment}
+                                        disabled={!editContent.trim() || loading}
+                                    >
+                                        Сохранить
+                                    </Button>
+                                </Box>
+                            </Box>
+                        ) : (
+                            <Box 
+                                sx={{ 
+                                    "& a": { color: theme.palette.primary.main }, 
+                                    "& p": { margin: 0 },
+                                    wordBreak: 'break-word' 
+                                }}
+                                dangerouslySetInnerHTML={{ __html: comment.content }}
+                            />
+                        )}
+                        
+                        {replyToId === comment.id && (
+                            <Box sx={{ mt: 2, ml: -5.5 }}>
+                                <ReactQuill 
+                                    theme="snow"
+                                    value={replyContent}
+                                    onChange={setReplyContent}
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    placeholder={`Ответ для ${comment.author?.username}...`}
+                                />
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
+                                    <Button size="small" onClick={() => setReplyToId(null)}>
+                                        Отмена
+                                    </Button>
+                                    <Button 
+                                        size="small" 
+                                        variant="contained" 
+                                        onClick={() => handleAddReply(comment.id)}
+                                        disabled={!replyContent.trim() || loading}
                                         startIcon={<ReplyIcon />}
-                                        onClick={() => setReplyToId(comment.id)}
                                     >
                                         Ответить
                                     </Button>
                                 </Box>
-                            )}
-                            
-                            {replyToId === comment.id && (
-                                <Box sx={{ mt: 2 }}>
-                                    <Box sx={{ 
-                                        position: 'relative', 
-                                        border: `1px solid ${theme.palette.divider}`,
-                                        borderRadius: '4px',
-                                        '.ql-toolbar': {
-                                            borderTop: 'none',
-                                            borderLeft: 'none',
-                                            borderRight: 'none',
-                                            padding: '6px',
-                                            borderColor: theme.palette.divider,
-                                            borderRadius: '4px 4px 0 0',
-                                        },
-                                        '.ql-container': {
-                                            borderBottom: 'none',
-                                            borderLeft: 'none',
-                                            borderRight: 'none',
-                                            borderRadius: '0 0 4px 4px',
-                                            fontSize: '14px',
-                                        },
-                                        '.ql-editor': {
-                                            padding: '6px 10px',
-                                            maxHeight: '120px',
-                                            minHeight: '60px',
-                                            overflowY: 'auto',
-                                        }
-                                    }}>
-                                        <ReactQuill
-                                            value={replyContent}
-                                            onChange={setReplyContent}
-                                            modules={quillModules}
-                                            formats={quillFormats}
-                                            placeholder="Напишите ответ..."
-                                            theme="snow"
-                                        />
-                                        
-                                        <Box sx={{ 
-                                            display: 'flex', 
-                                            justifyContent: 'flex-end', 
-                                            gap: 1,
-                                            padding: '6px',
-                                            borderTop: `1px solid ${theme.palette.divider}`,
-                                            backgroundColor: alpha(theme.palette.background.default, 0.5),
-                                        }}>
-                                            <Button 
-                                                size="small" 
-                                                onClick={() => setReplyToId(null)}
-                                                sx={{ 
-                                                    borderRadius: '18px',
-                                                    padding: '3px 12px',
-                                                }}
-                                            >
-                                                Отмена
-                                            </Button>
-                                            <Button 
-                                                size="small" 
-                                                variant="contained" 
-                                                color="primary"
-                                                onClick={() => handleAddReply(comment.id)}
-                                                disabled={!replyContent.trim()}
-                                                startIcon={<ReplyIcon fontSize="small" />}
-                                                sx={{ 
-                                                    borderRadius: '18px',
-                                                    padding: '3px 12px',
-                                                    boxShadow: 'none',
-                                                    '&:hover': {
-                                                        boxShadow: 'none',
-                                                    }
-                                                }}
-                                            >
-                                                Ответить
-                                            </Button>
-                                        </Box>
-                                    </Box>
-                                </Box>
-                            )}
-                        </>
-                    )}
-                    
-                    {/* Рендерим вложенные комментарии */}
-                    {comment.replies && comment.replies.length > 0 && (
-                        <Box sx={{ mt: 2 }}>
-                            {comment.replies.map(reply => renderComment(reply, true))}
-                        </Box>
-                    )}
-                </Card>
-            </Fade>
+                            </Box>
+                        )}
+                    </Paper>
+                </Box>
+            </Zoom>
         );
     };
     
     return (
-        <Box>
-            <Typography variant="h6" gutterBottom>Комментарии</Typography>
+        <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+                Комментарии ({commentCount})
+            </Typography>
             
-            {/* Исправляем отображение ошибки */}
-            {error && (
-                <Typography color="error" sx={{ mb: 2 }}>
-                    {error}
-                </Typography>
-            )}
-            
-            {/* Форма добавления нового комментария */}
-            <Paper 
-                elevation={0} 
-                variant="outlined" 
-                sx={{ 
-                    p: 2, 
-                    mb: 3,
-                    borderRadius: '8px',
-                    backgroundColor: theme.palette.background.paper,
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                    <Avatar 
-                        src={undefined} 
-                        alt={user?.username || 'Аватар'}
-                        sx={{ width: 36, height: 36 }}
-                    >
-                        {user?.username?.charAt(0).toUpperCase() || 'U'}
-                    </Avatar>
-                    <Box sx={{ flexGrow: 1 }}>
-                        {/* Улучшенный контейнер для редактора */}
-                        <Box sx={{ 
-                            position: 'relative', 
-                            border: `1px solid ${theme.palette.divider}`,
-                            borderRadius: '4px',
-                            '.ql-toolbar': {
-                                borderTop: 'none',
-                                borderLeft: 'none',
-                                borderRight: 'none',
-                                padding: '8px',
-                                borderColor: theme.palette.divider,
-                                borderRadius: '4px 4px 0 0',
-                            },
-                            '.ql-container': {
-                                borderBottom: 'none',
-                                borderLeft: 'none',
-                                borderRight: 'none',
-                                borderRadius: '0 0 4px 4px',
-                                fontSize: '14px',
-                            },
-                            '.ql-editor': {
-                                padding: '8px 12px',
-                                maxHeight: '150px',
-                                minHeight: '80px',
-                                overflowY: 'auto',
-                            }
-                        }}>
-                            <ReactQuill
-                                value={newComment}
-                                onChange={setNewComment}
-                                modules={quillModules}
-                                formats={quillFormats}
-                                placeholder="Добавьте комментарий..."
-                                theme="snow"
-                            />
-                            
-                            {/* Кнопка отправки внутри редактора */}
-                            <Box sx={{ 
-                                display: 'flex', 
-                                justifyContent: 'flex-end', 
-                                padding: '8px',
-                                borderTop: `1px solid ${theme.palette.divider}`,
-                                backgroundColor: alpha(theme.palette.background.default, 0.5),
-                            }}>
-                                <Button 
-                                    variant="contained" 
-                                    size="small"
-                                    color="primary"
-                                    onClick={handleAddComment}
-                                    disabled={!newComment.trim() || loading}
-                                    startIcon={loading ? <CircularProgress size={16} /> : <SendIcon />}
-                                    sx={{ 
-                                        borderRadius: '18px',
-                                        padding: '4px 16px',
-                                        boxShadow: 'none',
-                                        '&:hover': {
-                                            boxShadow: 'none',
-                                        }
-                                    }}
-                                >
-                                    Отправить
-                                </Button>
-                            </Box>
-                        </Box>
+            {/* Список комментариев */}
+            <Box sx={{ maxHeight: '400px', overflowY: 'auto', mb: 2, pr: 1 }}>
+                {loading && comments.length === 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                        <CircularProgress />
                     </Box>
-                </Box>
-            </Paper>
+                )}
+                {error && (
+                    <Typography color="error" sx={{ my: 2 }}>{error}</Typography>
+                )}
+                {!loading && comments.length === 0 && !error && (
+                    <Typography color="text.secondary" sx={{ my: 2 }}>
+                        Комментариев пока нет.
+                    </Typography>
+                )}
+                {comments.map((comment) => renderComment(comment))}
+                <div ref={commentsEndRef} />
+            </Box>
             
             <Divider sx={{ my: 2 }} />
             
-            {/* Список комментариев */}
-            {loading && comments.length === 0 ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                    <CircularProgress />
+            {/* Поле для добавления нового комментария */} 
+            <Typography variant="subtitle1" gutterBottom>
+                Добавить комментарий
+            </Typography>
+            <Box sx={{ mt: 1 }}>
+                <ReactQuill 
+                    theme="snow"
+                    value={newComment}
+                    onChange={setNewComment}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    placeholder="Введите ваш комментарий..."
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Button 
+                        variant="contained"
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim() || loading}
+                        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+                    >
+                        {loading ? 'Отправка...' : 'Отправить'}
+                    </Button>
                 </Box>
-            ) : error ? (
-                <Typography color="error">{error}</Typography>
-            ) : comments.length === 0 ? (
-                <Paper 
-                    variant="outlined" 
-                    sx={{ 
-                        p: 4, 
-                        textAlign: 'center', 
-                        bgcolor: theme.palette.background.paper 
-                    }}
-                >
-                    <Typography variant="body1" color="text.secondary">
-                        Комментариев пока нет. Будьте первым, кто оставит комментарий!
-                    </Typography>
-                </Paper>
-            ) : (
-                <Box>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        mb: 2 
-                    }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            Все комментарии ({commentCount})
-                        </Typography>
-                        {comments.length > 3 && (
-                            <Button 
-                                size="small" 
-                                onClick={scrollToBottom}
-                            >
-                                В конец
-                            </Button>
-                        )}
-                    </Box>
-                    {comments.map(comment => renderComment(comment))}
-                    <div ref={commentsEndRef} /> {/* Референс для прокрутки к концу списка */}
-                </Box>
-            )}
+            </Box>
             
-            {/* Меню действий для комментария */}
+            {/* Меню действий для комментария */} 
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
             >
-                <MenuItem onClick={handleStartEdit}>
-                    <EditIcon fontSize="small" sx={{ mr: 1 }} />
-                    Редактировать
-                </MenuItem>
-                <MenuItem onClick={() => {
-                    setConfirmDelete(true);
-                    handleMenuClose();
-                }} sx={{ color: 'error.main' }}>
-                    <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-                    Удалить
-                </MenuItem>
+                {selectedCommentId && canEditComment(findCommentById(selectedCommentId)!) && (
+                    <MenuItem onClick={handleStartEdit}>
+                        <EditIcon fontSize="small" sx={{ mr: 1 }} /> Редактировать
+                    </MenuItem>
+                )}
+                {/* Пока убираем "Ответить" из меню, т.к. нет поддержки вложенности 
+                <MenuItem onClick={() => { 
+                    if (selectedCommentId) setReplyToId(selectedCommentId); 
+                    handleMenuClose(); 
+                }}>
+                    <ReplyIcon fontSize="small" sx={{ mr: 1 }} /> Ответить
+                </MenuItem> 
+                */} 
+                {selectedCommentId && canEditComment(findCommentById(selectedCommentId)!) && (
+                    <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
+                        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Удалить
+                    </MenuItem>
+                )}
             </Menu>
             
-            {/* Диалог подтверждения удаления */}
+            {/* Диалог подтверждения удаления */} 
             <ConfirmDialog
                 open={confirmDelete}
-                title="Удалить комментарий"
-                message="Вы уверены, что хотите удалить этот комментарий? Это действие нельзя отменить."
-                onConfirm={handleDeleteComment}
                 onClose={() => setConfirmDelete(false)}
+                title="Удалить комментарий?"
+                message="Вы уверены, что хотите удалить этот комментарий? Это действие необратимо."
+                onConfirm={handleDeleteComment}
                 actionType="delete"
-                loading={loading}
             />
         </Box>
     );

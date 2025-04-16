@@ -8,8 +8,31 @@ export const useAuth = () => {
     const [user, setUser] = useState<AuthResponse['user'] | null>(null);
 
     useEffect(() => {
+        setIsLoading(true);
         const token = authService.getToken();
-        setIsAuthenticated(!!token);
+        if (token) {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    const parsedUser = JSON.parse(storedUser);
+                    setUser(parsedUser);
+                    setIsAuthenticated(true);
+                } catch (error) {
+                    console.error("Ошибка парсинга данных пользователя из localStorage:", error);
+                    authService.logout(); 
+                    setUser(null);
+                    setIsAuthenticated(false);
+                }
+            } else {
+                console.warn("Токен найден, но данные пользователя отсутствуют в localStorage.");
+                authService.logout(); 
+                setUser(null);
+                setIsAuthenticated(false);
+            }
+        } else {
+            setUser(null);
+            setIsAuthenticated(false);
+        }
         setIsLoading(false);
     }, []);
 
@@ -17,11 +40,15 @@ export const useAuth = () => {
         try {
             const response = await authService.login(email, password);
             setIsAuthenticated(true);
-            setUser(response.user);
+            if (response.user) {
+                 localStorage.setItem('user', JSON.stringify(response.user));
+                 setUser(response.user);
+            }
             return response;
         } catch (error) {
             setIsAuthenticated(false);
             setUser(null);
+            localStorage.removeItem('user');
             throw error;
         }
     };

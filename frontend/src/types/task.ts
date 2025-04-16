@@ -15,6 +15,8 @@ export interface TaskComment {
         id: number;
         username: string;
         avatarUrl?: string;
+        email?: string;
+        displayName?: string;
     };
 }
 

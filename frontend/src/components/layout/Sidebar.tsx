@@ -17,7 +17,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Button
+  Button,
+  Container
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -206,13 +207,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
           marginLeft: { md: `${DRAWER_WIDTH}px` },
           mt: { xs: 8, md: 0 }
         }}
       >
-        {children}
+        <Container maxWidth="xl" sx={{ pt: 3, pb: 3 }}>
+            {children}
+        </Container>
       </Box>
 
       {/* Диалог подтверждения выхода */}

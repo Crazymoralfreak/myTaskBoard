@@ -252,6 +252,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     position: 'relative',
                     backgroundColor: theme.palette.background.paper,
                     border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 2,
                     '&:hover': {
                         borderColor: theme.palette.primary.main
                     },
@@ -368,22 +369,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                     }}
                                 />
                             )}
-
-                            {/* Индикатор комментариев */}
-                            {task.commentCount !== undefined && task.commentCount > 0 && (
-                                <Box sx={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: 0.5,
-                                    color: 'text.secondary',
-                                    ml: 'auto'
-                                }}>
-                                    <CommentIcon sx={{ fontSize: '1rem' }} />
-                                    <Typography variant="caption">
-                                        {task.commentCount}
-                                    </Typography>
-                                </Box>
-                            )}
                         </Box>
                         
                         {/* Описание задачи */}
@@ -435,14 +420,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                     </Box>
                                 )}
                                 
-                                {/* Индикатор комментариев */}
+                                {/* ВОЗВРАЩАЕМ ИНДИКАТОР КОММЕНТАРИЕВ ЗДЕСЬ */}
                                 {task.commentCount > 0 && (
                                     <Tooltip title={`${task.commentCount} комментариев`}>
                                         <Box sx={{ 
                                             display: 'flex', 
                                             alignItems: 'center',
-                                            color: theme.palette.primary.main,
-                                            bgcolor: theme.palette.action.hover,
+                                            color: theme.palette.text.secondary, // Используем вторичный цвет текста для единообразия
+                                            // bgcolor: theme.palette.action.hover, // Убираем фон, чтобы сделать менее выделяющимся
                                             borderRadius: '12px',
                                             px: 1,
                                             py: 0.25

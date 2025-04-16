@@ -145,31 +145,17 @@ export const SettingsPage: React.FC = () => {
                 </Typography>
                 <Divider sx={{ my: 2 }} />
                 
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  py: 1
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {mode === 'dark' ? <DarkModeIcon sx={{ mr: 1 }} /> : <LightModeIcon sx={{ mr: 1 }} />}
-                    <Typography variant="body1">Темная тема</Typography>
-                  </Box>
-                  <FormControlLabel
-                    control={
-                      <Switch 
-                        checked={mode === 'dark'}
-                        onChange={handleThemeSettingChange}
-                        disabled={saving || loading}
-                      />
-                    }
-                    label={mode === 'dark' ? "Вкл" : "Выкл"}
-                    labelPlacement="start"
-                  />
-                </Box>
+                <FormControlLabel
+                  control={
+                    <Switch 
+                      checked={mode === 'dark'}
+                      onChange={handleThemeSettingChange}
+                      disabled={saving || loading}
+                    />
+                  }
+                  label="Темная тема"
+                />
                 
-                <Divider sx={{ my: 1 }} />
-
                 <Box sx={{ mt: 2 }}>
                   <FormControlLabel
                     control={
