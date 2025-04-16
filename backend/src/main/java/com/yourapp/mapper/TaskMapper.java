@@ -71,6 +71,9 @@ public class TaskMapper {
                         TaskResponse.UserResponse author = new TaskResponse.UserResponse();
                         author.setId(comment.getAuthor().getId());
                         author.setUsername(comment.getAuthor().getUsername());
+                        author.setAvatarUrl(comment.getAuthor().getAvatarUrl());
+                        author.setEmail(comment.getAuthor().getEmail());
+                        author.setDisplayName(comment.getAuthor().getDisplayName());
                         commentResponse.setAuthor(author);
                     }
                     

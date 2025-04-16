@@ -279,213 +279,148 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         setSelectedTab(newValue);
     };
 
-    const validateForm = (): boolean => {
-        const newErrors: { title?: string; dates?: string } = {};
+    // Выносим проверку дат в отдельную функцию
+    const validateDates = (start: Date | null, end: Date | null): string | undefined => {
+        if (start && end && start > end) {
+            return 'Дата окончания не может быть раньше даты начала';
+        }
+        return undefined; // Нет ошибки
+    };
 
+    // Обработчик изменения дат с немедленной валидацией
+    const handleDateChange = (newStartDate: Date | null, newEndDate: Date | null) => {
+        setStartDate(newStartDate);
+        setEndDate(newEndDate);
+        
+        const dateError = validateDates(newStartDate, newEndDate);
+        setErrors(prev => ({ ...prev, dates: dateError }));
+    };
+    
+    const validateForm = (): boolean => {
+        let valid = true;
+        const newErrors: { title?: string; dates?: string } = {};
+        
         if (!title.trim()) {
             newErrors.title = 'Название задачи обязательно';
+            valid = false;
         }
-
-        if (startDate && endDate && startDate > endDate) {
-            newErrors.dates = 'Дата начала не может быть позже даты окончания';
+        
+        // Используем вынесенную функцию валидации дат
+        const dateError = validateDates(startDate, endDate);
+        if (dateError) {
+            newErrors.dates = dateError;
+            valid = false;
         }
-
+        
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        return valid;
     };
 
     const handleCreate = async () => {
-        if (!validateForm() || !columnId || !onTaskCreate) {
-            return;
-        }
+        if (!validateForm()) return;
+        
+        setIsSubmitting(true);
+        setError(null); 
+        
+        const taskData: Omit<CreateTaskRequest, 'columnId'> = {
+            title: title.trim(),
+            description,
+            startDate: startDate?.toISOString(),
+            endDate: endDate?.toISOString(),
+            priority,
+            typeId: selectedTypeId,
+            statusId: selectedStatusId,
+            tags
+        };
 
         try {
-            setIsSubmitting(true);
-            // Создаем базовый объект без typeId и statusId
-            const newTask: Omit<CreateTaskRequest, 'columnId'> = {
-                title: title.trim(),
-                description: description.trim(),
-                priority: priority,
-                tags: tags || [],
-            };
-
-            // Добавляем даты только если они установлены
-            if (startDate) {
-                newTask.startDate = startDate.toISOString();
+            if (onTaskCreate) {
+                await onTaskCreate(taskData);
             }
-            if (endDate) {
-                newTask.endDate = endDate.toISOString();
+            onClose(); 
+        } catch (error: any) {
+            console.error('Ошибка при создании задачи:', error);
+            // Оставляем обработку ошибки от бэкенда как запасной вариант
+            if (error.response && error.response.status === 400 && error.response.data?.error?.includes('End date must be after start date')) {
+                setErrors(prev => ({ ...prev, dates: 'Дата окончания не может быть раньше даты начала' }));
+                setError(null); 
+            } else {
+                setError(error.response?.data?.message || error.message || 'Не удалось создать задачу');
             }
-            
-            // Добавляем typeId только если пользователь явно выбрал его 
-            // и значение не равно null или undefined
-            if (selectedTypeId !== null && selectedTypeId !== undefined) {
-                newTask.typeId = selectedTypeId;
-            }
-            
-            // Добавляем statusId только если пользователь явно выбрал его
-            // и значение не равно null или undefined
-            if (selectedStatusId !== null && selectedStatusId !== undefined) {
-                newTask.statusId = selectedStatusId;
-            }
-            
-            // Для проверки того, что отправляется
-            console.log('Создаем задачу с данными:', JSON.stringify(newTask));
-
-            onTaskCreate(newTask);
-            handleClose();
-        } catch (error) {
-            console.error('Failed to create task:', error);
-            setError('Не удалось создать задачу');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleUpdate = async () => {
-        if (!task || !onTaskUpdate) {
+        if (!validateForm()) return;
+        if (!task) return;
+        
+        setIsSubmitting(true);
+        setError(null);
+        
+        // ВОССТАНАВЛИВАЕМ ЛОГИКУ СБОРА ИЗМЕНЕННЫХ ДАННЫХ
+        const updatedTaskData: Partial<CreateTaskRequest> = {}; // Используем Partial<CreateTaskRequest>
+
+        if (title.trim() !== task.title) {
+            updatedTaskData.title = title.trim();
+        }
+        if (description !== task.description) {
+            updatedTaskData.description = description;
+        }
+        // Сравниваем даты как строки ISO или null
+        const currentStartDateISO = startDate?.toISOString() || null;
+        const originalStartDateISO = task.startDate ? new Date(task.startDate).toISOString() : null;
+        if (currentStartDateISO !== originalStartDateISO) {
+            updatedTaskData.startDate = currentStartDateISO ?? undefined; // Отправляем null как undefined
+        }
+        const currentEndDateISO = endDate?.toISOString() || null;
+        const originalEndDateISO = task.endDate ? new Date(task.endDate).toISOString() : null;
+        if (currentEndDateISO !== originalEndDateISO) {
+            updatedTaskData.endDate = currentEndDateISO ?? undefined; // Отправляем null как undefined
+        }
+        if (priority !== task.priority) {
+            updatedTaskData.priority = priority;
+        }
+        if (selectedTypeId !== (task.type?.id || null)) {
+            updatedTaskData.typeId = selectedTypeId;
+        }
+        if (selectedStatusId !== (task.customStatus?.id || null)) {
+            updatedTaskData.statusId = selectedStatusId;
+        }
+        if (JSON.stringify(tags.sort()) !== JSON.stringify((task.tags || []).sort())) {
+            updatedTaskData.tags = tags;
+        }
+        
+        // Проверяем, есть ли вообще изменения
+        if (Object.keys(updatedTaskData).length === 0) {
+            setError('Нет изменений для сохранения');
+            setIsSubmitting(false);
+            // Можно просто закрыть окно или остаться в режиме редактирования
+            // onClose(); // Закрываем, если нет изменений
+            setMode('view'); // Или просто возвращаемся в режим просмотра
             return;
         }
 
         try {
-            setIsSubmitting(true);
-            
-            // Проверяем, какие поля изменились
-            const updatedFields: Record<string, { oldValue?: string, newValue: string }> = {};
-            
-            if (title.trim() !== task.title) {
-                updatedFields.title = { 
-                    oldValue: task.title, 
-                    newValue: title.trim() 
-                };
+            const updatedTask = await taskService.updateTask(task.id, updatedTaskData);
+            if (onTaskUpdate) {
+                onTaskUpdate(updatedTask);
             }
+            // setMode('view'); // Больше не нужно переключать режим здесь
+            // setTask(updatedTask as ExtendedTaskWithTypes); // Обновлять локальное состояние не обязательно, т.к. окно закроется
             
-            if (description !== task.description) {
-                updatedFields.description = { 
-                    oldValue: task.description, 
-                    newValue: description 
-                };
-            }
-            
-            if ((startDate?.toISOString() || null) !== task.startDate) {
-                updatedFields.startDate = { 
-                    oldValue: task.startDate || undefined, 
-                    newValue: startDate ? startDate.toISOString() : '' 
-                };
-            }
-            
-            if ((endDate?.toISOString() || null) !== task.endDate) {
-                updatedFields.endDate = { 
-                    oldValue: task.endDate || undefined, 
-                    newValue: endDate ? endDate.toISOString() : '' 
-                };
-            }
-            
-            if (priority !== task.priority) {
-                updatedFields.priority = { 
-                    oldValue: task.priority, 
-                    newValue: priority 
-                };
-            }
-            
-            if (selectedTypeId !== (task.type?.id || null)) {
-                updatedFields.type = { 
-                    oldValue: task.type?.name || undefined, 
-                    newValue: taskTypes.find(t => t.id === selectedTypeId)?.name || 'Нет типа' 
-                };
-            }
-            
-            if (selectedStatusId !== (task.customStatus?.id || null)) {
-                updatedFields.status = { 
-                    oldValue: task.customStatus?.name || undefined, 
-                    newValue: boardStatuses.find(s => s.id === selectedStatusId)?.name || 'Без статуса' 
-                };
-            }
-            
-            // Подготавливаем объект для обновления задачи
-            const updatedTask = {
-                ...task,
-                title: title.trim(),
-                description: description.trim(),
-                startDate: startDate ? startDate.toISOString() : null,
-                endDate: endDate ? endDate.toISOString() : null,
-                priority: priority,
-                typeId: selectedTypeId,
-                statusId: selectedStatusId,
-                tags,
-            };
+            // ИСПРАВЛЕНИЕ: Вызываем onClose после успешного обновления
+            onClose();
 
-            console.log('Отправка обновления задачи:', updatedTask);
-            
-            // Обновляем задачу на сервере
-            const result = await taskService.updateTask(task.id, updatedTask);
-            
-            // Создаем записи истории для каждого измененного поля
-            // Оборачиваем в try-catch, чтобы ошибки не блокировали основной поток
-            try {
-                // Создаем оптимизированные записи истории, фильтруя значения для снижения объема данных
-                const historyPromises = Object.entries(updatedFields)
-                    .filter(([field, { oldValue, newValue }]) => {
-                        // Пропускаем поля без изменений или со слишком длинными значениями
-                        if (oldValue === newValue) return false;
-                        
-                        // Ограничиваем размер значений для истории
-                        if (oldValue && oldValue.length > 500) return false;
-                        if (newValue && newValue.length > 500) return false;
-                        
-                        return true;
-                    })
-                    .map(([field, { oldValue, newValue }]) => {
-                        // Сокращаем HTML-описания
-                        let processedOldValue = oldValue;
-                        let processedNewValue = newValue;
-                        
-                        if (field === 'description') {
-                            // Вместо заглушек используем реальные значения, но обрезаем их если нужно
-                            const truncateHtml = (html: string, maxLength = 250): string => {
-                                if (!html) return '';
-                                
-                                // Если HTML слишком длинный, извлекаем текст и обрезаем его
-                                if (html.length > maxLength) {
-                                    try {
-                                        // Извлекаем только текст из HTML
-                                        const tempDiv = document.createElement('div');
-                                        tempDiv.innerHTML = html;
-                                        const text = tempDiv.textContent || tempDiv.innerText || '';
-                                        return text.substring(0, maxLength) + '...';
-                                    } catch (e) {
-                                        // В случае ошибки просто обрезаем строку
-                                        return html.substring(0, maxLength) + '...';
-                                    }
-                                }
-                                
-                                return html;
-                            };
-                            
-                            processedOldValue = oldValue ? truncateHtml(oldValue) : undefined;
-                            processedNewValue = newValue ? truncateHtml(newValue) : '';
-                        }
-                        
-                        return taskService.addHistoryEntry(task.id, {
-                            action: `${field}_changed`,
-                            oldValue: processedOldValue,
-                            newValue: processedNewValue,
-                        });
-                    });
-                
-                // Ждем выполнения всех промисов с записью истории
-                await Promise.allSettled(historyPromises);
-            } catch (historyError) {
-                console.error('Ошибка при создании записей истории:', historyError);
-                // Игнорируем ошибки истории, основное обновление задачи уже выполнено
+        } catch (error: any) {
+            console.error('Ошибка при обновлении задачи:', error);
+            if (error.response && error.response.status === 400 && error.response.data?.error?.includes('End date must be after start date')) {
+                setErrors(prev => ({ ...prev, dates: 'Дата окончания не может быть раньше даты начала' }));
+                setError(null); 
+            } else {
+                setError(error.response?.data?.message || error.message || 'Не удалось обновить задачу');
             }
-            
-            console.log('Результат обновления задачи:', result);
-            onTaskUpdate(result);
-            handleClose();
-        } catch (error) {
-            console.error('Failed to update task:', error);
-            setError('Не удалось обновить задачу');
         } finally {
             setIsSubmitting(false);
         }
@@ -1142,7 +1077,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     <DateTimePicker
                                                         label="Дата начала"
                                                         value={startDate}
-                                                        onChange={() => {}}
+                                                        onChange={(newValue) => {}}
                                                         readOnly
                                                         slotProps={{
                                                             textField: { 
@@ -1159,7 +1094,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     <DateTimePicker
                                                         label="Дата окончания"
                                                         value={endDate}
-                                                        onChange={() => {}}
+                                                        onChange={(newValue) => {}}
                                                         readOnly
                                                         slotProps={{
                                                             textField: { 

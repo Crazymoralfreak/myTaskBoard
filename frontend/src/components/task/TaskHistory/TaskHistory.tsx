@@ -36,6 +36,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import LabelIcon from '@mui/icons-material/Label';
 // @ts-ignore
 import * as DiffLib from 'diff';
+import { getFullAvatarUrl } from '../../../api/api';
 
 // Типы для библиотеки diff
 interface DiffPart {
@@ -610,17 +611,16 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                 }}
                                                 onClick={hasExpandableContent ? () => toggleItemExpanded(item.id) : undefined}
                                             >
-                                                <ListItemAvatar sx={{ minWidth: compactMode ? 40 : 56 }}>
-                                                    <Avatar 
-                                                        alt={item.username} 
-                                                        src={item.avatarUrl}
-                                                        sx={{ 
-                                                            width: compactMode ? 24 : 32, 
-                                                            height: compactMode ? 24 : 32 
-                                                        }}
-                                                    >
-                                                        {item.username ? item.username[0].toUpperCase() : '?'}
-                                                    </Avatar>
+                                                <ListItemAvatar sx={{ minWidth: 'auto', mr: 1.5, mt: compactMode ? 0 : 0.5 }}>
+                                                    <Tooltip title={item.username || 'Неизвестный пользователь'} arrow> 
+                                                        <Avatar 
+                                                            alt={item.username || 'User'} 
+                                                            src={item.avatarUrl ? getFullAvatarUrl(item.avatarUrl) : undefined}
+                                                            sx={{ width: compactMode ? 24 : 32, height: compactMode ? 24 : 32 }}
+                                                        >
+                                                            {item.username ? item.username.charAt(0).toUpperCase() : '?'}
+                                                        </Avatar>
+                                                    </Tooltip>
                                                 </ListItemAvatar>
                                                 <ListItemText
                                                     primary={

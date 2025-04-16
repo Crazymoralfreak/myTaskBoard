@@ -41,10 +41,26 @@ const Board: React.FC<BoardProps> = ({ board, boardStatuses, taskTypes, onBoardU
     return (
         <Box>
             <Button 
-                variant="contained" 
-                color="primary" 
+                variant="outlined" 
                 startIcon={<AddIcon />}
                 onClick={handleOpenCreateColumnModal}
+                sx={{
+                    minWidth: 280,
+                    height: 60,
+                    borderStyle: 'dashed',
+                    borderColor: 'divider',
+                    bgcolor: 'action.hover',
+                    color: 'text.secondary',
+                    borderRadius: 1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    textTransform: 'none',
+                    '&:hover': {
+                        bgcolor: 'action.selected',
+                        borderStyle: 'dashed',
+                    }
+                }}
             >
                 Добавить колонку
             </Button>

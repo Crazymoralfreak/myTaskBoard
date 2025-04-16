@@ -418,19 +418,6 @@ public class TaskService {
         comment.setCreatedAt(LocalDateTime.now());
         comment.setUpdatedAt(LocalDateTime.now());
         
-        if (task.getComments() == null) {
-            task.setComments(new ArrayList<>());
-        }
-        
-        // Сначала сохраняем комментарий через CommentRepository
-        commentRepository.save(comment);
-        
-        // Затем добавляем его в список комментариев задачи
-        task.getComments().add(comment);
-        
-        // Обновляем счетчик комментариев
-        task.setCommentCount(task.getComments().size());
-        
         // Добавляем запись в историю
         TaskHistory history = new TaskHistory();
         history.setTask(task);
@@ -438,13 +425,27 @@ public class TaskService {
         history.setAvatarUrl(author.getAvatarUrl());
         history.setAction("comment_added");
         history.setTimestamp(LocalDateTime.now());
+
+        // !! Сохраняем дочерние сущности явно ПЕРЕД добавлением в коллекции !!
+        commentRepository.save(comment);
+        taskHistoryRepository.save(history);
+
+        // Добавляем сохраненный комментарий в список задачи
+        if (task.getComments() == null) {
+            task.setComments(new ArrayList<>());
+        }
+        task.getComments().add(comment);
         
+        // Обновляем счетчик комментариев
+        task.setCommentCount(task.getComments().size());
+        
+        // Добавляем сохраненную историю в список задачи
         if (task.getHistory() == null) {
             task.setHistory(new ArrayList<>());
         }
         task.getHistory().add(history);
 
-        // Сохраняем обновленную задачу
+        // Сохраняем обновленную задачу (дочерние сущности уже сохранены)
         return taskRepository.save(task);
     }
 
@@ -482,6 +483,7 @@ public class TaskService {
         
         // Добавляем запись в историю
         TaskHistory history = new TaskHistory();
+        history.setTask(task);
         history.setUsername(currentUser.getUsername());
         history.setAvatarUrl(currentUser.getAvatarUrl());
         history.setAction("comment_updated");
@@ -492,6 +494,7 @@ public class TaskService {
         }
         task.getHistory().add(history);
 
+        // Сохраняем задачу, которая каскадно сохранит комментарий и историю
         return taskRepository.save(task);
     }
 

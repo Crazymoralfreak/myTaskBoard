@@ -1,9 +1,7 @@
 import React, { useEffect } from 'react';
-import { ThemeProvider } from '@mui/material/styles';
+import { ThemeProvider, CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
-import { theme } from './theme/theme';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { CreateBoardPage } from './pages/CreateBoardPage';
@@ -11,13 +9,14 @@ import { PrivateRoute } from './components/auth';
 import { BoardPage } from './pages/BoardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ru } from 'date-fns/locale';
 import { ConfirmDialogProvider } from './context/ConfirmDialogContext';
 import { migrateLocalStorageToApi } from './utils/localStorageMigration';
 import { authService } from './services/authService';
-import { Layout } from './components/layout';
+import { Layout } from './components/layout/Layout';
+import { CustomThemeProvider } from './context/ThemeContext';
 
 function App() {
     // Запуск миграции данных при инициализации приложения
@@ -32,7 +31,7 @@ function App() {
     }, []);
 
     return (
-        <ThemeProvider theme={theme}>
+        <CustomThemeProvider>
             <CssBaseline />
             <SnackbarProvider maxSnack={3}>
                 <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
@@ -96,7 +95,7 @@ function App() {
                     </ConfirmDialogProvider>
                 </LocalizationProvider>
             </SnackbarProvider>
-        </ThemeProvider>
+        </CustomThemeProvider>
     );
 }
 
