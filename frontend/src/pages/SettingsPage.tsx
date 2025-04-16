@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, ChangeEvent } from 'react';
 import { 
   Container, 
   Typography, 
@@ -12,10 +12,14 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Snackbar
+  Snackbar,
+  useTheme
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { userService } from '../services/userService';
+import { useThemeContext } from '../context/ThemeContext';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 
 interface UserSettings {
   darkMode: boolean;
@@ -34,6 +38,8 @@ export const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
+  const { mode, toggleTheme } = useThemeContext();
+  const muiTheme = useTheme();
 
   useEffect(() => {
     loadSettings();
@@ -55,7 +61,7 @@ export const SettingsPage: React.FC = () => {
     setTabValue(newValue);
   };
 
-  const handleSettingChange = (setting: keyof UserSettings) => async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBooleanSettingChange = (setting: keyof UserSettings) => async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!settings) return;
     
     const newSettings = {
@@ -77,6 +83,10 @@ export const SettingsPage: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleThemeSettingChange = async () => {
+    toggleTheme();
   };
 
   const handleClearCache = async () => {
@@ -135,23 +145,37 @@ export const SettingsPage: React.FC = () => {
                 </Typography>
                 <Divider sx={{ my: 2 }} />
                 
-                <FormControlLabel
-                  control={
-                    <Switch 
-                      checked={settings.darkMode}
-                      onChange={handleSettingChange('darkMode')}
-                      disabled={saving}
-                    />
-                  }
-                  label="Тёмная тема"
-                />
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  py: 1
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {mode === 'dark' ? <DarkModeIcon sx={{ mr: 1 }} /> : <LightModeIcon sx={{ mr: 1 }} />}
+                    <Typography variant="body1">Темная тема</Typography>
+                  </Box>
+                  <FormControlLabel
+                    control={
+                      <Switch 
+                        checked={mode === 'dark'}
+                        onChange={handleThemeSettingChange}
+                        disabled={saving || loading}
+                      />
+                    }
+                    label={mode === 'dark' ? "Вкл" : "Выкл"}
+                    labelPlacement="start"
+                  />
+                </Box>
                 
+                <Divider sx={{ my: 1 }} />
+
                 <Box sx={{ mt: 2 }}>
                   <FormControlLabel
                     control={
                       <Switch 
                         checked={settings.compactView}
-                        onChange={handleSettingChange('compactView')}
+                        onChange={handleBooleanSettingChange('compactView')}
                         disabled={saving}
                       />
                     }
@@ -164,7 +188,7 @@ export const SettingsPage: React.FC = () => {
                     control={
                       <Switch 
                         checked={settings.enableAnimations}
-                        onChange={handleSettingChange('enableAnimations')}
+                        onChange={handleBooleanSettingChange('enableAnimations')}
                         disabled={saving}
                       />
                     }
@@ -185,7 +209,7 @@ export const SettingsPage: React.FC = () => {
                   control={
                     <Switch 
                       checked={settings.browserNotifications}
-                      onChange={handleSettingChange('browserNotifications')}
+                      onChange={handleBooleanSettingChange('browserNotifications')}
                       disabled={saving}
                     />
                   }
@@ -197,7 +221,7 @@ export const SettingsPage: React.FC = () => {
                     control={
                       <Switch 
                         checked={settings.emailNotifications}
-                        onChange={handleSettingChange('emailNotifications')}
+                        onChange={handleBooleanSettingChange('emailNotifications')}
                         disabled={saving}
                       />
                     }
@@ -210,7 +234,7 @@ export const SettingsPage: React.FC = () => {
                     control={
                       <Switch 
                         checked={settings.telegramNotifications}
-                        onChange={handleSettingChange('telegramNotifications')}
+                        onChange={handleBooleanSettingChange('telegramNotifications')}
                         disabled={saving}
                       />
                     }

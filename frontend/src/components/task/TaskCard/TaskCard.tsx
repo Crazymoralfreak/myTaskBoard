@@ -41,6 +41,7 @@ interface TaskCardProps {
 
 // Компонент для отображения тегов задачи
 const TaskTags: React.FC<{ tags: string[] }> = ({ tags }) => {
+    const theme = useTheme();
     if (!tags || tags.length === 0) return null;
     
     // Отображаем максимум 2 тега напрямую, остальные показываем через число
@@ -63,6 +64,8 @@ const TaskTags: React.FC<{ tags: string[] }> = ({ tags }) => {
                     variant="outlined"
                     sx={{ 
                         height: 20, 
+                        borderColor: theme.palette.divider,
+                        color: theme.palette.text.secondary,
                         '& .MuiChip-label': { 
                             px: 1, 
                             fontSize: '0.7rem' 
@@ -83,11 +86,13 @@ const TaskTags: React.FC<{ tags: string[] }> = ({ tags }) => {
                     }
                 >
                     <Chip
-                        icon={<LocalOfferIcon sx={{ fontSize: '0.7rem' }} />}
+                        icon={<LocalOfferIcon sx={{ fontSize: '0.7rem', color: theme.palette.text.secondary }} />}
                         label={`+${remainingCount}`}
                         size="small"
                         sx={{ 
                             height: 20, 
+                            bgcolor: theme.palette.action.hover,
+                            color: theme.palette.text.secondary,
                             '& .MuiChip-label': { 
                                 px: 0.5, 
                                 fontSize: '0.7rem' 
@@ -231,23 +236,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
     // Определяем цвет заголовка в соответствии с типом задачи
     const titleStyle = {
-        color: task.type?.color || 'inherit'
+        color: task.type?.color && theme.palette.mode === 'dark' 
+               ? theme.palette.getContrastText(task.type.color)
+               : task.type?.color || theme.palette.text.primary
     };
     
     return (
         <>
             <Card 
                 ref={cardRef}
-                elevation={isHovered ? 3 : 1}
+                elevation={isHovered ? 4 : 1}
                 sx={{
                     mb: 2,
                     cursor: 'pointer',
                     position: 'relative',
-                    backgroundColor: '#fff',
+                    backgroundColor: theme.palette.background.paper,
+                    border: `1px solid ${theme.palette.divider}`,
                     '&:hover': {
-                        boxShadow: 3
+                        borderColor: theme.palette.primary.main
                     },
-                    transition: 'box-shadow 0.3s, transform 0.2s',
+                    transition: 'box-shadow 0.3s, border-color 0.3s, transform 0.2s',
                     transform: isHovered ? 'translateY(-2px)' : 'none',
                 }}
                 onClick={() => setIsEditOpen(true)}
@@ -259,16 +267,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     <Box 
                         sx={{ 
                             position: 'absolute', 
-                            top: 0, 
-                            left: 0, 
-                            width: '100%', 
+                            top: -1,
+                            left: -1,
+                            width: 'calc(100% + 2px)', 
                             height: '4px', 
-                            bgcolor: task.type.color || '#ccc' 
+                            bgcolor: task.type.color || theme.palette.divider
                         }} 
                     />
                 )}
                 
-                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 }, position: 'relative', zIndex: 1 }}>
                     <Box>
                         {/* Заголовок и кнопка действий */}
                         <Box sx={{ 
@@ -279,7 +287,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         }}>
                             <Typography 
                                 variant="subtitle1" 
-                                sx={titleStyle}
+                                sx={{ 
+                                    fontWeight: 500,
+                                    color: theme.palette.text.primary
+                                }}
                             >
                                 {task.title}
                             </Typography>
@@ -294,7 +305,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                     visibility: isHovered ? 'visible' : 'hidden'
                                 }}
                             >
-                                <MoreVertIcon fontSize="small" />
+                                <MoreVertIcon fontSize="small" sx={{ color: theme.palette.action.active }} />
                             </IconButton>
                         </Box>
                         
@@ -312,10 +323,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                         }
                                         label={task.type.name}
                                         size="small"
-                                        sx={{ 
+                                        sx={{
                                             height: 20,
-                                            bgcolor: task.type.color ? `${task.type.color}20` : 'grey.200',
-                                            color: task.type.color || 'text.primary',
+                                            bgcolor: theme.palette.mode === 'dark' 
+                                                ? theme.palette.grey[700]
+                                                : `${task.type.color || theme.palette.grey[300]}20`,
+                                            color: theme.palette.getContrastText(
+                                                theme.palette.mode === 'dark' 
+                                                ? theme.palette.grey[700]
+                                                : `${task.type.color || theme.palette.grey[300]}20`
+                                            ),
                                             '& .MuiChip-label': { 
                                                 px: 1, 
                                                 fontSize: '0.7rem' 
@@ -335,8 +352,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                     label={task.customStatus.name}
                                     sx={{
                                         height: 20,
-                                        bgcolor: task.customStatus.color ? `${task.customStatus.color}20` : 'grey.200',
-                                        color: task.customStatus.color || 'text.primary',
+                                        bgcolor: theme.palette.mode === 'dark' 
+                                            ? theme.palette.grey[700]
+                                            : `${task.customStatus.color || theme.palette.grey[300]}20`,
+                                        color: theme.palette.getContrastText(
+                                            theme.palette.mode === 'dark' 
+                                            ? theme.palette.grey[700]
+                                            : `${task.customStatus.color || theme.palette.grey[300]}20`
+                                        ),
                                         '& .MuiChip-label': { 
                                             px: 1, 
                                             py: 0,
@@ -399,7 +422,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                 {/* Даты начала и окончания - показываем только если есть хотя бы одна дата */}
                                 {(task.startDate || task.endDate) && (
                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        <CalendarTodayIcon sx={{ fontSize: '0.8rem', mr: 0.5, color: 'text.secondary' }} />
+                                        <CalendarTodayIcon sx={{ fontSize: '0.8rem', mr: 0.5, color: theme.palette.text.secondary }} />
                                         <Typography 
                                             variant="caption" 
                                             color="text.secondary"
@@ -418,8 +441,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                         <Box sx={{ 
                                             display: 'flex', 
                                             alignItems: 'center',
-                                            color: 'primary.main',
-                                            bgcolor: 'primary.light',
+                                            color: theme.palette.primary.main,
+                                            bgcolor: theme.palette.action.hover,
                                             borderRadius: '12px',
                                             px: 1,
                                             py: 0.25
@@ -446,21 +469,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                     display: 'flex', 
                                     alignItems: 'center',
                                     mt: 0.5,
-                                    backgroundColor: remainingTime.isOverdue ? 'rgba(244, 67, 54, 0.08)' : 'rgba(33, 150, 243, 0.08)',
+                                    backgroundColor: remainingTime.isOverdue 
+                                        ? theme.palette.error.light + '30'
+                                        : theme.palette.info.light + '30',
                                     borderRadius: '4px',
                                     py: 0.25,
                                     px: 0.5,
+                                    color: remainingTime.isOverdue ? theme.palette.error.main : theme.palette.info.main
                                 }}>
                                     <AlarmIcon sx={{ 
                                         fontSize: '0.8rem', 
                                         mr: 0.5, 
-                                        color: remainingTime.isOverdue ? 'error.main' : 'info.main' 
+                                        color: 'inherit' 
                                     }} />
                                     <Typography 
                                         variant="caption" 
                                         sx={{ 
                                             fontSize: '0.7rem',
-                                            color: remainingTime.isOverdue ? 'error.main' : 'info.main',
+                                            color: 'inherit',
                                             fontWeight: 'medium'
                                         }}
                                     >

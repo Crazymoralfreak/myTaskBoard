@@ -393,3 +393,44 @@ export const getFullAvatarUrl = (url: string | undefined): string | undefined =>
   // Для любых других случаев, возвращаем как есть
   return url;
 };
+
+// Обновление настроек пользователя (включая тему, приватность, язык и т.д.)
+export const updateUserSettings = async (token: string, userSettings: any) => {
+  try {
+    if (!token) {
+      console.error('Токен отсутствует при попытке обновления настроек интерфейса');
+      throw new Error('Ошибка авторизации: отсутствует токен');
+    }
+    
+    console.log('Отправка настроек пользователя на сервер:', userSettings);
+    
+    const response = await api.put('/api/users/settings', userSettings, { // Исправленный endpoint
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Ответ сервера при обновлении настроек:', response.data);
+    
+    // После успешного обновления, обновляем данные в localStorage
+    if (response.data) {
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      // Заменяем или добавляем userSettings
+      currentUser.userSettings = response.data; // Ответ содержит обновленные настройки
+      localStorage.setItem('user', JSON.stringify(currentUser));
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('Ошибка при обновлении настроек пользователя:', error);
+    
+    if (error.response && error.response.status === 401) {
+      console.warn('Перенаправление на страницу логина из-за ошибки авторизации');
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    
+    throw error;
+  }
+};

@@ -22,13 +22,20 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  DialogContentText
+  DialogContentText,
+  Switch,
+  FormControlLabel,
+  useTheme,
+  Tooltip
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
-import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar, uploadUserAvatar, getFullAvatarUrl } from '../api/api';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import SettingsIcon from '@mui/icons-material/Settings';
+import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar, uploadUserAvatar, getFullAvatarUrl, updateUserSettings } from '../api/api';
 import AvatarUploader from '../components/AvatarUploader';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -93,6 +100,9 @@ export const ProfilePage = () => {
   const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState<boolean>(false);
+  const [showUserSettings, setShowUserSettings] = useState(false);
+  const theme = useTheme();
+  const token = localStorage.getItem('token');
 
   useEffect(() => {
     loadUserProfile();
@@ -102,6 +112,11 @@ export const ProfilePage = () => {
     try {
       setLoading(true);
       const userData = await fetchUserProfile();
+      if (!userData.userSettings) {
+        userData.userSettings = {
+          darkMode: false,
+        };
+      }
       setProfile(userData);
       setOriginalProfile(userData);
       if (userData.avatarUrl) {
@@ -120,33 +135,37 @@ export const ProfilePage = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (!isEditing) return;
+
+    setSaving(true);
     try {
-      setLoading(true);
-      setSaving(true);
-      // Больше не включаем avatarUrl в обновление профиля
-      const profileToUpdate = {
-        ...profile
-        // avatarUrl обновляется отдельным методом
-      };
+      console.log('Сохранение профиля:', profile);
       
-      await updateUserProfile(profileToUpdate);
-      setOriginalProfile(profileToUpdate);
-      setProfile(profileToUpdate);
+      await updateUserProfile({
+        username: profile.username,
+        email: profile.email,
+        phone: profile.phoneNumber,
+        position: profile.position,
+        bio: profile.bio
+      });
+      
+      if (profile?.userSettings && token) {
+        console.log('Сохранение настроек пользователя:', profile.userSettings);
+        await updateUserSettings(token, profile.userSettings);
+      }
+      
       setIsEditing(false);
-      setSnackbar({
-        open: true,
-        message: 'Профиль успешно обновлен',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Ошибка обновления профиля:', error);
-      setSnackbar({
-        open: true,
-        message: 'Не удалось обновить профиль',
-        severity: 'error'
-      });
+      setOriginalProfile({...profile});
+      toast.success('Профиль успешно обновлен');
+    } catch (error: any) {
+      console.error('Error saving profile:', error);
+      if (error.response && error.response.status === 401) {
+        toast.error('Сессия истекла. Пожалуйста, войдите снова.');
+        navigate('/login');
+      } else {
+        toast.error('Ошибка при сохранении профиля: ' + (error.message || 'Неизвестная ошибка'));
+      }
     } finally {
-      setLoading(false);
       setSaving(false);
     }
   };
@@ -359,6 +378,31 @@ export const ProfilePage = () => {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  // Функция для переключения темы
+  const handleThemeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const isDarkMode = event.target.checked;
+    setProfile((prevProfile: any) => ({
+      ...prevProfile,
+      userSettings: {
+        ...(prevProfile.userSettings || {}),
+        darkMode: isDarkMode
+      }
+    }));
+    
+    localStorage.setItem('darkMode', isDarkMode ? 'true' : 'false');
+    
+    const themeChangeEvent = new CustomEvent('themeChange', {
+      detail: { darkMode: isDarkMode }
+    });
+    window.dispatchEvent(themeChangeEvent);
+    
+    setSnackbar({
+      open: true,
+      message: isDarkMode ? 'Включена темная тема' : 'Включена светлая тема',
+      severity: 'info'
+    });
   };
 
   if (loading && !profile) {

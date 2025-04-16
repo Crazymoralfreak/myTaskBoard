@@ -27,7 +27,7 @@ public class UserSettings {
     private Boolean darkMode = false;
 
     @Column(name = "compact_view")
-    private Boolean compactView = false;
+    private Boolean compactMode = false;
 
     @Column(name = "enable_animations")
     private Boolean enableAnimations = true;
@@ -40,6 +40,21 @@ public class UserSettings {
 
     @Column(name = "telegram_notifications")
     private Boolean telegramNotifications = true;
+
+    @Column(name = "profile_visibility")
+    private String profileVisibility = "public";
+
+    @Column(name = "email_visible")
+    private Boolean emailVisible = true;
+
+    @Column(name = "phone_visible")
+    private Boolean phoneVisible = true;
+
+    @Column(name = "position_visible")
+    private Boolean positionVisible = true;
+
+    @Column(name = "bio_visible")
+    private Boolean bioVisible = true;
 
     @Column(name = "language")
     private String language = "ru";
