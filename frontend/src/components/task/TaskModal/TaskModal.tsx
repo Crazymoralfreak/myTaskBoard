@@ -62,6 +62,11 @@ import CommentIcon from '@mui/icons-material/Comment';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useConfirmDialog } from '../../../context/ConfirmDialogContext';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import { userService } from '../../../services/userService';
+import { toast } from 'react-hot-toast';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -141,6 +146,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -164,6 +170,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [tags, setTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [newTag, setNewTag] = useState('');
+    const [userSettings, setUserSettings] = useState<{compactMode?: boolean}>({});
 
     // Используем ExtendedTaskWithTypes вместо Task
     const [task, setTask] = useState<ExtendedTaskWithTypes | null>(initialTask || null);
@@ -567,50 +574,36 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
 
     const renderDialogActions = () => {
+        const actionStyles = fullScreen ? {
+            position: 'sticky',
+            bottom: 0,
+            backgroundColor: theme.palette.background.paper,
+            zIndex: 10,
+            paddingTop: 1,
+            paddingBottom: 1,
+            borderTop: `1px solid ${theme.palette.divider}`
+        } : {};
+
         switch (mode) {
             case 'create':
                 return (
-                    <>
-                        <Button onClick={handleClose}>Отмена</Button>
-                        <Button 
-                            onClick={handleCreate} 
-                            variant="contained" 
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? <CircularProgress size={24} /> : 'Создать'}
-                        </Button>
-                    </>
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            <Button onClick={handleClose}>Отмена</Button>
+                            <Button 
+                                onClick={handleCreate} 
+                                variant="contained" 
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? <CircularProgress size={24} /> : 'Создать'}
+                            </Button>
+                        </DialogActions>
+                    </Box>
                 );
             case 'edit':
                 return (
-                    <>
-                        <Button 
-                            onClick={() => showConfirmDialog({
-                                title: "Удалить задачу",
-                                message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
-                                actionType: "delete",
-                                onConfirm: handleDelete,
-                                loading: isSubmitting
-                            })} 
-                            color="error"
-                            disabled={isSubmitting}
-                        >
-                            Удалить
-                        </Button>
-                        <Button onClick={handleClose}>Отмена</Button>
-                        <Button 
-                            onClick={handleUpdate} 
-                            variant="contained" 
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
-                        </Button>
-                    </>
-                );
-            case 'view':
-                return (
-                    <>
-                        {onTaskDelete && (
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
                             <Button 
                                 onClick={() => showConfirmDialog({
                                     title: "Удалить задачу",
@@ -620,31 +613,74 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     loading: isSubmitting
                                 })} 
                                 color="error"
+                                disabled={isSubmitting}
+                                startIcon={<DeleteOutlineIcon />}
+                                sx={{ mr: 'auto' }}
                             >
                                 Удалить
                             </Button>
-                        )}
-                        <Button 
-                            onClick={handleCopyTask}
-                            startIcon={<ContentCopyIcon />}
-                        >
-                            Копировать
-                        </Button>
-                        <Button onClick={handleClose}>Закрыть</Button>
-                        {onTaskUpdate && (
-                            <Button 
-                                onClick={() => {
-                                    setMode('edit');
-                                }} 
-                                variant="contained"
-                            >
-                                Редактировать
+                            <Button onClick={() => setMode('view')} disabled={isSubmitting}>
+                                Отмена
                             </Button>
-                        )}
-                    </>
+                            <Button 
+                                onClick={handleUpdate} 
+                                variant="contained" 
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
+                            </Button>
+                        </DialogActions>
+                    </Box>
+                );
+            case 'view':
+                return (
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            <Button 
+                                onClick={() => showConfirmDialog({
+                                    title: "Удалить задачу",
+                                    message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                    actionType: "delete",
+                                    onConfirm: handleDelete,
+                                    loading: isSubmitting
+                                })} 
+                                color="error"
+                                disabled={isSubmitting}
+                                startIcon={<DeleteOutlineIcon />}
+                                sx={{ mr: 1 }}
+                            >
+                                {isMobile ? '' : 'Удалить'}
+                            </Button>
+                            <Button 
+                                onClick={handleCopyTask} 
+                                disabled={isSubmitting}
+                                startIcon={<ContentCopyIcon />}
+                                sx={{ mr: isMobile ? 'auto' : 1 }}
+                            >
+                                {isMobile ? '' : 'Копировать'}
+                            </Button>
+                            {onTaskUpdate && (
+                                <Button 
+                                    onClick={() => {
+                                        setMode('edit');
+                                    }} 
+                                    variant="contained"
+                                >
+                                    Редактировать
+                                </Button>
+                            )}
+                            <Button onClick={handleClose}>Закрыть</Button>
+                        </DialogActions>
+                    </Box>
                 );
             default:
-                return <Button onClick={handleClose}>Закрыть</Button>;
+                return (
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            <Button onClick={handleClose}>Закрыть</Button>
+                        </DialogActions>
+                    </Box>
+                );
         }
     };
 
@@ -830,8 +866,51 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 fullWidth
                 fullScreen={fullScreen}
                 disableEscapeKeyDown={disableBackdropClick}
+                sx={{
+                    '& .MuiDialog-paper': {
+                        ...(fullScreen && {
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '100%'
+                        })
+                    },
+                    '& .MuiDialogContent-root': {
+                        ...(isMobile && {
+                            padding: 2,
+                            paddingTop: 2,
+                            paddingBottom: 4
+                        })
+                    },
+                    '& .MuiBox-root': {
+                        ...(isMobile && {
+                            gap: 1
+                        })
+                    },
+                    '& .MuiTabs-root': {
+                        ...(isMobile && {
+                            minHeight: 40
+                        })
+                    },
+                    '& .MuiTab-root': {
+                        ...(isMobile && {
+                            minHeight: 40,
+                            padding: '6px 12px',
+                            minWidth: 0,
+                            fontSize: '0.8rem'
+                        })
+                    }
+                }}
             >
-                <DialogTitle>
+                <DialogTitle sx={{ 
+                    ...(fullScreen && {
+                        position: 'sticky',
+                        top: 0,
+                        backgroundColor: theme.palette.background.paper,
+                        zIndex: 10,
+                        paddingBottom: 1,
+                        borderBottom: `1px solid ${theme.palette.divider}`
+                    })
+                }}>
                     {renderDialogTitle()}
                     <IconButton
                         aria-label="close"
@@ -846,7 +925,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent dividers>
+                <DialogContent 
+                    dividers 
+                    sx={{ 
+                        ...(fullScreen && {
+                            flex: 1,
+                            overflowY: 'auto',
+                            pb: 8  // Добавляем отступ, чтобы содержимое не перекрывалось кнопками
+                        })
+                    }}
+                >
                     {showTemplateSelector ? (
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>

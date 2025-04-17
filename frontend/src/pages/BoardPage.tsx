@@ -43,6 +43,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { TaskFilters } from '../components/task/TaskFilters';
 import { toast } from 'react-hot-toast';
 import { userService } from '../services/userService';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -114,6 +115,9 @@ export const BoardPage: React.FC = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     // Добавляем состояние для компактного режима карточек
     const [isCompactMode, setIsCompactMode] = useState(false);
+    const theme = useTheme();
+    // Добавляем определение мобильного устройства
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     // Загружаем настройки пользователя при монтировании компонента
     useEffect(() => {
@@ -125,6 +129,8 @@ export const BoardPage: React.FC = () => {
                 }
             } catch (error) {
                 console.error('Не удалось загрузить настройки пользователя:', error);
+                // В случае ошибки, используем false как значение по умолчанию
+                setIsCompactMode(false);
             }
         };
         
@@ -698,38 +704,30 @@ export const BoardPage: React.FC = () => {
     }
 
     return (
-        <Container maxWidth={false} sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <IconButton 
-                        onClick={() => navigate('/')}
-                        sx={{ mr: 1 }}
-                        aria-label="Вернуться к списку досок"
-                    >
+        <Container sx={{ mt: 2, mb: 4, p: {xs: 1, sm: 2} }} maxWidth={false}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconButton onClick={() => navigate('/boards')} aria-label="back">
                         <ArrowBackIcon />
                     </IconButton>
-                    <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
-                        {board ? board.name : 'Загрузка...'}
+                    <Typography variant="h5" component="h1" noWrap sx={{ maxWidth: { xs: 200, sm: 300, md: 500 } }}>
+                        {board?.name || 'Загрузка...'}
                     </Typography>
-                    
-                    {/* Кнопка обновления доски */}
                     <IconButton 
-                        onClick={handleRefreshBoard} 
-                        sx={{ ml: 2 }}
-                        disabled={loading || isRefreshing}
-                        aria-label="Обновить доску"
-                        color="primary"
+                        onClick={handleBoardMenuOpen} 
+                        aria-label="board settings"
+                        aria-haspopup="true"
                     >
-                        {isRefreshing ? <CircularProgress size={24} /> : <RefreshIcon />}
+                        <SettingsIcon />
                     </IconButton>
                 </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+
+                <Box sx={{ display: 'flex', gap: 1, ml: 'auto', flexWrap: 'wrap' }}>
                     <TextField
+                        size="small"
                         placeholder="Поиск задач..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        size="small"
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
@@ -738,179 +736,162 @@ export const BoardPage: React.FC = () => {
                             ),
                             endAdornment: searchQuery && (
                                 <InputAdornment position="end">
-                                    <IconButton 
-                                        size="small" 
-                                        onClick={() => setSearchQuery('')}
-                                        aria-label="Очистить поиск"
-                                    >
-                                        <ClearIcon />
+                                    <IconButton size="small" onClick={() => setSearchQuery('')}>
+                                        <ClearIcon fontSize="small" />
                                     </IconButton>
                                 </InputAdornment>
-                            )
+                            ),
+                            sx: { height: 40 }
                         }}
-                        sx={{ width: 300 }}
+                        sx={{ width: { xs: '100%', sm: 200 } }}
                     />
+                    
+                    <Button 
+                        variant="outlined" 
+                        onClick={handleFilterOpen}
+                        startIcon={<FilterListIcon />}
+                        aria-label="Фильтры"
+                        aria-haspopup="true"
+                        aria-expanded={Boolean(filterAnchorEl) ? 'true' : undefined}
+                        aria-controls={Boolean(filterAnchorEl) ? 'filter-menu' : undefined}
+                        size="small"
+                        sx={{ height: 40, display: { xs: 'none', sm: 'flex' } }}
+                    >
+                        Фильтры
+                        {(selectedStatuses.length > 0 || selectedTags.length > 0 || selectedTypes.length > 0) && (
+                            <Chip 
+                                label={selectedStatuses.length + selectedTags.length + selectedTypes.length} 
+                                size="small" 
+                                color="primary"
+                                sx={{ ml: 1, height: 20, minWidth: 20 }}
+                            />
+                        )}
+                    </Button>
+                    
                     <IconButton 
-                        onClick={handleFilterOpen} 
-                        color="primary"
-                        aria-label="Фильтровать задачи"
+                        onClick={handleFilterOpen}
+                        aria-label="Фильтры"
+                        sx={{ display: { xs: 'flex', sm: 'none' } }}
                     >
                         <FilterListIcon />
+                        {(selectedStatuses.length > 0 || selectedTags.length > 0 || selectedTypes.length > 0) && (
+                            <Box 
+                                sx={{ 
+                                    position: 'absolute', 
+                                    top: 0, 
+                                    right: 0, 
+                                    width: 12, 
+                                    height: 12, 
+                                    bgcolor: 'primary.main', 
+                                    borderRadius: '50%' 
+                                }} 
+                            />
+                        )}
                     </IconButton>
+                    
                     <IconButton 
-                        onClick={handleBoardMenuOpen}
-                        aria-label="Меню доски"
+                        onClick={handleRefreshBoard}
+                        aria-label="Обновить доску"
+                        disabled={isRefreshing}
                     >
-                        <SettingsIcon />
+                        <RefreshIcon />
                     </IconButton>
                 </Box>
-            </Box>
-            {(selectedStatuses.length > 0 || selectedTypes.length > 0 || selectedTags.length > 0) && (
-                <Box sx={{ mt: 2, ml: 6, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {selectedStatuses.map(statusId => {
-                        const status = board.taskStatuses.find(s => s.id === statusId);
-                        if (!status) return null;
-                        return (
-                            <Chip
-                                key={status.id}
-                                label={status.name}
-                                onDelete={() => handleStatusToggle(statusId)}
-                                sx={{ 
-                                    backgroundColor: status.color,
-                                    color: '#fff'
-                                }}
-                            />
-                        );
-                    })}
-                    {selectedTypes.map(typeId => {
-                        const type = board.taskTypes.find(t => t.id === typeId);
-                        if (!type) return null;
-                        return (
-                            <Chip
-                                key={type.id}
-                                label={type.name}
-                                onDelete={() => handleTypeToggle(typeId)}
-                                sx={{ 
-                                    backgroundColor: type.color ? `${type.color}20` : undefined,
-                                    color: type.color,
-                                    borderColor: type.color,
-                                    borderWidth: type.color ? 1 : 0,
-                                    borderStyle: 'solid' 
-                                }}
-                            />
-                        );
-                    })}
-                    {selectedTags.map(tag => (
-                        <Chip
-                            key={tag}
-                            label={tag}
-                            onDelete={() => handleTagToggle(tag)}
-                            variant="outlined"
-                        />
-                    ))}
-                    <Chip
-                        label="Сбросить все"
-                        onDelete={clearFilters}
-                        color="default"
-                    />
-                </Box>
-            )}
-            {board && board.description && (
-                <Typography 
-                    variant="body2" 
-                    color="text.secondary" 
-                    sx={{ mt: 1, ml: 6 }}
+
+                <Menu
+                    id="board-menu"
+                    anchorEl={menuAnchorEl}
+                    open={Boolean(menuAnchorEl)}
+                    onClose={handleBoardMenuClose}
                 >
-                    {board.description}
-                </Typography>
-            )}
-
-            <Popover
-                open={Boolean(filterAnchorEl)}
-                anchorEl={filterAnchorEl}
-                onClose={handleFilterClose}
-                anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'right',
-                }}
-                transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                }}
-            >
-                <Box sx={{ p: 2, width: 300 }}>
-                    <Tabs value={filterTabValue} onChange={handleFilterTabChange}>
+                    <MenuItem 
+                        onClick={() => {
+                            setIsEditBoardModalOpen(true);
+                            handleBoardMenuClose();
+                        }}
+                    >
+                        Редактировать доску
+                    </MenuItem>
+                    <MenuItem 
+                        onClick={() => {
+                            setIsDeleteBoardDialogOpen(true);
+                            handleBoardMenuClose();
+                        }}
+                        sx={{ color: 'error.main' }}
+                    >
+                        Удалить доску
+                    </MenuItem>
+                </Menu>
+                
+                <Popover
+                    id="filter-menu"
+                    open={Boolean(filterAnchorEl)}
+                    anchorEl={filterAnchorEl}
+                    onClose={handleFilterClose}
+                    anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                    PaperProps={{
+                        sx: { 
+                            width: { xs: 300, sm: 450 },
+                            maxHeight: { xs: '80vh', sm: 600 },
+                            overflow: 'auto',
+                            p: 2
+                        }
+                    }}
+                >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6">Фильтры</Typography>
+                        <Button 
+                            onClick={clearFilters}
+                            disabled={selectedStatuses.length === 0 && selectedTags.length === 0 && selectedTypes.length === 0}
+                        >
+                            Сбросить все
+                        </Button>
+                    </Box>
+                    
+                    <Tabs 
+                        value={filterTabValue} 
+                        onChange={handleFilterTabChange}
+                        variant="fullWidth"
+                        sx={{ mb: 2 }}
+                    >
                         <Tab label="Статусы" />
-                        <Tab label="Типы" />
                         <Tab label="Теги" />
+                        <Tab label="Типы" />
                     </Tabs>
-
+                    
                     <TabPanel value={filterTabValue} index={0}>
-                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Статусы</Typography>
                         <FormGroup>
-                            {board.taskStatuses.map(status => (
+                            {board?.taskStatuses.map((status) => (
                                 <FormControlLabel
                                     key={status.id}
                                     control={
                                         <Checkbox
                                             checked={selectedStatuses.includes(status.id)}
                                             onChange={() => handleStatusToggle(status.id)}
+                                            sx={{
+                                                color: status.color,
+                                                '&.Mui-checked': {
+                                                    color: status.color,
+                                                },
+                                            }}
                                         />
                                     }
-                                    label={
-                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                            <Box
-                                                sx={{
-                                                    width: 12,
-                                                    height: 12,
-                                                    borderRadius: '50%',
-                                                    backgroundColor: status.color,
-                                                    mr: 1
-                                                }}
-                                            />
-                                            {status.name}
-                                        </Box>
-                                    }
+                                    label={status.name}
                                 />
                             ))}
                         </FormGroup>
                     </TabPanel>
-
+                    
                     <TabPanel value={filterTabValue} index={1}>
-                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Типы задач</Typography>
                         <FormGroup>
-                            {board.taskTypes.map(type => (
-                                <FormControlLabel
-                                    key={type.id}
-                                    control={
-                                        <Checkbox
-                                            checked={selectedTypes.includes(type.id)}
-                                            onChange={() => handleTypeToggle(type.id)}
-                                        />
-                                    }
-                                    label={
-                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                            <Box
-                                                sx={{
-                                                    width: 12,
-                                                    height: 12,
-                                                    borderRadius: '4px',
-                                                    backgroundColor: type.color,
-                                                    mr: 1
-                                                }}
-                                            />
-                                            {type.name}
-                                        </Box>
-                                    }
-                                />
-                            ))}
-                        </FormGroup>
-                    </TabPanel>
-
-                    <TabPanel value={filterTabValue} index={2}>
-                        <Typography variant="subtitle1" sx={{ mb: 1 }}>Теги</Typography>
-                        <FormGroup>
-                            {availableTags.map(tag => (
+                            {availableTags.map((tag) => (
                                 <FormControlLabel
                                     key={tag}
                                     control={
@@ -924,78 +905,71 @@ export const BoardPage: React.FC = () => {
                             ))}
                         </FormGroup>
                     </TabPanel>
-
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button onClick={clearFilters} sx={{ mr: 1 }}>
-                            Сбросить
-                        </Button>
-                        <Button variant="contained" onClick={handleFilterClose}>
-                            Применить
-                        </Button>
-                    </Box>
-                </Box>
-            </Popover>
-
-            <Menu
-                anchorEl={menuAnchorEl}
-                open={Boolean(menuAnchorEl)}
-                onClose={handleBoardMenuClose}
-            >
-                <MenuItem onClick={() => {
-                    handleBoardMenuClose();
-                    setIsEditBoardModalOpen(true);
-                }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                        <span>Редактировать доску</span>
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                            Ctrl+E
-                        </Typography>
-                    </Box>
-                </MenuItem>
-                <MenuItem 
-                    onClick={() => {
-                        handleBoardMenuClose();
-                        setIsDeleteBoardDialogOpen(true);
-                    }}
-                    sx={{ color: 'error.main' }}
-                >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                        <span>Удалить доску</span>
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                            Del
-                        </Typography>
-                    </Box>
-                </MenuItem>
-            </Menu>
+                    
+                    <TabPanel value={filterTabValue} index={2}>
+                        <FormGroup>
+                            {taskTypes.map((type) => (
+                                <FormControlLabel
+                                    key={type.id}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedTypes.includes(type.id)}
+                                            onChange={() => handleTypeToggle(type.id)}
+                                            sx={{
+                                                color: type.color || undefined,
+                                                '&.Mui-checked': {
+                                                    color: type.color || undefined,
+                                                },
+                                            }}
+                                        />
+                                    }
+                                    label={type.name}
+                                />
+                            ))}
+                        </FormGroup>
+                    </TabPanel>
+                </Popover>
+            </Box>
+            
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
 
             <DragDropContext onDragEnd={onDragEnd}>
-                <Box 
-                    sx={{ 
-                        display: 'flex', 
-                        gap: 2, 
-                        overflowX: 'auto', 
-                        pb: 2, 
-                        px: 2,
-                        alignItems: 'flex-start'
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        gap: 2,
+                        overflow: 'auto',
+                        pb: 2,
+                        // Для мобильных, задаем максимальную высоту колонок
+                        '& > div': isMobile ? {
+                            maxHeight: 'none',
+                            width: '100%'
+                        } : {}
                     }}
                 >
-                    {filteredColumns && filteredColumns.length > 0 ? (
+                    {board && filteredColumns && filteredColumns.length > 0 ? (
                         <>
-                            {filteredColumns.map((column: Column) => (
-                                <Droppable key={column.id} droppableId={column.id.toString()}>
+                            {filteredColumns.map((column, index) => (
+                                <Droppable key={column.id} droppableId={column.id.toString()} type="task">
                                     {(provided) => (
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.droppableProps}
+                                            style={{ height: '100%' }}
                                         >
                                             <BoardColumn
-                                                key={column.id}
                                                 column={column}
                                                 onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
-                                                canMoveLeft={board.columns.indexOf(column) > 0}
-                                                canMoveRight={board.columns.indexOf(column) < board.columns.length - 1}
+                                                canMoveLeft={index > 0}
+                                                canMoveRight={index < filteredColumns.length - 1}
                                                 boardStatuses={board.taskStatuses}
                                                 taskTypes={taskTypes}
+                                                isCompactMode={isCompactMode}
                                                 onTasksChange={(updatedColumn) => {
                                                     if (!board) return;
                                                     const updatedColumns = board.columns.map(col =>
@@ -1017,8 +991,8 @@ export const BoardPage: React.FC = () => {
                             {/* Кнопка добавления новой колонки */}
                             <Box 
                                 sx={{ 
-                                    minWidth: 280,
-                                    maxWidth: 280,
+                                    minWidth: isMobile ? '100%' : 280,
+                                    maxWidth: isMobile ? '100%' : 280,
                                     height: 80,
                                     border: '2px dashed',
                                     borderColor: 'primary.light',
@@ -1177,4 +1151,5 @@ export const BoardPage: React.FC = () => {
         </Container>
     );
 };
+  
   

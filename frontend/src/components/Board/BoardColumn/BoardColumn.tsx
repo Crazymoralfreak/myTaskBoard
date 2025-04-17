@@ -39,6 +39,7 @@ interface BoardColumnProps {
     canMoveRight: boolean;
     boardStatuses: BoardStatus[];
     taskTypes: TaskType[];
+    isCompactMode?: boolean;
     onTasksChange?: (updatedColumn: Column) => void;
     onEdit?: (columnId: string, columnName: string, color?: string) => void;
     onDelete?: (columnId: string, columnName: string) => void;
@@ -60,33 +61,27 @@ const isLightColor = (color: string): boolean => {
 };
 
 export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
-    const { column, onMove, canMoveLeft, canMoveRight, boardStatuses, taskTypes = [], onTasksChange, onEdit, onDelete } = props;
+    const { 
+        column, 
+        onMove, 
+        canMoveLeft, 
+        canMoveRight, 
+        boardStatuses, 
+        taskTypes = [], 
+        isCompactMode = false,
+        onTasksChange, 
+        onEdit, 
+        onDelete 
+    } = props;
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
     const [sortType, setSortType] = useState<SortType | null>(null);
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [isEditingColumn, setIsEditingColumn] = useState(false);
     const [color, setColor] = useState(column.color || '#E0E0E0');
-    // Добавляем состояние для компактного режима
-    const [isCompactMode, setIsCompactMode] = useState(false);
-
-    // Загрузить настройки пользователя при монтировании
-    useEffect(() => {
-        const loadUserSettings = async () => {
-            try {
-                const settings = await userService.getUserSettings();
-                if (settings && settings.compactMode !== undefined) {
-                    setIsCompactMode(settings.compactMode);
-                }
-            } catch (error) {
-                console.error('Не удалось загрузить настройки пользователя:', error);
-                // В случае ошибки, используем false как значение по умолчанию
-                setIsCompactMode(false);
-            }
-        };
-        
-        loadUserSettings();
-    }, []);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     useEffect(() => {
         setColor(column.color || '#E0E0E0');
