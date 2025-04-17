@@ -23,7 +23,7 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 
 interface UserSettings {
   darkMode: boolean;
-  compactView: boolean;
+  compactMode: boolean;
   enableAnimations: boolean;
   browserNotifications: boolean;
   emailNotifications: boolean;
@@ -160,8 +160,8 @@ export const SettingsPage: React.FC = () => {
                   <FormControlLabel
                     control={
                       <Switch 
-                        checked={settings.compactView}
-                        onChange={handleBooleanSettingChange('compactView')}
+                        checked={settings.compactMode}
+                        onChange={handleBooleanSettingChange('compactMode')}
                         disabled={saving}
                       />
                     }

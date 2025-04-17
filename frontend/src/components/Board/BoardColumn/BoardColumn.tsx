@@ -30,6 +30,7 @@ import { Task, CreateTaskRequest } from '../../../types/task';
 import { taskService } from '../../../services/taskService';
 import { EditColumnModal } from '../EditColumnModal/EditColumnModal';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
+import { userService } from '../../../services/userService';
 
 interface BoardColumnProps {
     column: Column;
@@ -66,6 +67,26 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     const [isAddingTask, setIsAddingTask] = useState(false);
     const [isEditingColumn, setIsEditingColumn] = useState(false);
     const [color, setColor] = useState(column.color || '#E0E0E0');
+    // Добавляем состояние для компактного режима
+    const [isCompactMode, setIsCompactMode] = useState(false);
+
+    // Загрузить настройки пользователя при монтировании
+    useEffect(() => {
+        const loadUserSettings = async () => {
+            try {
+                const settings = await userService.getUserSettings();
+                if (settings && settings.compactMode !== undefined) {
+                    setIsCompactMode(settings.compactMode);
+                }
+            } catch (error) {
+                console.error('Не удалось загрузить настройки пользователя:', error);
+                // В случае ошибки, используем false как значение по умолчанию
+                setIsCompactMode(false);
+            }
+        };
+        
+        loadUserSettings();
+    }, []);
 
     useEffect(() => {
         setColor(column.color || '#E0E0E0');
@@ -188,7 +209,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
         >
             <Box
                 sx={{
-                    p: 2,
+                    p: isCompactMode ? 1.5 : 2,
                     background: headerBgColor,
                     backdropFilter: 'blur(8px)',
                     display: 'flex',
@@ -314,7 +335,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                         ref={provided.innerRef}
                         {...provided.droppableProps}
                         sx={{
-                            p: 2,
+                            p: isCompactMode ? 1.5 : 2,
                             flexGrow: 1,
                             minHeight: 100,
                             maxHeight: 'calc(100vh - 200px)',
@@ -358,7 +379,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
                                         sx={{
-                                            mb: 1,
+                                            mb: isCompactMode ? 0.25 : 1,
                                             transform: 'none',
                                             position: 'relative',
                                             zIndex: snapshot.isDragging ? 9999 : 'auto',
@@ -373,8 +394,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                                 transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                                             },
                                             '&:hover > *': {
-                                                transform: 'translateY(-2px)',
-                                                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                                                transform: isCompactMode ? 'none' : 'translateY(-2px)',
+                                                boxShadow: isCompactMode ? 'none' : '0 4px 8px rgba(0,0,0,0.1)'
                                             },
                                             '&:last-child': { mb: 0 }
                                         }}
@@ -383,6 +404,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                             task={task}
                                             boardStatuses={boardStatuses}
                                             taskTypes={taskTypes}
+                                            isCompact={isCompactMode}
                                             onTaskStatusChange={(taskId: number, statusId: number) => {
                                                 onTasksChange?.(column);
                                             }}
@@ -408,7 +430,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
 
             <Box
                 sx={{
-                    p: 2,
+                    p: isCompactMode ? 1 : 2,
                     borderTop: `1px solid ${alpha(color, 0.1)}`,
                     bgcolor: alpha(color, 0.02)
                 }}

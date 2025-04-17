@@ -42,6 +42,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog/ConfirmDialog'
 import { useHotkeys } from 'react-hotkeys-hook';
 import { TaskFilters } from '../components/task/TaskFilters';
 import { toast } from 'react-hot-toast';
+import { userService } from '../services/userService';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -111,6 +112,24 @@ export const BoardPage: React.FC = () => {
     const [selectedTypes, setSelectedTypes] = useState<number[]>([]);
     const [filterTabValue, setFilterTabValue] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    // Добавляем состояние для компактного режима карточек
+    const [isCompactMode, setIsCompactMode] = useState(false);
+
+    // Загружаем настройки пользователя при монтировании компонента
+    useEffect(() => {
+        const loadUserSettings = async () => {
+            try {
+                const settings = await userService.getUserSettings();
+                if (settings && settings.compactMode !== undefined) {
+                    setIsCompactMode(settings.compactMode);
+                }
+            } catch (error) {
+                console.error('Не удалось загрузить настройки пользователя:', error);
+            }
+        };
+        
+        loadUserSettings();
+    }, []);
 
     useEffect(() => {
         if (boardId) {
