@@ -2,8 +2,6 @@ package com.yourapp.mapper;
 
 import com.yourapp.dto.TaskTemplateDTO;
 import com.yourapp.model.TaskTemplate;
-import com.yourapp.model.TaskType;
-import com.yourapp.model.TaskStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;

@@ -1,7 +1,8 @@
 package com.yourapp.controller;
 
 import com.yourapp.dto.TaskTemplateDTO;
-import com.yourapp.mapper.TaskTemplateMapper;
+import com.yourapp.mapper.TaskTemplateMapperImpl;
+import com.yourapp.model.TaskTemplate;
 import com.yourapp.model.User;
 import com.yourapp.service.TaskTemplateService;
 import com.yourapp.service.UserService;
@@ -18,26 +19,27 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskTemplateController {
     private final TaskTemplateService taskTemplateService;
-    private final TaskTemplateMapper taskTemplateMapper;
+    private final TaskTemplateMapperImpl taskTemplateMapper;
     private final UserService userService;
 
     @GetMapping("/boards/{boardId}/templates")
-    public ResponseEntity<List<TaskTemplateDTO>> getBoardTemplates(@PathVariable Long boardId) {
-        return ResponseEntity.ok(
+    public ResponseEntity<List<TaskTemplateDTO>> getBoardTemplates(@PathVariable String boardId) {
+        List<TaskTemplateDTO> templates = 
             taskTemplateService.getBoardTemplates(boardId).stream()
-                .map(taskTemplateMapper::toDTO)
-                .collect(Collectors.toList())
-        );
+                .map(TaskTemplateDTO::fromEntity)
+                .toList();
+                
+        return ResponseEntity.ok(templates);
     }
 
     @PostMapping("/boards/{boardId}/templates")
     public ResponseEntity<TaskTemplateDTO> createTemplate(
-            @PathVariable Long boardId,
-            @RequestBody TaskTemplateDTO templateDTO,
-            @AuthenticationPrincipal User currentUser) {
-        var template = taskTemplateMapper.toEntity(templateDTO);
+        @PathVariable String boardId,
+        @RequestBody TaskTemplate template,
+        @AuthenticationPrincipal User currentUser
+    ) {
         var savedTemplate = taskTemplateService.createTemplate(template, boardId, currentUser);
-        return ResponseEntity.ok(taskTemplateMapper.toDTO(savedTemplate));
+        return ResponseEntity.ok(TaskTemplateDTO.fromEntity(savedTemplate));
     }
 
     @PutMapping("/templates/{templateId}")

@@ -18,6 +18,7 @@ export interface BoardStatus {
     isDefault: boolean;
     isCustom: boolean;
     position: number;
+    boardId?: string;
 }
 
 export interface TaskType {
@@ -28,6 +29,7 @@ export interface TaskType {
     isDefault: boolean;
     isCustom: boolean;
     position: number;
+    boardId?: string;
 }
 
 export interface Column {

@@ -106,7 +106,7 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "owner")
     private List<Board> boards;
     
-    @JsonIgnore
+    @JsonManagedReference("task-assignee")
     @OneToMany(mappedBy = "assignee")
     private List<Task> assignedTasks;
     

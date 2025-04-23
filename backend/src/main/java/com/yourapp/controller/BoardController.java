@@ -64,13 +64,13 @@ public class BoardController {
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Board> updateBoard(@PathVariable Long id, @RequestBody Board boardDetails) {
+    public ResponseEntity<Board> updateBoard(@PathVariable String id, @RequestBody Board boardDetails) {
         return ResponseEntity.ok(boardService.updateBoard(id, boardDetails));
     }
 
     @PostMapping("/{boardId}/columns")
     public ResponseEntity<Board> addColumn(
-        @PathVariable Long boardId,
+        @PathVariable String boardId,
         @RequestBody Map<String, String> payload,
         @AuthenticationPrincipal User user
     ) {
@@ -88,13 +88,13 @@ public class BoardController {
     }
 
     @DeleteMapping(value = "/{boardId}/columns/{columnId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Board removeColumn(@PathVariable Long boardId, @PathVariable Long columnId) {
+    public Board removeColumn(@PathVariable String boardId, @PathVariable Long columnId) {
         return boardService.removeColumnFromBoard(boardId, columnId);
     }
 
     @PatchMapping("/{boardId}/columns/{columnId}/move/{newPosition}")
     public ResponseEntity<?> moveColumn(
-        @PathVariable Long boardId,
+        @PathVariable String boardId,
         @PathVariable Long columnId,
         @PathVariable int newPosition
     ) {
@@ -117,7 +117,7 @@ public class BoardController {
             if (!columnExists) {
                 logger.error("Колонка с ID {} не найдена на доске {}", columnId, boardId);
                 Map<String, String> error = new HashMap<>();
-                error.put("message", String.format("Column with ID %d not found on board %d", columnId, boardId));
+                error.put("message", String.format("Column with ID %d not found on board %s", columnId, boardId));
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
             }
             
@@ -156,22 +156,22 @@ public class BoardController {
     }
 
     @PatchMapping("/{id}/archive")
-    public Board archiveBoard(@PathVariable Long id) {
+    public Board archiveBoard(@PathVariable String id) {
         return boardService.archiveBoard(id);
     }
 
     @PatchMapping("/{id}/restore")
-    public ResponseEntity<Board> restoreBoard(@PathVariable Long id) {
+    public ResponseEntity<Board> restoreBoard(@PathVariable String id) {
         return ResponseEntity.ok(boardService.unarchiveBoard(id));
     }
 
     @DeleteMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void deleteBoard(@PathVariable Long id) {
+    public void deleteBoard(@PathVariable String id) {
         boardService.deleteBoard(id);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Board> getBoard(@PathVariable Long id, @AuthenticationPrincipal User user) {
+    public ResponseEntity<Board> getBoard(@PathVariable String id, @AuthenticationPrincipal User user) {
         Board board = boardService.getBoardById(id);
         
         // Проверяем, является ли пользователь владельцем доски
@@ -184,7 +184,7 @@ public class BoardController {
 
     @PutMapping("/{boardId}/columns/{columnId}")
     public ResponseEntity<Board> updateColumn(
-        @PathVariable Long boardId,
+        @PathVariable String boardId,
         @PathVariable Long columnId,
         @RequestBody Map<String, String> updates,
         @AuthenticationPrincipal User user
@@ -197,19 +197,29 @@ public class BoardController {
         return ResponseEntity.ok(boardService.updateColumn(boardId, columnId, updates.get("name"), updates.get("color")));
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<Board> updateBoardDetails(
-        @PathVariable Long id,
+    @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Board> partialUpdateBoard(
+        @PathVariable String id,
         @RequestBody Map<String, String> updates,
         @AuthenticationPrincipal User user
     ) {
-        Board board = boardService.getBoardById(id);
-        if (!board.getOwner().getId().equals(user.getId())) {
+        Board currentBoard = boardService.getBoardById(id);
+        
+        // Проверка прав доступа
+        if (!currentBoard.getOwner().getId().equals(user.getId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-
-        board.setName(updates.get("name"));
-        board.setDescription(updates.get("description"));
-        return ResponseEntity.ok(boardService.updateBoard(id, board));
+        
+        // Обновляем только предоставленные поля
+        if (updates.containsKey("name")) {
+            currentBoard.setName(updates.get("name"));
+        }
+        
+        if (updates.containsKey("description")) {
+            currentBoard.setDescription(updates.get("description"));
+        }
+        
+        Board updatedBoard = boardService.updateBoard(id, currentBoard);
+        return ResponseEntity.ok(updatedBoard);
     }
 }

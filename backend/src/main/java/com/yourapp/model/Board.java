@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import java.time.LocalDateTime;
@@ -15,6 +17,8 @@ import lombok.EqualsAndHashCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 
 @Data
 @Builder
@@ -26,8 +30,8 @@ public class Board {
     private static final Logger logger = LoggerFactory.getLogger(Board.class);
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(length = 64)
+    private String id;
     
     @Column(nullable = false)
     private String name;
@@ -68,6 +72,45 @@ public class Board {
     @EqualsAndHashCode.Exclude
     private List<TaskType> taskTypes = new ArrayList<>();
     
+    /**
+     * Генерирует хэш-идентификатор на основе UUID
+     * @param uuid случайный UUID
+     * @return SHA-256 хэш от UUID, сокращенный до 12 символов
+     */
+    public static String generateBoardId(String uuid) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(uuid.getBytes(StandardCharsets.UTF_8));
+            
+            // Преобразование байтов в шестнадцатеричную строку
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            
+            return sb.toString().substring(0, 12);
+        } catch (Exception e) {
+            logger.error("Ошибка при генерации ID доски", e);
+            return String.valueOf(System.currentTimeMillis());
+        }
+    }
+    
+    @PrePersist
+    public void beforeSave() {
+        if (id == null) {
+            id = generateBoardId(UUID.randomUUID().toString());
+        }
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        updatedAt = LocalDateTime.now();
+    }
+    
+    @PreUpdate
+    public void beforeUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
     public void addColumn(BoardColumn column) {
         column.setBoard(this);
         column.setPosition(columns.size());

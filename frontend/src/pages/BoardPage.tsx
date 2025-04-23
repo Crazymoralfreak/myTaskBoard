@@ -1049,7 +1049,11 @@ export const BoardPage: React.FC = () => {
                                                         columns: updatedColumns
                                                     });
                                                 }}
-                                                onEdit={(columnId, name, color) => handleEditColumn(columnId, name, color)}
+                                                onEdit={(columnId, name, color) => {
+                                                    console.log('Вызван обработчик редактирования колонки с id:', columnId);
+                                                    // Устанавливаем данные для редактирования колонки
+                                                    setEditColumnData({ id: columnId, name, color: color || '#E0E0E0' });
+                                                }}
                                                 onDelete={(columnId, name) => handleDeleteColumn(columnId, name)}
                                                 boardId={boardId}
                                             />

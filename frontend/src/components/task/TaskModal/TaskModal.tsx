@@ -107,7 +107,7 @@ interface TaskModalProps {
     taskTypes?: TaskType[];
     onTaskCopy?: (task: Task) => void;
     disableBackdropClick?: boolean;
-    boardId?: number;
+    boardId?: string;
 }
 
 // Расширенный интерфейс для Task с новыми полями
@@ -167,6 +167,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [showTemplateSelector, setShowTemplateSelector] = useState(false);
     const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
     const [templateName, setTemplateName] = useState('');
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+    const [templateError, setTemplateError] = useState<string | null>(null);
     const [tags, setTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [newTag, setNewTag] = useState('');
@@ -495,9 +497,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     window.dispatchEvent(taskDeleteEvent);
                 } else {
                     // Пробуем найти boardId из URL
-                    const urlMatch = window.location.pathname.match(/\/boards\/(\d+)/);
+                    const urlMatch = window.location.pathname.match(/\/boards\/([a-zA-Z0-9_-]+)/);
                     if (urlMatch && urlMatch[1]) {
-                        const boardIdFromUrl = parseInt(urlMatch[1], 10);
+                        const boardIdFromUrl = urlMatch[1];
                         console.log('Найден boardId из URL:', boardIdFromUrl);
                         
                         const event = new CustomEvent('board:update', { 
@@ -604,32 +606,36 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
     
     const saveTemplate = async () => {
-        if (!templateName.trim()) {
-            setError('Название шаблона обязательно');
-            return;
-        }
-        
+        setIsSavingTemplate(true);
         try {
             if (boardId) {
                 await taskService.createTaskTemplate(boardId, {
+                    id: 0, // ID будет присвоен на сервере
                     name: templateName.trim(),
                     taskData: {
                         title: title.trim(),
                         description: description.trim(),
-                        typeId: selectedTypeId,
-                        statusId: selectedStatusId,
-                        priority: priority,
-                        tags,
-                    }
-                } as TaskTemplate);
+                        typeId: selectedTypeId || undefined,
+                        statusId: selectedStatusId || undefined,
+                        priority: priority as TaskPriority,
+                    },
+                    tags: tags,
+                    boardId: boardId,
+                    createdBy: 0, // ID будет установлен на сервере
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
                 setTemplateName('');
                 setSaveTemplateDialogOpen(false);
             } else {
-                setError('Не удалось определить доску для сохранения шаблона');
+                console.error('Не удалось сохранить шаблон: boardId не указан');
+                setTemplateError('Не удалось сохранить шаблон');
             }
-        } catch (e) {
-            console.error('Ошибка при сохранении шаблона:', e);
-            setError('Не удалось сохранить шаблон');
+        } catch (error) {
+            console.error('Ошибка при сохранении шаблона:', error);
+            setTemplateError('Ошибка при сохранении шаблона');
+        } finally {
+            setIsSavingTemplate(false);
         }
     };
 

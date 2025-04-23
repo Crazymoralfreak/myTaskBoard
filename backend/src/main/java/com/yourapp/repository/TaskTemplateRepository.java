@@ -13,7 +13,7 @@ public interface TaskTemplateRepository extends JpaRepository<TaskTemplate, Long
            "LEFT JOIN FETCH t.type " +
            "LEFT JOIN FETCH t.status " +
            "WHERE t.board.id = :boardId")
-    List<TaskTemplate> findByBoardId(@Param("boardId") Long boardId);
+    List<TaskTemplate> findByBoardId(@Param("boardId") String boardId);
 
     @Query("SELECT t FROM TaskTemplate t " +
            "LEFT JOIN FETCH t.type " +

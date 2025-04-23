@@ -23,10 +23,10 @@ export interface TaskComment {
 export interface TaskAttachment {
     id: number;
     filename: string;
-    url: string;
     size: number;
     mimeType: string;
     createdAt: string;
+    url: string;
     uploadedBy: {
         id: number;
         username: string;
@@ -60,7 +60,7 @@ export interface Task {
     customStatus?: BoardStatus;
     type?: TaskType;
     columnId?: string;
-    boardId?: string | number;
+    boardId?: string;
     status?: 'todo' | 'in_progress' | 'completed';
     priority: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
     tags?: string[];
@@ -125,9 +125,9 @@ export interface TaskTemplate {
         statusId?: number;
         priority: TaskPriority;
         dueDate?: string;
-        tags?: string[];
     };
-    boardId: number;
+    tags?: string[];
+    boardId: string;
     createdBy: number;
     createdAt: string;
     updatedAt: string;

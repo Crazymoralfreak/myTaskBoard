@@ -24,7 +24,7 @@ ALTER TABLE users ADD CONSTRAINT uk_users_telegram_id UNIQUE (telegram_id);
 
 -- Создание таблицы досок
 CREATE TABLE boards (
-    id BIGSERIAL PRIMARY KEY,
+    id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -38,7 +38,7 @@ CREATE TABLE task_statuses (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     color VARCHAR(7) NOT NULL,
-    board_id BIGINT REFERENCES boards(id),
+    board_id VARCHAR(64) REFERENCES boards(id),
     position INTEGER NOT NULL,
     is_default BOOLEAN DEFAULT FALSE,
     is_custom BOOLEAN DEFAULT FALSE
@@ -51,7 +51,7 @@ CREATE TABLE task_types (
     color VARCHAR(7) NOT NULL,
     icon VARCHAR(50),
     position INTEGER NOT NULL,
-    board_id BIGINT REFERENCES boards(id),
+    board_id VARCHAR(64) REFERENCES boards(id),
     is_default BOOLEAN DEFAULT FALSE,
     is_custom BOOLEAN DEFAULT FALSE
 );
@@ -60,7 +60,7 @@ CREATE TABLE task_types (
 CREATE TABLE board_columns (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    board_id BIGINT REFERENCES boards(id),
+    board_id VARCHAR(64) REFERENCES boards(id),
     position INTEGER NOT NULL,
     color VARCHAR(7) DEFAULT '#E0E0E0',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -105,7 +105,7 @@ CREATE TABLE comments (
 
 -- Создание таблицы участников доски
 CREATE TABLE board_members (
-    board_id BIGINT REFERENCES boards(id),
+    board_id VARCHAR(64) REFERENCES boards(id),
     user_id BIGINT REFERENCES users(id),
     role VARCHAR(50) NOT NULL,
     PRIMARY KEY (board_id, user_id)
@@ -235,7 +235,7 @@ CREATE TABLE task_templates (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    board_id BIGINT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    board_id VARCHAR(64) NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
     created_by BIGINT NOT NULL REFERENCES users(id),
     type_id BIGINT REFERENCES task_types(id),
     status_id BIGINT REFERENCES task_statuses(id),

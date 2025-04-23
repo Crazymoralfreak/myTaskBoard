@@ -102,7 +102,7 @@ public class BoardService {
     }
     
     @Transactional
-    public Board updateBoard(Long id, Board boardDetails) {
+    public Board updateBoard(String id, Board boardDetails) {
         Board board = boardRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Board not found"));
         
@@ -114,11 +114,11 @@ public class BoardService {
     }
     
     @Transactional
-    public void deleteBoard(Long id) {
+    public void deleteBoard(String id) {
         boardRepository.deleteById(id);
     }
     
-    public Board getBoard(Long id) {
+    public Board getBoard(String id) {
         logger.debug("Начало загрузки доски с ID: {}", id);
         
         // Загружаем доску с колонками
@@ -178,14 +178,14 @@ public class BoardService {
     }
     
     @Transactional
-    public Board archiveBoard(Long id) {
+    public Board archiveBoard(String id) {
         Board board = getBoard(id);
         board.setArchived(true);
         return boardRepository.save(board);
     }
     
     @Transactional
-    public Board unarchiveBoard(Long id) {
+    public Board unarchiveBoard(String id) {
         Board board = getBoard(id);
         board.setArchived(false);
         return boardRepository.save(board);
@@ -196,7 +196,7 @@ public class BoardService {
     }
 
     @Transactional
-    public Board addColumnToBoard(Long boardId, BoardColumn column) {
+    public Board addColumnToBoard(String boardId, BoardColumn column) {
         logger.debug("Начало добавления колонки к доске ID:{}", boardId);
         
         Board board = getBoard(boardId);
@@ -235,7 +235,8 @@ public class BoardService {
         return savedBoard;
     }
 
-    public Board removeColumnFromBoard(Long boardId, Long columnId) {
+    @Transactional
+    public Board removeColumnFromBoard(String boardId, Long columnId) {
         Board board = boardRepository.findById(boardId)
             .orElseThrow(() -> new RuntimeException("Board not found"));
             
@@ -256,7 +257,7 @@ public class BoardService {
     }
 
     @Transactional
-    public Board moveColumnInBoard(Long boardId, Long columnId, int newPosition) {
+    public Board moveColumnInBoard(String boardId, Long columnId, int newPosition) {
         try {
             logger.debug("Начало перемещения колонки {} в позицию {} на доске {}", columnId, newPosition, boardId);
             Board board = getBoard(boardId);
@@ -340,13 +341,13 @@ public class BoardService {
         }
     }
 
-    public Board getBoardById(Long id) {
+    public Board getBoardById(String id) {
         logger.debug("Получение доски по ID: {}", id);
         return getBoard(id);
     }
 
     @Transactional
-    public Board updateColumn(Long boardId, Long columnId, String newName, String newColor) {
+    public Board updateColumn(String boardId, Long columnId, String newName, String newColor) {
         Board board = getBoardById(boardId);
         
         // Инициализируем коллекции, чтобы избежать LazyInitializationException
@@ -369,7 +370,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskStatus createTaskStatus(Long boardId, TaskStatus status) {
+    public TaskStatus createTaskStatus(String boardId, TaskStatus status) {
         Board board = getBoardById(boardId);
         
         // Устанавливаем только те поля, которые не установлены
@@ -391,7 +392,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskStatus updateTaskStatus(Long boardId, Long statusId, TaskStatus statusDetails) {
+    public TaskStatus updateTaskStatus(String boardId, Long statusId, TaskStatus statusDetails) {
         Board board = getBoardById(boardId);
         TaskStatus status = board.getTaskStatuses().stream()
             .filter(s -> s.getId().equals(statusId))
@@ -421,7 +422,7 @@ public class BoardService {
     }
 
     @Transactional
-    public void deleteTaskStatus(Long boardId, Long statusId) {
+    public void deleteTaskStatus(String boardId, Long statusId) {
         Board board = getBoardById(boardId);
         TaskStatus status = board.getTaskStatuses().stream()
             .filter(s -> s.getId().equals(statusId))
@@ -439,7 +440,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskType createTaskType(Long boardId, TaskType type) {
+    public TaskType createTaskType(String boardId, TaskType type) {
         Board board = getBoardById(boardId);
         
         // Устанавливаем только те поля, которые не установлены
@@ -461,7 +462,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskType updateTaskType(Long boardId, Long typeId, TaskType typeDetails) {
+    public TaskType updateTaskType(String boardId, Long typeId, TaskType typeDetails) {
         Board board = getBoardById(boardId);
         TaskType type = board.getTaskTypes().stream()
             .filter(t -> t.getId().equals(typeId))
@@ -496,7 +497,7 @@ public class BoardService {
     }
 
     @Transactional
-    public void deleteTaskType(Long boardId, Long typeId) {
+    public void deleteTaskType(String boardId, Long typeId) {
         Board board = getBoardById(boardId);
         TaskType type = board.getTaskTypes().stream()
             .filter(t -> t.getId().equals(typeId))
@@ -513,7 +514,7 @@ public class BoardService {
         taskTypeRepository.delete(type);
     }
 
-    public List<TaskStatus> getBoardStatuses(Long boardId) {
+    public List<TaskStatus> getBoardStatuses(String boardId) {
         Board board = getBoardById(boardId);
         return board.getTaskStatuses().stream().sorted(Comparator.comparing(TaskStatus::getPosition)).collect(Collectors.toList());
     }
@@ -523,7 +524,7 @@ public class BoardService {
             .orElseThrow(() -> new ResourceNotFoundException("TaskStatus not found with id: " + statusId));
     }
 
-    public List<TaskType> getBoardTaskTypes(Long boardId) {
+    public List<TaskType> getBoardTaskTypes(String boardId) {
         Board board = getBoardById(boardId);
         return board.getTaskTypes().stream().sorted(Comparator.comparing(TaskType::getPosition)).collect(Collectors.toList());
     }

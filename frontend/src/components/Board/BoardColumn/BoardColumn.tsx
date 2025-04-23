@@ -450,6 +450,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
             >
                 <MenuItem onClick={() => {
                     handleMenuClose();
+                    console.log('Редактирование колонки с ID:', column.id.toString());
                     onEdit?.(column.id.toString(), column.name, column.color);
                 }}>
                     <ListItemIcon>
@@ -528,7 +529,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 onTaskDelete={handleTaskDelete}
                 boardStatuses={boardStatuses}
                 taskTypes={taskTypes}
-                boardId={typeof boardId === 'string' ? parseInt(boardId, 10) : boardId}
+                boardId={typeof boardId === 'string' ? boardId : boardId?.toString()}
             />
         </Paper>
     );

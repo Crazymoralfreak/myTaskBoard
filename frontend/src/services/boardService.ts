@@ -172,7 +172,10 @@ export const boardService = {
     async updateBoardDetails(boardId: string, updates: { name?: string; description?: string }): Promise<Board> {
         try {
             console.log('Updating board details:', updates);
-            const response = await api.put<Board>(`/api/boards/${boardId}`, updates);
+            
+            // Отправляем PATCH запрос вместо PUT, так как нам нужно обновить только часть данных
+            const response = await api.patch<Board>(`/api/boards/${boardId}`, updates);
+            
             console.log('Обновление данных доски успешно:', response.data);
             return response.data;
         } catch (error) {
@@ -419,30 +422,31 @@ export const boardService = {
 
     // Получение информации о колонке по ID
     getColumnById(boardId: string | number, columnId: string | number): Promise<{ id: string | number, name: string } | null> {
-        return new Promise(async (resolve) => {
+        return new Promise(async (resolve, reject) => {
             try {
                 console.log(`Получение информации о колонке id=${columnId} на доске id=${boardId}`);
-                // Получаем доску целиком
+                
+                // Получаем доску
                 const board = await this.getBoard(String(boardId));
                 
-                if (board && board.columns) {
-                    // Ищем колонку по ID
-                    const column = board.columns.find(col => 
-                        String(col.id) === String(columnId) || Number(col.id) === Number(columnId)
-                    );
-                    
-                    if (column) {
-                        console.log(`Найдена колонка: ${column.name} (ID: ${column.id})`);
-                        resolve({ id: column.id, name: column.name });
-                        return;
-                    }
-                }
+                // Находим колонку
+                const column = board.columns.find(col => {
+                    // Сравниваем как строки, так как ID могут быть разных типов
+                    return String(col.id) === String(columnId);
+                });
                 
-                console.warn(`Колонка с ID ${columnId} не найдена на доске ${boardId}`);
-                resolve(null);
+                if (column) {
+                    console.log(`Колонка найдена: ${column.name}`);
+                    resolve({
+                        id: column.id,
+                        name: column.name
+                    });
+                } else {
+                    console.warn(`Колонка с ID ${columnId} не найдена на доске ${boardId}`);
+                    resolve(null);
+                }
             } catch (error) {
-                console.error('Ошибка при получении информации о колонке:', error);
-                resolve(null); // Возвращаем null вместо ошибки
+                reject(error);
             }
         });
     }

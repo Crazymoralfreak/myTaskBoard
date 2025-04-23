@@ -1,29 +1,26 @@
 package com.yourapp.controller;
 
+import com.yourapp.dto.TaskStatusDto;
+import com.yourapp.dto.TaskTypeDto;
 import com.yourapp.model.TaskStatus;
 import com.yourapp.model.TaskType;
+import com.yourapp.model.User;
 import com.yourapp.service.BoardService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import com.yourapp.model.User;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import com.yourapp.dto.TaskStatusDto;
-import com.yourapp.dto.TaskTypeDto;
-import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(
     value = "/api/boards/{boardId}/entities",
-    produces = MediaType.APPLICATION_JSON_VALUE
+    produces = "application/json"
 )
 @RequiredArgsConstructor
 @CrossOrigin(origins = "http://localhost:5173")
@@ -31,249 +28,219 @@ public class BoardEntityController {
     private static final Logger logger = LoggerFactory.getLogger(BoardEntityController.class);
     private final BoardService boardService;
 
-    // Статусы задач
+    // API для статусов задач
+
     @GetMapping("/statuses")
-    public ResponseEntity<List<TaskStatusDto>> getBoardStatuses(@PathVariable Long boardId) {
+    public ResponseEntity<List<TaskStatusDto>> getBoardStatuses(@PathVariable String boardId) {
         List<TaskStatus> statuses = boardService.getBoardStatuses(boardId);
         List<TaskStatusDto> statusDtos = statuses.stream()
-                .map(TaskStatusDto::fromEntity)
-                .collect(Collectors.toList());
+            .map(TaskStatusDto::fromEntity)
+            .collect(Collectors.toList());
         return ResponseEntity.ok(statusDtos);
     }
 
-    @PostMapping(value = "/statuses")
-    public ResponseEntity<?> createTaskStatus(
-        @PathVariable Long boardId,
+    @PostMapping("/statuses")
+    public ResponseEntity<TaskStatusDto> createTaskStatus(
+        @PathVariable String boardId,
         @RequestBody TaskStatusDto statusDto,
-        @AuthenticationPrincipal User currentUser,
-        @RequestHeader(value = "Content-Type", required = false) String contentType
+        @AuthenticationPrincipal User user
     ) {
         try {
-            logger.debug("Получен запрос на создание статуса задачи, ContentType: {}", contentType);
-            logger.debug("Данные статуса: {}", statusDto);
+            logger.info("Создание статуса задачи для доски {}: {}", boardId, statusDto);
             
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    Map.of("message", "User not authenticated")
-                );
+            // Проверяем обязательные поля
+            if (statusDto.getName() == null || statusDto.getName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
             }
             
+            // Создаем статус
             TaskStatus status = new TaskStatus();
             status.setName(statusDto.getName());
-            status.setColor(statusDto.getColor());
-            status.setPosition(statusDto.getPosition());
-            status.setDefault(statusDto.isDefault());
-            status.setCustom(statusDto.isCustom());
+            status.setColor(statusDto.getColor() != null ? statusDto.getColor() : "#808080");
+            status.setCustom(true);
+            status.setDefault(false);
             
+            // Сохраняем статус
             TaskStatus createdStatus = boardService.createTaskStatus(boardId, status);
-            logger.debug("Статус задачи успешно создан: {}", createdStatus);
+            
             return ResponseEntity.ok(TaskStatusDto.fromEntity(createdStatus));
         } catch (Exception e) {
-            logger.error("Failed to create task status", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            logger.error("Ошибка при создании статуса задачи", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @PutMapping(value = "/statuses/{statusId}")
-    public ResponseEntity<?> updateTaskStatus(
-        @PathVariable Long boardId,
+    @PutMapping("/statuses/{statusId}")
+    public ResponseEntity<TaskStatusDto> updateTaskStatus(
+        @PathVariable String boardId,
         @PathVariable Long statusId,
         @RequestBody TaskStatusDto statusDto,
-        @AuthenticationPrincipal User currentUser
+        @AuthenticationPrincipal User user
     ) {
         try {
-            logger.debug("Получен запрос на обновление статуса задачи: {}", statusDto);
-            
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    Map.of("message", "User not authenticated")
-                );
-            }
-            
+            // Получаем текущий статус
             TaskStatus existingStatus = boardService.getTaskStatusById(statusId);
-            if (existingStatus == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    Map.of("message", "Status not found")
-                );
+            
+            // Проверяем, принадлежит ли статус данной доске
+            if (!existingStatus.getBoard().getId().equals(boardId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             
-            // Обновляем существующий объект вместо создания нового
+            // Проверяем, можно ли изменить данный статус
+            if (existingStatus.isDefault()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            // Обновляем статус
             existingStatus.setName(statusDto.getName());
             existingStatus.setColor(statusDto.getColor());
             
-            // Обновляем позицию только если она явно указана
-            if (statusDto.getPosition() != null) {
-                existingStatus.setPosition(statusDto.getPosition());
-            }
-            
-            // Обновляем флаги
-            existingStatus.setDefault(statusDto.isDefault());
-            existingStatus.setCustom(statusDto.isCustom());
-            
+            // Сохраняем обновленный статус
             TaskStatus updatedStatus = boardService.updateTaskStatus(boardId, statusId, existingStatus);
-            logger.debug("Статус задачи успешно обновлен: {}", updatedStatus);
+            
             return ResponseEntity.ok(TaskStatusDto.fromEntity(updatedStatus));
         } catch (Exception e) {
-            logger.error("Failed to update task status", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            logger.error("Ошибка при обновлении статуса задачи", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @DeleteMapping("/statuses/{statusId}")
-    public ResponseEntity<?> deleteTaskStatus(
-        @PathVariable Long boardId,
+    public ResponseEntity<Void> deleteTaskStatus(
+        @PathVariable String boardId,
         @PathVariable Long statusId,
-        @AuthenticationPrincipal User currentUser,
-        @RequestHeader(value = "Content-Type", required = false) String contentType
+        @AuthenticationPrincipal User user
     ) {
         try {
-            logger.debug("Получен запрос на удаление статуса задачи: {}", statusId);
-            logger.debug("Content-Type заголовок: {}", contentType);
+            // Получаем текущий статус
+            TaskStatus existingStatus = boardService.getTaskStatusById(statusId);
             
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    Map.of("message", "User not authenticated")
-                );
+            // Проверяем, принадлежит ли статус данной доске
+            if (!existingStatus.getBoard().getId().equals(boardId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             
+            // Проверяем, можно ли удалить данный статус
+            if (existingStatus.isDefault()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            // Удаляем статус
             boardService.deleteTaskStatus(boardId, statusId);
-            return ResponseEntity.ok(Map.of("message", "Status deleted successfully"));
+            
+            return ResponseEntity.noContent().build();
         } catch (Exception e) {
-            logger.error("Failed to delete task status", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            logger.error("Ошибка при удалении статуса задачи", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    // Типы задач
+    // API для типов задач
+
     @GetMapping("/types")
-    public ResponseEntity<List<TaskTypeDto>> getBoardTaskTypes(@PathVariable Long boardId) {
+    public ResponseEntity<List<TaskTypeDto>> getBoardTaskTypes(@PathVariable String boardId) {
         List<TaskType> types = boardService.getBoardTaskTypes(boardId);
         List<TaskTypeDto> typeDtos = types.stream()
-                .map(TaskTypeDto::fromEntity)
-                .collect(Collectors.toList());
+            .map(TaskTypeDto::fromEntity)
+            .collect(Collectors.toList());
         return ResponseEntity.ok(typeDtos);
     }
 
-    @PostMapping(value = "/types")
-    public ResponseEntity<?> createTaskType(
-        @PathVariable Long boardId,
+    @PostMapping("/types")
+    public ResponseEntity<TaskTypeDto> createTaskType(
+        @PathVariable String boardId,
         @RequestBody TaskTypeDto typeDto,
-        @AuthenticationPrincipal User currentUser,
-        @RequestHeader(value = "Content-Type", required = false) String contentType
+        @AuthenticationPrincipal User user
     ) {
         try {
-            logger.debug("Получен запрос на создание типа задачи, ContentType: {}", contentType);
-            logger.debug("Данные типа: {}", typeDto);
+            logger.info("Создание типа задачи для доски {}: {}", boardId, typeDto);
             
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    Map.of("message", "User not authenticated")
-                );
+            // Проверяем обязательные поля
+            if (typeDto.getName() == null || typeDto.getName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
             }
             
+            // Создаем тип
             TaskType type = new TaskType();
             type.setName(typeDto.getName());
-            type.setColor(typeDto.getColor());
-            type.setIcon(typeDto.getIcon());
-            type.setPosition(typeDto.getPosition());
-            type.setDefault(typeDto.isDefault());
-            type.setCustom(typeDto.isCustom());
+            type.setColor(typeDto.getColor() != null ? typeDto.getColor() : "#808080");
+            type.setIcon(typeDto.getIcon() != null ? typeDto.getIcon() : "task_alt");
+            type.setCustom(true);
+            type.setDefault(false);
             
+            // Сохраняем тип
             TaskType createdType = boardService.createTaskType(boardId, type);
-            logger.debug("Тип задачи успешно создан: {}", createdType);
+            
             return ResponseEntity.ok(TaskTypeDto.fromEntity(createdType));
         } catch (Exception e) {
-            logger.error("Failed to create task type", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            logger.error("Ошибка при создании типа задачи", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @PutMapping(value = "/types/{typeId}")
-    public ResponseEntity<?> updateTaskType(
-        @PathVariable Long boardId,
+    @PutMapping("/types/{typeId}")
+    public ResponseEntity<TaskTypeDto> updateTaskType(
+        @PathVariable String boardId,
         @PathVariable Long typeId,
         @RequestBody TaskTypeDto typeDto,
-        @AuthenticationPrincipal User currentUser,
-        @RequestHeader(value = "Content-Type", required = false) String contentType
+        @AuthenticationPrincipal User user
     ) {
         try {
-            logger.debug("Получен запрос на обновление типа задачи, ContentType: {}", contentType);
-            logger.debug("Данные типа: {}", typeDto);
-            
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    Map.of("message", "User not authenticated")
-                );
-            }
-            
+            // Получаем текущий тип
             TaskType existingType = boardService.getTaskTypeById(typeId);
-            if (existingType == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    Map.of("message", "Type not found")
-                );
+            
+            // Проверяем, принадлежит ли тип данной доске
+            if (!existingType.getBoard().getId().equals(boardId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             
-            // Обновляем существующий объект вместо создания нового
+            // Проверяем, можно ли изменить данный тип
+            if (existingType.isDefault()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            // Обновляем тип
             existingType.setName(typeDto.getName());
             existingType.setColor(typeDto.getColor());
+            existingType.setIcon(typeDto.getIcon());
             
-            // Обновляем иконку, если она указана
-            if (typeDto.getIcon() != null && !typeDto.getIcon().isEmpty()) {
-                existingType.setIcon(typeDto.getIcon());
-            }
-            
-            // Обновляем позицию только если она явно указана
-            if (typeDto.getPosition() != null) {
-                existingType.setPosition(typeDto.getPosition());
-            }
-            
-            // Обновляем флаги
-            existingType.setDefault(typeDto.isDefault());
-            existingType.setCustom(typeDto.isCustom());
-            
+            // Сохраняем обновленный тип
             TaskType updatedType = boardService.updateTaskType(boardId, typeId, existingType);
-            logger.debug("Тип задачи успешно обновлен: {}", updatedType);
+            
             return ResponseEntity.ok(TaskTypeDto.fromEntity(updatedType));
         } catch (Exception e) {
-            logger.error("Failed to update task type", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            logger.error("Ошибка при обновлении типа задачи", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @DeleteMapping("/types/{typeId}")
-    public ResponseEntity<?> deleteTaskType(
-        @PathVariable Long boardId,
+    public ResponseEntity<Void> deleteTaskType(
+        @PathVariable String boardId,
         @PathVariable Long typeId,
-        @AuthenticationPrincipal User currentUser,
-        @RequestHeader(value = "Content-Type", required = false) String contentType
+        @AuthenticationPrincipal User user
     ) {
         try {
-            logger.debug("Получен запрос на удаление типа задачи: {}", typeId);
-            logger.debug("Content-Type заголовок: {}", contentType);
+            // Получаем текущий тип
+            TaskType existingType = boardService.getTaskTypeById(typeId);
             
-            if (currentUser == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    Map.of("message", "User not authenticated")
-                );
+            // Проверяем, принадлежит ли тип данной доске
+            if (!existingType.getBoard().getId().equals(boardId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             
+            // Проверяем, можно ли удалить данный тип
+            if (existingType.isDefault()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            // Удаляем тип
             boardService.deleteTaskType(boardId, typeId);
-            return ResponseEntity.ok().build();
+            
+            return ResponseEntity.noContent().build();
         } catch (Exception e) {
-            logger.error("Failed to delete task type", e);
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            logger.error("Ошибка при удалении типа задачи", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 } 

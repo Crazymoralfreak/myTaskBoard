@@ -24,7 +24,7 @@ public class TaskTemplateService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public TaskTemplate createTemplate(TaskTemplate template, Long boardId, User currentUser) {
+    public TaskTemplate createTemplate(TaskTemplate template, String boardId, User currentUser) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Board not found"));
         
@@ -52,7 +52,7 @@ public class TaskTemplateService {
 
     @SuppressWarnings("unchecked")
     @Transactional(readOnly = true)
-    public List<TaskTemplate> getBoardTemplates(Long boardId) {
+    public List<TaskTemplate> getBoardTemplates(String boardId) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Board not found"));
                 

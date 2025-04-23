@@ -18,7 +18,7 @@ public class TaskStatusDto {
     private Integer position;
     private boolean isDefault;
     private boolean isCustom;
-    private Long boardId;
+    private String boardId;
     
     // Метод для конвертации Entity в DTO
     public static TaskStatusDto fromEntity(TaskStatus status) {

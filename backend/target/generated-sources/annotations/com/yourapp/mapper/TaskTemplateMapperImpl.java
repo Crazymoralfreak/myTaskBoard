@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-04-16T10:21:45+0300",
+    date = "2025-04-23T17:16:00+0300",
     comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.42.0.z20250331-1358, environment: Java 21.0.6 (Eclipse Adoptium)"
 )
 @Component
@@ -127,7 +127,7 @@ public class TaskTemplateMapperImpl implements TaskTemplateMapper {
         return id;
     }
 
-    private Long templateBoardId(TaskTemplate taskTemplate) {
+    private String templateBoardId(TaskTemplate taskTemplate) {
         if ( taskTemplate == null ) {
             return null;
         }
@@ -135,7 +135,7 @@ public class TaskTemplateMapperImpl implements TaskTemplateMapper {
         if ( board == null ) {
             return null;
         }
-        Long id = board.getId();
+        String id = board.getId();
         if ( id == null ) {
             return null;
         }
