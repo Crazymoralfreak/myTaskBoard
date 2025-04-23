@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    
+    <root level="ERROR">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    
+    <!-- Отключаем все логи Hibernate -->
+    <logger name="org.hibernate" level="OFF"/>
+    <logger name="org.hibernate.SQL" level="OFF"/>
+    <logger name="org.hibernate.type" level="OFF"/>
+    <logger name="org.hibernate.type.descriptor.sql" level="OFF"/>
+    <logger name="org.hibernate.engine.jdbc" level="OFF"/>
+    <logger name="org.hibernate.engine.transaction" level="OFF"/>
+    <logger name="org.hibernate.engine.query" level="OFF"/>
+    <logger name="org.hibernate.stat" level="OFF"/>
+    
+    <!-- Отключаем все логи HikariCP -->
+    <logger name="com.zaxxer.hikari" level="OFF"/>
+    
+    <!-- Отключаем все логи JDBC -->
+    <logger name="jdbc" level="OFF"/>
+    <logger name="jdbc.sqltiming" level="OFF"/>
+    <logger name="jdbc.sqlonly" level="OFF"/>
+    <logger name="jdbc.audit" level="OFF"/>
+    <logger name="jdbc.resultset" level="OFF"/>
+    <logger name="jdbc.resultsettable" level="OFF"/>
+    <logger name="jdbc.connection" level="OFF"/>
+    
+    <!-- Отключаем логи Spring -->
+    <logger name="org.springframework" level="OFF"/>
+    <logger name="org.springframework.web" level="OFF"/>
+    <logger name="org.springframework.security" level="OFF"/>
+    <logger name="org.springframework.jdbc" level="OFF"/>
+    <logger name="org.springframework.orm" level="OFF"/>
+    
+    <!-- Логи вашего приложения на уровне ERROR -->
+    <logger name="com.yourapp" level="ERROR"/>
+</configuration> 
