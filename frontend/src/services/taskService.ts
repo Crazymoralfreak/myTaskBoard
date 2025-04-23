@@ -310,7 +310,11 @@ export const taskService = {
 
     async deleteTask(taskId: number): Promise<Board> {
         try {
-            const response = await axiosInstance.delete(`/api/tasks/${taskId}`);
+            const response = await axiosInstance.delete(`/api/tasks/${taskId}`, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             console.log('Задача успешно удалена:', taskId);
             return response.data;
         } catch (error) {

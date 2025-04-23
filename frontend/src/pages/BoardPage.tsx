@@ -687,6 +687,75 @@ export const BoardPage: React.FC = () => {
         }
     };
 
+    // Добавляем эффект для прослушивания событий обновления доски
+    useEffect(() => {
+        // Обработчик события обновления доски
+        const handleBoardUpdate = (event: CustomEvent) => {
+            console.log('Получено событие board:update:', event.detail);
+            
+            // Проверяем, что событие касается текущей доски
+            if (event.detail.boardId && event.detail.boardId.toString() === boardId) {
+                console.log('Обновляем текущую доску из-за события');
+                // Если требуется принудительное обновление
+                if (event.detail.forceRefresh) {
+                    handleRefreshBoard();
+                } else {
+                    // Иначе просто загружаем доску
+                    loadBoard();
+                }
+            }
+        };
+
+        // Обработчик события удаления задачи
+        const handleTaskDelete = (event: CustomEvent) => {
+            console.log('Получено событие task:delete:', event.detail);
+            
+            // Проверяем, что событие касается текущей доски
+            if (event.detail.boardId && event.detail.boardId.toString() === boardId) {
+                console.log('Обновляем текущую доску из-за удаления задачи');
+                handleRefreshBoard();
+            }
+        };
+
+        // Добавляем обработчики событий
+        window.addEventListener('board:update', handleBoardUpdate as EventListener);
+        window.addEventListener('task:delete', handleTaskDelete as EventListener);
+        
+        // Обработчик события удаления задачи
+        const handleTaskDeleted = (event: Event) => {
+            console.log('Получено событие task-deleted');
+            const customEvent = event as CustomEvent;
+            const taskId = customEvent.detail?.taskId;
+            
+            // Если есть ID задачи, удаляем задачу из локального состояния доски
+            if (taskId && board) {
+                console.log('Удаляем задачу из состояния:', taskId);
+                const updatedBoard = { ...board };
+                
+                // Удаляем задачу из всех колонок
+                updatedBoard.columns = updatedBoard.columns.map(column => ({
+                    ...column,
+                    tasks: column.tasks.filter(task => task.id !== taskId)
+                }));
+                
+                // Обновляем состояние без запроса к серверу
+                setBoard(updatedBoard);
+            } else {
+                // Если нет ID задачи или доски, обновляем через API
+                handleRefreshBoard();
+            }
+        };
+        
+        window.addEventListener('task-deleted', handleTaskDeleted as EventListener);
+
+        // Удаляем обработчики при размонтировании
+        return () => {
+            window.removeEventListener('board:update', handleBoardUpdate as EventListener);
+            window.removeEventListener('task:delete', handleTaskDelete as EventListener);
+            window.removeEventListener('task-deleted', handleTaskDeleted as EventListener);
+        };
+    }, [boardId]);
+
     if (loading) {
         return (
             <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -981,7 +1050,8 @@ export const BoardPage: React.FC = () => {
                                                     });
                                                 }}
                                                 onEdit={(columnId, name, color) => handleEditColumn(columnId, name, color)}
-                                                onDelete={(columnId, name) => setDeleteColumnData({ id: columnId, name })}
+                                                onDelete={(columnId, name) => handleDeleteColumn(columnId, name)}
+                                                boardId={boardId}
                                             />
                                             {provided.placeholder}
                                         </div>

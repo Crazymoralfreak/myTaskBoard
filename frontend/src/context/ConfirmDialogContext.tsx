@@ -50,7 +50,13 @@ export const ConfirmDialogProvider: React.FC<ConfirmDialogProviderProps> = ({ ch
     }, []);
 
     const handleConfirm = useCallback(() => {
-        options.onConfirm();
+        console.log('Контекст: вызывается handleConfirm');
+        if (typeof options.onConfirm === 'function') {
+            console.log('Контекст: onConfirm это функция, вызываем её');
+            options.onConfirm();
+        } else {
+            console.error('Контекст: onConfirm не является функцией', options.onConfirm);
+        }
         closeConfirmDialog();
     }, [options, closeConfirmDialog]);
 

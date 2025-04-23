@@ -11,7 +11,8 @@ import {
     Tooltip,
     useTheme,
     ListItemIcon,
-    ListItemText
+    ListItemText,
+    Button
 } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -30,6 +31,8 @@ import { TaskModal } from '../TaskModal/TaskModal';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { TaskType, BoardStatus } from '../../../types/board';
 import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
+import { toast } from 'react-hot-toast';
+import { useTaskDelete } from '../../../hooks/useTaskDelete';
 
 interface TaskCardProps {
     task: Task;
@@ -39,6 +42,7 @@ interface TaskCardProps {
     boardStatuses: BoardStatus[];
     taskTypes: TaskType[];
     isCompact?: boolean;
+    onTasksChange?: (column: any) => void;
 }
 
 // Компонент для отображения тегов задачи
@@ -114,7 +118,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onTaskDelete,
     boardStatuses,
     taskTypes,
-    isCompact = false
+    isCompact = false,
+    onTasksChange
 }) => {
     const theme = useTheme();
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -122,6 +127,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
+    const [isRemoving, setIsRemoving] = useState(false);
+    
+    const { deleteTask, isDeleting } = useTaskDelete();
     
     const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
@@ -144,13 +152,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         setIsDeleteOpen(true);
     };
     
-    const handleConfirmDelete = async () => {
-        try {
-            await onTaskDelete(task.id);
-            setIsDeleteOpen(false);
-        } catch (error) {
-            console.error('Ошибка при удалении задачи:', error);
-        }
+    const handleConfirmDelete = () => {
+        deleteTask(task.id, {
+            onDeleteStart: () => setIsRemoving(true),
+            onSuccess: () => {
+                setIsDeleteOpen(false);
+                onTaskDelete(task.id);
+            },
+            onError: () => setIsRemoving(false)
+        });
     };
     
     const handleTaskUpdate = (updatedTask: Task) => {
@@ -237,31 +247,75 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     // Показываем статус задачи, если он существует и не "todo"
     const shouldShowStatus = task.customStatus && task.customStatus.name.toLowerCase() !== 'todo';
 
-    // Определяем цвет заголовка в соответствии с типом задачи
-    const titleStyle = {
-        color: task.type?.color && theme.palette.mode === 'dark' 
-               ? theme.palette.getContrastText(task.type.color)
-               : task.type?.color || theme.palette.text.primary
+    // Стили карточки для компактного режима
+    const compactCardStyles = {
+        mb: 0.5,
+        cursor: 'pointer',
+        position: 'relative',
+        backgroundColor: theme.palette.background.paper,
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: 1,
+        '&:hover': {
+            borderColor: theme.palette.primary.main,
+            backgroundColor: theme.palette.action.hover
+        },
+        display: 'flex',
+        alignItems: 'center',
+        pl: 1,
+        pr: 1,
+        py: 0,
+        transition: 'all 0.3s ease',
+        // Анимация удаления
+        opacity: isRemoving ? 0 : 1,
+        transform: isRemoving ? 'translateX(-20px)' : 'none',
+        height: isRemoving ? 0 : '24px',
+        overflow: isRemoving ? 'hidden' : 'visible',
+        margin: isRemoving ? 0 : '0 0 4px 0',
+        ...(isRemoving ? { p: 0 } : {})
+    };
+
+    // Стили карточки для стандартного режима
+    const standardCardStyles = {
+        mb: 2,
+        cursor: 'pointer',
+        position: 'relative',
+        backgroundColor: theme.palette.background.paper,
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: 2,
+        '&:hover': {
+            borderColor: theme.palette.primary.main
+        },
+        transition: 'all 0.3s ease',
+        // Комбинированная логика для transform
+        transform: isRemoving 
+            ? 'translateX(-20px)' 
+            : (isHovered ? 'translateY(-2px)' : 'none'),
+        // Анимация удаления
+        opacity: isRemoving ? 0 : 1,
+        height: isRemoving ? 0 : 'auto',
+        overflow: isRemoving ? 'hidden' : 'visible',
+        margin: isRemoving ? 0 : '0 0 16px 0',
+        ...(isRemoving ? { p: 0 } : {})
+    };
+
+    // Обработка приоритета для иконки в компактном режиме
+    const getPriorityIcon = () => {
+        if (!task.priority) return <></>;
+        
+        switch (task.priority) {
+            case 'HIGH':
+                return <PriorityHighIcon sx={{ fontSize: '14px', color: theme.palette.error.main }} />;
+            case 'MEDIUM':
+                return <PriorityHighIcon sx={{ fontSize: '14px', color: theme.palette.warning.main }} />;
+            case 'LOW':
+                return <PriorityHighIcon sx={{ fontSize: '14px', color: theme.palette.info.main }} />;
+            default:
+                return <></>;
+        }
     };
     
     // Ультра-компактный режим
     if (isCompact) {
-        // Обработка приоритета для иконки
-        const getPriorityIcon = () => {
-            if (!task.priority) return <></>;
-            
-            switch (task.priority) {
-                case 'HIGH':
-                    return <PriorityHighIcon sx={{ fontSize: '14px', color: theme.palette.error.main }} />;
-                case 'MEDIUM':
-                    return <PriorityHighIcon sx={{ fontSize: '14px', color: theme.palette.warning.main }} />;
-                case 'LOW':
-                    return <PriorityHighIcon sx={{ fontSize: '14px', color: theme.palette.info.main }} />;
-                default:
-                    return <></>;
-            }
-        };
-        
         // Проверяем длину названия задачи
         const displayTitle = task.title.length > 32 
             ? `${task.title.substring(0, 32)}...` 
@@ -272,25 +326,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <Card 
                     ref={cardRef}
                     elevation={isHovered ? 2 : 0}
-                    sx={{
-                        mb: 0.5,
-                        cursor: 'pointer',
-                        position: 'relative',
-                        backgroundColor: theme.palette.background.paper,
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 1,
-                        height: '24px',
-                        '&:hover': {
-                            borderColor: theme.palette.primary.main,
-                            backgroundColor: theme.palette.action.hover
-                        },
-                        transition: 'all 0.2s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        pl: 1,
-                        pr: 1,
-                        py: 0
-                    }}
+                    sx={compactCardStyles}
                     onClick={() => setIsEditOpen(true)}
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
@@ -427,19 +463,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <Card 
                 ref={cardRef}
                 elevation={isHovered ? 4 : 1}
-                sx={{
-                    mb: 2,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    backgroundColor: theme.palette.background.paper,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 2,
-                    '&:hover': {
-                        borderColor: theme.palette.primary.main
-                    },
-                    transition: 'box-shadow 0.3s, border-color 0.3s, transform 0.2s',
-                    transform: isHovered ? 'translateY(-2px)' : 'none',
-                }}
+                sx={standardCardStyles}
                 onClick={() => setIsEditOpen(true)}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}

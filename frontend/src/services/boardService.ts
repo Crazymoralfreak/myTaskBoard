@@ -198,8 +198,16 @@ export const boardService = {
 
     async deleteColumn(boardId: string, columnId: string): Promise<Board> {
         try {
-            console.log('Deleting column:', { boardId, columnId });
-            const response = await api.delete<Board>(`/api/boards/${boardId}/columns/${columnId}`);
+            console.log('Удаление колонки:', { boardId, columnId });
+            
+            // Отправляем DELETE запрос с пустым телом JSON, но с правильным Content-Type
+            const response = await api.delete<Board>(`/api/boards/${boardId}/columns/${columnId}`, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: {} // Пустой объект как тело запроса (важно для соответствия consumes = MediaType.APPLICATION_JSON_VALUE на сервере)
+            });
+            
             console.log('Удаление колонки успешно:', response.data);
             
             // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами

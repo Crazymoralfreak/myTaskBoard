@@ -43,6 +43,7 @@ interface BoardColumnProps {
     onTasksChange?: (updatedColumn: Column) => void;
     onEdit?: (columnId: string, columnName: string, color?: string) => void;
     onDelete?: (columnId: string, columnName: string) => void;
+    boardId?: string | number;
 }
 
 type SortType = 'priority' | 'date' | 'name';
@@ -71,7 +72,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
         isCompactMode = false,
         onTasksChange, 
         onEdit, 
-        onDelete 
+        onDelete,
+        boardId
     } = props;
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
@@ -108,48 +110,42 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
         handleSortMenuClose();
     };
 
-    const handleAddTask = async (taskData: Omit<CreateTaskRequest, 'columnId'>) => {
+    const handleAddTask = async (taskData: any) => {
         try {
-            const createData = {
+            const response = await taskService.createTask({
                 ...taskData,
-                columnId: column.id.toString(),
-                typeId: taskData.typeId || null,
-                statusId: taskData.statusId || null
+                columnId: column.id,
+            });
+            
+            const updatedColumn = {
+                ...column,
+                tasks: [...column.tasks, response]
             };
             
-            console.log("Данные для создания задачи:", createData);
-            
-            const createdTask = await taskService.createTask(createData);
-            
-            console.log("Созданная задача:", createdTask);
-
-            if (onTasksChange && column.tasks) {
-                onTasksChange({
-                    ...column,
-                    tasks: [...column.tasks, createdTask]
-                });
-            }
+            onTasksChange?.(updatedColumn);
         } catch (error) {
-            console.error('Failed to create task:', error);
+            console.error('Ошибка при создании задачи:', error);
         }
-    };
-
-    const handleEditClick = () => {
-        setIsEditingColumn(true);
-        handleMenuClose();
     };
 
     const handleTaskDelete = async (taskId: number) => {
         try {
-            const updatedBoard = await taskService.deleteTask(taskId);
-            if (onTasksChange && column.tasks) {
-                onTasksChange({
-                    ...column,
-                    tasks: column.tasks.filter(task => task.id !== taskId)
-                });
-            }
+            // Вызов API для удаления задачи происходит внутри TaskModal
+            console.log('BoardColumn: Удаление задачи', taskId);
+            
+            // Обновляем локальное состояние колонки
+            const updatedTasks = column.tasks.filter(task => task.id !== taskId);
+            
+            onTasksChange?.({
+                ...column,
+                tasks: updatedTasks
+            });
+            
+            console.log('BoardColumn: Задача удалена из состояния колонки');
+            return true;
         } catch (error) {
-            console.error('Failed to delete task:', error);
+            console.error('Ошибка при удалении задачи из состояния колонки:', error);
+            return false;
         }
     };
 
@@ -452,7 +448,10 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
             >
-                <MenuItem onClick={handleEditClick}>
+                <MenuItem onClick={() => {
+                    handleMenuClose();
+                    onEdit?.(column.id.toString(), column.name, column.color);
+                }}>
                     <ListItemIcon>
                         <EditOutlinedIcon fontSize="small" />
                     </ListItemIcon>
@@ -526,8 +525,10 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 mode="create"
                 columnId={column.id.toString()}
                 onTaskCreate={handleAddTask}
+                onTaskDelete={handleTaskDelete}
                 boardStatuses={boardStatuses}
                 taskTypes={taskTypes}
+                boardId={typeof boardId === 'string' ? parseInt(boardId, 10) : boardId}
             />
         </Paper>
     );

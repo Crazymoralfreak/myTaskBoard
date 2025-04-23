@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +20,9 @@ import java.util.List;
 public class TaskTemplateService {
     private final TaskTemplateRepository taskTemplateRepository;
     private final BoardRepository boardRepository;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public TaskTemplate createTemplate(TaskTemplate template, Long boardId, User currentUser) {
         Board board = boardRepository.findById(boardId)
@@ -44,7 +50,12 @@ public class TaskTemplateService {
         taskTemplateRepository.deleteById(templateId);
     }
 
+    @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
     public List<TaskTemplate> getBoardTemplates(Long boardId) {
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Board not found"));
+                
         return taskTemplateRepository.findByBoardId(boardId);
     }
 

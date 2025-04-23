@@ -17,8 +17,20 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-  // Гарантируем, что для всех не-GET запросов будет установлен Content-Type: application/json
-  if (config.method?.toLowerCase() !== 'get' && !config.headers['Content-Type']) {
+  // Проверяем наличие данных в запросе
+  const hasData = config.data && (
+    (typeof config.data === 'object' && Object.keys(config.data).length > 0) || 
+    config.data instanceof FormData || 
+    typeof config.data === 'string'
+  );
+  
+  // Для DELETE запросов удаляем Content-Type только если нет данных
+  if (config.method?.toLowerCase() === 'delete' && !hasData) {
+    delete config.headers['Content-Type'];
+    console.log('Content-Type удален для DELETE запроса без данных к ' + config.url);
+  } 
+  // Для остальных не-GET запросов устанавливаем Content-Type: application/json если он не установлен и данные не являются FormData
+  else if (config.method?.toLowerCase() !== 'get' && !config.headers['Content-Type']) {
     if (config.data instanceof FormData) {
       // Для FormData не устанавливаем Content-Type, браузер сделает это с правильной boundary
       delete config.headers['Content-Type'];

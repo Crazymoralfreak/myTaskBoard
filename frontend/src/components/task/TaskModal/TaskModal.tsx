@@ -242,9 +242,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     setSelectedStatusId(loadedTask.customStatus?.id || null);
                                     setTags(loadedTask.tags || []);
                                 }
-                            } catch (error) {
+                            } catch (error: any) {
                                 console.error('Ошибка при загрузке задачи:', error);
-                                setError('Не удалось загрузить данные задачи');
+                                // Если задача не найдена (была удалена), закрываем модальное окно
+                                if (error.response && error.response.status === 404) {
+                                    console.log('Задача не найдена или была удалена');
+                                    toast.error('Задача не найдена или была удалена');
+                                    onClose();
+                                } else {
+                                    setError('Не удалось загрузить данные задачи');
+                                }
                             }
                         };
                         
@@ -433,27 +440,93 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         }
     };
 
-    const handleDelete = async () => {
-        if (!task || !onTaskDelete) {
+    // Используем useCallback для привязки handleDelete
+    const handleDelete = useCallback(async () => {
+        console.log('handleDelete called');
+        
+        if (!task) {
+            console.error('Нет задачи для удаления');
             return;
+        }
+        
+        // Больше не требуем onTaskDelete для выполнения удаления
+        if (!onTaskDelete) {
+            console.warn('Предупреждение: не передан обработчик onTaskDelete. Задача будет удалена из API, но UI может не обновиться автоматически.');
         }
 
         try {
+            console.log('Начало удаления задачи:', task.id);
             setIsSubmitting(true);
-            await taskService.deleteTask(task.id);
-            onTaskDelete(task.id);
-            handleClose();
+            
+            // Вызов API для удаления задачи
+            const result = await taskService.deleteTask(task.id);
+            console.log('Ответ сервера после удаления:', result);
+            
+            // Закрываем модальное окно
+            console.log('Закрываем модальное окно');
+            onClose();
+            
+            // Уведомляем родительский компонент, если есть обработчик
+            if (onTaskDelete) {
+                console.log('Обновляем состояние родительского компонента');
+                onTaskDelete(task.id);
+            } else {
+                console.log('Состояние не обновлено в UI - нет обработчика onTaskDelete');
+                
+                // Создаем и отправляем событие для обновления UI
+                const taskDeletedEvent = new CustomEvent('task-deleted', {
+                    detail: { taskId: task.id }
+                });
+                window.dispatchEvent(taskDeletedEvent);
+                
+                // Если задача была в колонке, создаем событие для обновления колонки
+                if (boardId) {
+                    console.log('Попытка обновить доску через событие');
+                    // Создаем событие для обновления доски
+                    const event = new CustomEvent('board:update', { 
+                        detail: { boardId, forceRefresh: true } 
+                    });
+                    window.dispatchEvent(event);
+                    
+                    // Создаем событие удаления задачи
+                    const taskDeleteEvent = new CustomEvent('task:delete', { 
+                        detail: { taskId: task.id, boardId } 
+                    });
+                    window.dispatchEvent(taskDeleteEvent);
+                } else {
+                    // Пробуем найти boardId из URL
+                    const urlMatch = window.location.pathname.match(/\/boards\/(\d+)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const boardIdFromUrl = parseInt(urlMatch[1], 10);
+                        console.log('Найден boardId из URL:', boardIdFromUrl);
+                        
+                        const event = new CustomEvent('board:update', { 
+                            detail: { boardId: boardIdFromUrl, forceRefresh: true } 
+                        });
+                        window.dispatchEvent(event);
+                    }
+                }
+                
+                // Если задача была открыта в отдельном модальном окне, можно также
+                // добавить обработчик события для обновления списков задач
+                const taskListUpdateEvent = new CustomEvent('tasklist:update');
+                window.dispatchEvent(taskListUpdateEvent);
+                
+                // Показываем уведомление об успешном удалении
+                toast.success('Задача успешно удалена');
+            }
+            
         } catch (error) {
-            console.error('Failed to delete task:', error);
+            console.error('Ошибка при удалении задачи:', error);
             setError('Не удалось удалить задачу');
-        } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [task, onTaskDelete, onClose, setIsSubmitting, setError, boardId]);
 
     const handleClose = () => {
         // Перед закрытием, обновляем родительский компонент с текущими данными задачи
-        if (task && mode === 'view' && onTaskUpdate) {
+        // Только если задача не была удалена и мы в режиме просмотра
+        if (task && mode === 'view' && onTaskUpdate && !isSubmitting) {
             // Создаем копию задачи для обновления
             const updatedTask = { ...task };
             onTaskUpdate(updatedTask);
