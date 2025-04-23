@@ -1,15 +1,26 @@
+-- Объединенная миграция, включающая в себя все изменения из V1..V9
+
 -- Создание таблицы пользователей
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(255) NOT NULL, -- Не уникальное, чтобы разрешить одинаковые имена для разных методов авторизации
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     telegram_id VARCHAR(255),
     telegram_chat_id VARCHAR(255),
     avatar_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    display_name VARCHAR(255),
+    phone_number VARCHAR(20),
+    position VARCHAR(255),
+    bio TEXT,
+    last_password_reset_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    auth_type VARCHAR(20) NOT NULL DEFAULT 'WEB'
 );
+
+-- Добавление уникального ограничения на telegram_id
+ALTER TABLE users ADD CONSTRAINT uk_users_telegram_id UNIQUE (telegram_id);
 
 -- Создание таблицы досок
 CREATE TABLE boards (
@@ -71,7 +82,8 @@ CREATE TABLE tasks (
     type_id BIGINT REFERENCES task_types(id),
     priority VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    comment_count INTEGER DEFAULT 0
 );
 
 -- Создание таблицы тегов задач
@@ -126,6 +138,7 @@ CREATE TABLE task_history (
     changed_by_id BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    action VARCHAR(255) NOT NULL,
     CONSTRAINT fk_task_history_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     CONSTRAINT fk_task_history_user FOREIGN KEY (changed_by_id) REFERENCES users(id)
 );
@@ -238,6 +251,26 @@ CREATE TABLE task_template_tags (
     CONSTRAINT chk_tag_length CHECK (length(tag) >= 1 AND length(tag) <= 100)
 );
 
+-- Создание таблицы настроек пользователей
+CREATE TABLE user_settings (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    dark_mode BOOLEAN DEFAULT FALSE,
+    compact_view BOOLEAN DEFAULT FALSE,
+    enable_animations BOOLEAN DEFAULT TRUE,
+    browser_notifications BOOLEAN DEFAULT TRUE,
+    email_notifications BOOLEAN DEFAULT TRUE,
+    telegram_notifications BOOLEAN DEFAULT TRUE,
+    language VARCHAR(10) DEFAULT 'ru',
+    timezone VARCHAR(30) DEFAULT 'UTC+3',
+    profile_visibility VARCHAR(20) DEFAULT 'public',
+    email_visible BOOLEAN DEFAULT true,
+    phone_visible BOOLEAN DEFAULT true,
+    position_visible BOOLEAN DEFAULT true,
+    bio_visible BOOLEAN DEFAULT true,
+    CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Добавляем ограничение для проверки уникальности имени шаблона в пределах доски
 ALTER TABLE task_templates
     ADD CONSTRAINT uq_task_template_name_per_board
@@ -276,7 +309,69 @@ CREATE INDEX idx_task_templates_status ON task_templates(status_id);
 CREATE INDEX idx_task_templates_name ON task_templates(name);
 CREATE INDEX idx_task_template_tags ON task_template_tags(tag);
 
--- Добавляем триггер для автоматического обновления updated_at
+-- Создаем функцию для обновления счетчика комментариев
+CREATE OR REPLACE FUNCTION update_task_comment_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE tasks SET comment_count = comment_count + 1 WHERE id = NEW.task_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE tasks SET comment_count = comment_count - 1 WHERE id = OLD.task_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Создаем триггер для автоматического обновления счетчика при добавлении/удалении комментария
+CREATE TRIGGER update_task_comment_count_trigger
+AFTER INSERT OR DELETE ON comments
+FOR EACH ROW
+EXECUTE FUNCTION update_task_comment_count();
+
+-- Создаем функцию для синхронизации полей истории задач
+CREATE OR REPLACE FUNCTION sync_task_history_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- При вставке заполняем timestamp из changed_at, если не указан
+        IF NEW.timestamp IS NULL AND NEW.changed_at IS NOT NULL THEN
+            NEW.timestamp = NEW.changed_at;
+        ELSIF NEW.changed_at IS NULL AND NEW.timestamp IS NOT NULL THEN
+            NEW.changed_at = NEW.timestamp;
+        END IF;
+
+        -- Синхронизируем action и field_changed
+        IF NEW.action IS NOT NULL AND (NEW.field_changed IS NULL OR NEW.field_changed != NEW.action) THEN
+            NEW.field_changed = NEW.action;
+        ELSIF NEW.field_changed IS NOT NULL AND (NEW.action IS NULL OR NEW.action != NEW.field_changed) THEN
+            NEW.action = NEW.field_changed;
+        END IF;
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- При обновлении проверяем, какое из полей изменилось
+        IF NEW.action IS DISTINCT FROM OLD.action THEN
+            NEW.field_changed = NEW.action;
+        ELSIF NEW.field_changed IS DISTINCT FROM OLD.field_changed THEN
+            NEW.action = NEW.field_changed;
+        END IF;
+
+        -- Синхронизируем timestamp и changed_at
+        IF NEW.timestamp IS DISTINCT FROM OLD.timestamp THEN
+            NEW.changed_at = NEW.timestamp;
+        ELSIF NEW.changed_at IS DISTINCT FROM OLD.changed_at THEN
+            NEW.timestamp = NEW.changed_at;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Создаем триггер для синхронизации полей
+CREATE TRIGGER sync_task_history_trigger
+BEFORE INSERT OR UPDATE ON task_history
+FOR EACH ROW
+EXECUTE FUNCTION sync_task_history_columns();
+
+-- Добавляем триггер для автоматического обновления updated_at в шаблонах задач
 CREATE OR REPLACE FUNCTION update_task_template_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -312,11 +407,16 @@ COMMENT ON TABLE task_watchers IS 'Таблица наблюдателей за�
 COMMENT ON TABLE subtasks IS 'Таблица подзадач';
 COMMENT ON TABLE task_templates IS 'Таблица шаблонов задач';
 COMMENT ON TABLE task_template_tags IS 'Таблица тегов шаблонов задач';
+COMMENT ON TABLE user_settings IS 'Таблица настроек пользователя';
 
 -- Комментарии к колонкам
 COMMENT ON COLUMN users.telegram_id IS 'Идентификатор пользователя в Telegram';
 COMMENT ON COLUMN users.telegram_chat_id IS 'Идентификатор чата пользователя в Telegram';
 COMMENT ON COLUMN users.avatar_url IS 'URL аватара пользователя';
+COMMENT ON COLUMN users.username IS 'Имя пользователя (не уникальное, чтобы разрешить одинаковые имена для разных методов авторизации)';
+COMMENT ON COLUMN users.auth_type IS 'Тип аутентификации пользователя: WEB или TELEGRAM';
+COMMENT ON COLUMN users.email IS 'Email пользователя (уникальный для WEB пользователей)';
+COMMENT ON COLUMN users.last_password_reset_date IS 'Дата и время последнего изменения пароля пользователя';
 COMMENT ON COLUMN tasks.start_date IS 'Дата начала выполнения задачи';
 COMMENT ON COLUMN tasks.end_date IS 'Дата окончания выполнения задачи';
 COMMENT ON COLUMN tasks.days_remaining IS 'Оставшееся количество дней до окончания задачи';
@@ -330,4 +430,14 @@ COMMENT ON COLUMN task_templates.description IS 'Описание шаблона
 COMMENT ON COLUMN task_templates.board_id IS 'Идентификатор доски, к которой привязан шаблон';
 COMMENT ON COLUMN task_templates.created_by IS 'Идентификатор пользователя, создавшего шаблон';
 COMMENT ON COLUMN task_templates.type_id IS 'Идентификатор типа задачи для шаблона';
-COMMENT ON COLUMN task_templates.status_id IS 'Идентификатор статуса задачи для шаблона'; 
+COMMENT ON COLUMN task_templates.status_id IS 'Идентификатор статуса задачи для шаблона';
+COMMENT ON COLUMN task_history.action IS 'Действие, выполненное над задачей';
+COMMENT ON COLUMN task_history.timestamp IS 'Время выполнения действия';
+COMMENT ON COLUMN task_history.changed_at IS 'Время изменения (совпадает с timestamp)';
+COMMENT ON COLUMN task_history.created_at IS 'Время создания записи';
+COMMENT ON COLUMN task_history.updated_at IS 'Время последнего обновления записи';
+COMMENT ON COLUMN user_settings.profile_visibility IS 'Видимость профиля (public, private)';
+COMMENT ON COLUMN user_settings.email_visible IS 'Видимость email для других пользователей';
+COMMENT ON COLUMN user_settings.phone_visible IS 'Видимость телефона для других пользователей';
+COMMENT ON COLUMN user_settings.position_visible IS 'Видимость должности для других пользователей';
+COMMENT ON COLUMN user_settings.bio_visible IS 'Видимость информации о себе для других пользователей'; 
