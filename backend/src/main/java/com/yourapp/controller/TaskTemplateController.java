@@ -1,7 +1,7 @@
 package com.yourapp.controller;
 
 import com.yourapp.dto.TaskTemplateDTO;
-import com.yourapp.mapper.TaskTemplateMapperImpl;
+import com.yourapp.mapper.TaskTemplateMapper;
 import com.yourapp.model.TaskTemplate;
 import com.yourapp.model.User;
 import com.yourapp.service.TaskTemplateService;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskTemplateController {
     private final TaskTemplateService taskTemplateService;
-    private final TaskTemplateMapperImpl taskTemplateMapper;
+    private final TaskTemplateMapper taskTemplateMapper;
     private final UserService userService;
 
     @GetMapping("/boards/{boardId}/templates")
