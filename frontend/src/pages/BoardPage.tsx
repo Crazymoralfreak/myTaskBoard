@@ -19,7 +19,8 @@ import {
     FormControlLabel,
     Checkbox,
     Tabs,
-    Tab
+    Tab,
+    Divider
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,6 +29,12 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ListIcon from '@mui/icons-material/List';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
+import SecurityIcon from '@mui/icons-material/Security';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
 import { BoardColumn } from '../components/Board/BoardColumn';
@@ -44,6 +51,7 @@ import { TaskFilters } from '../components/task/TaskFilters';
 import { toast } from 'react-hot-toast';
 import { userService } from '../services/userService';
 import { useTheme, useMediaQuery } from '@mui/material';
+import BoardMembersModal from '../components/Board/BoardMembersModal';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -115,6 +123,8 @@ export const BoardPage: React.FC = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     // Добавляем состояние для компактного режима карточек
     const [isCompactMode, setIsCompactMode] = useState(false);
+    // Добавляем состояние для модального окна участников
+    const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
     const theme = useTheme();
     // Добавляем определение мобильного устройства
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -786,6 +796,7 @@ export const BoardPage: React.FC = () => {
                         onClick={handleBoardMenuOpen} 
                         aria-label="board settings"
                         aria-haspopup="true"
+                        title="Настройки доски"
                     >
                         <SettingsIcon />
                     </IconButton>
@@ -872,6 +883,14 @@ export const BoardPage: React.FC = () => {
                     anchorEl={menuAnchorEl}
                     open={Boolean(menuAnchorEl)}
                     onClose={handleBoardMenuClose}
+                    PaperProps={{
+                        elevation: 3,
+                        sx: { 
+                            minWidth: '250px',
+                            mt: 1,
+                            p: 0.5
+                        }
+                    }}
                 >
                     <MenuItem 
                         onClick={() => {
@@ -879,8 +898,45 @@ export const BoardPage: React.FC = () => {
                             handleBoardMenuClose();
                         }}
                     >
-                        Редактировать доску
+                        <Box display="flex" alignItems="center">
+                            <EditIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
+                            Редактировать доску
+                        </Box>
                     </MenuItem>
+                    <MenuItem 
+                        onClick={() => {
+                            setIsMembersModalOpen(true);
+                            handleBoardMenuClose();
+                        }}
+                    >
+                        <Box display="flex" alignItems="center">
+                            <PeopleAltIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
+                            Управление участниками
+                        </Box>
+                    </MenuItem>
+                    <MenuItem 
+                        onClick={() => {
+                            // Функционал дополнительных настроек колонок (пока что заглушка)
+                            handleBoardMenuClose();
+                        }}
+                    >
+                        <Box display="flex" alignItems="center">
+                            <DashboardCustomizeIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
+                            Настройки колонок
+                        </Box>
+                    </MenuItem>
+                    <MenuItem 
+                        onClick={() => {
+                            // Функционал настроек доступа (пока что заглушка)
+                            handleBoardMenuClose();
+                        }}
+                    >
+                        <Box display="flex" alignItems="center">
+                            <SecurityIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
+                            Настройки доступа
+                        </Box>
+                    </MenuItem>
+                    <Divider sx={{ my: 1 }} />
                     <MenuItem 
                         onClick={() => {
                             setIsDeleteBoardDialogOpen(true);
@@ -888,7 +944,10 @@ export const BoardPage: React.FC = () => {
                         }}
                         sx={{ color: 'error.main' }}
                     >
-                        Удалить доску
+                        <Box display="flex" alignItems="center">
+                            <DeleteIcon fontSize="small" sx={{ mr: 2 }} />
+                            Удалить доску
+                        </Box>
                     </MenuItem>
                 </Menu>
                 
@@ -1222,6 +1281,18 @@ export const BoardPage: React.FC = () => {
             />
 
             <SyncIndicator />
+
+            {/* Модальное окно управления участниками */}
+            {board && (
+                <BoardMembersModal
+                    open={isMembersModalOpen}
+                    onClose={() => setIsMembersModalOpen(false)}
+                    boardId={board.id.toString()}
+                    currentUserId={(board as any).currentUser?.id || 0}
+                    ownerId={(board as any).owner?.id}
+                    isAdmin={(board as any).currentUser?.isAdmin || false}
+                />
+            )}
         </Container>
     );
 };

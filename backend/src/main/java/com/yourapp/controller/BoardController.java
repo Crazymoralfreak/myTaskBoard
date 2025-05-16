@@ -79,11 +79,6 @@ public class BoardController {
         column.setPosition(0); // Позиция по умолчанию
         column.setColor(payload.get("color") != null ? payload.get("color") : "#E0E0E0"); // Устанавливаем цвет
 
-        Board board = boardService.getBoardById(boardId);
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
         return ResponseEntity.ok(boardService.addColumnToBoard(boardId, column));
     }
 
@@ -172,14 +167,21 @@ public class BoardController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Board> getBoard(@PathVariable String id, @AuthenticationPrincipal User user) {
-        Board board = boardService.getBoardById(id);
+        logger.info("Запрос на получение доски с ID: {}, пользователь: {}", id, user != null ? user.getUsername() : "null");
         
-        // Проверяем, является ли пользователь владельцем доски
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        try {
+            Board board = boardService.getBoardById(id);
+            
+            // В DTO добавляем флаг, является ли текущий пользователь владельцем
+            boolean isOwner = user != null && board.getOwner() != null && board.getOwner().getId().equals(user.getId());
+            logger.info("Доска найдена. Владелец: {}. Текущий пользователь - владелец: {}", 
+                       board.getOwner() != null ? board.getOwner().getUsername() : "null", isOwner);
+            
+            return ResponseEntity.ok(board);
+        } catch (Exception e) {
+            logger.error("Ошибка при получении доски с ID: {}", id, e);
+            throw e;
         }
-        
-        return ResponseEntity.ok(board);
     }
 
     @PutMapping("/{boardId}/columns/{columnId}")
@@ -189,11 +191,6 @@ public class BoardController {
         @RequestBody Map<String, String> updates,
         @AuthenticationPrincipal User user
     ) {
-        Board board = boardService.getBoardById(boardId);
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
         return ResponseEntity.ok(boardService.updateColumn(boardId, columnId, updates.get("name"), updates.get("color")));
     }
 
@@ -204,11 +201,6 @@ public class BoardController {
         @AuthenticationPrincipal User user
     ) {
         Board currentBoard = boardService.getBoardById(id);
-        
-        // Проверка прав доступа
-        if (!currentBoard.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
         
         // Обновляем только предоставленные поля
         if (updates.containsKey("name")) {

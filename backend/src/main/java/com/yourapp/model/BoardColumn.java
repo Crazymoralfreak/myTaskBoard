@@ -44,4 +44,29 @@ public class BoardColumn {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Task> tasks = new ArrayList<>();
+    
+    // Геттеры и сеттеры, которые могут не генерироваться Lombok
+    public Board getBoard() {
+        return this.board;
+    }
+    
+    public void setBoard(Board board) {
+        this.board = board;
+    }
+    
+    public Integer getPosition() {
+        return this.position;
+    }
+    
+    public void setPosition(Integer position) {
+        this.position = position;
+    }
+    
+    public String getName() {
+        return this.name;
+    }
+    
+    public void setName(String name) {
+        this.name = name;
+    }
 } 

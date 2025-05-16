@@ -11,4 +11,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AvatarUpdateDto {
     private String avatarUrl;
+    
+    // Геттеры
+    public String getAvatarUrl() {
+        return this.avatarUrl;
+    }
+    
+    // Сеттеры
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
 } 

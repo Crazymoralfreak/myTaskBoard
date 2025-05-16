@@ -5,11 +5,16 @@ import com.yourapp.model.BoardColumn;
 import com.yourapp.model.TaskStatus;
 import com.yourapp.model.TaskType;
 import com.yourapp.model.Task;
+import com.yourapp.model.Role;
+import com.yourapp.model.User;
+import com.yourapp.model.BoardMember;
 import com.yourapp.exception.ResourceNotFoundException;
 import com.yourapp.repository.BoardRepository;
 import com.yourapp.repository.TaskStatusRepository;
 import com.yourapp.repository.TaskTypeRepository;
 import com.yourapp.repository.BoardColumnRepository;
+import com.yourapp.repository.UserRepository;
+import com.yourapp.repository.BoardMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +27,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.Map;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +38,11 @@ public class BoardService {
     private final TaskStatusRepository taskStatusRepository;
     private final TaskTypeRepository taskTypeRepository;
     private final BoardColumnRepository boardColumnRepository;
+    private final UserRepository userRepository;
+    private final BoardMemberRepository boardMemberRepository;
     private final EntityManager entityManager;
+    private final BoardMemberService boardMemberService;
+    private final RoleService roleService;
     
     public Board createBoard(Board board) {
         if (board.getName() == null || board.getName().trim().isEmpty()) {
@@ -98,7 +108,23 @@ public class BoardService {
             board.addTaskType(type);
         }
         
-        return boardRepository.save(board);
+        // Сохраняем доску
+        Board savedBoard = boardRepository.save(board);
+        
+        // Добавляем владельца как участника с ролью администратора
+        try {
+            // Получаем системную роль ADMIN
+            Role adminRole = roleService.getSystemRoleByName("ADMIN");
+            
+            // Добавляем владельца как участника с ролью администратора
+            boardMemberService.addMemberToBoard(savedBoard.getId(), savedBoard.getOwner().getId(), adminRole.getId());
+            
+            logger.info("Владелец доски {} добавлен как участник с ролью администратора", savedBoard.getId());
+        } catch (Exception e) {
+            logger.error("Ошибка при добавлении владельца доски как участника: {}", e.getMessage(), e);
+        }
+        
+        return savedBoard;
     }
     
     @Transactional
@@ -192,7 +218,30 @@ public class BoardService {
     }
 
     public List<Board> getUserBoards(Long userId) {
-        return boardRepository.findByOwnerId(userId);
+        // Получаем доски, созданные пользователем
+        List<Board> ownedBoards = boardRepository.findByOwnerId(userId);
+        
+        // Получаем пользователя по ID
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
+        
+        // Получаем BoardMember записи для пользователя
+        List<BoardMember> membershipRecords = boardMemberRepository.findByUser(user);
+        
+        // Извлекаем доски из BoardMember записей и фильтруем, чтобы избежать дубликатов
+        List<Board> memberBoards = membershipRecords.stream()
+                .map(BoardMember::getBoard)
+                .filter(board -> !board.getOwner().getId().equals(userId)) // Исключаем доски, которые уже есть в ownedBoards
+                .collect(Collectors.toList());
+        
+        // Объединяем списки досок
+        List<Board> allBoards = new ArrayList<>(ownedBoards);
+        allBoards.addAll(memberBoards);
+        
+        logger.debug("Получены доски для пользователя ID:{}: {} созданных пользователем, {} где пользователь является участником",
+                userId, ownedBoards.size(), memberBoards.size());
+        
+        return allBoards;
     }
 
     @Transactional

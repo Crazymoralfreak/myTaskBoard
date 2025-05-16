@@ -1,3 +1,22 @@
+/**
+ * Интерфейс для представления роли пользователя в системе
+ */
+export interface Role {
+  id: number;
+  name: string;
+  description: string;
+  isSystem: boolean;
+}
+
+/**
+ * Предопределенные системные роли
+ */
+export enum SystemRoles {
+  ADMIN = 'ADMIN',
+  EDITOR = 'EDITOR',
+  VIEWER = 'VIEWER'
+}
+
 export interface RoleDto {
     id: string;
     name: string;
