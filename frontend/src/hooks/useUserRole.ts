@@ -14,7 +14,8 @@ export enum Permission {
   ADD_TASKS = 'add_tasks',
   EDIT_TASKS = 'edit_tasks',
   DELETE_TASKS = 'delete_tasks',
-  MOVE_TASKS = 'move_tasks'
+  MOVE_TASKS = 'move_tasks',
+  COMMENT_TASKS = 'comment_tasks'
 }
 
 // Интерфейс возвращаемого объекта хука
@@ -62,7 +63,9 @@ export function useUserRole(board: Board | null | undefined, userId?: number): U
    */
   const hasPermission = (permission: Permission): boolean => {
     // Владелец доски имеет все права
-    if (isOwner) return true;
+    if (isOwner) {
+      return true;
+    }
 
     // Проверяем роль и конкретное разрешение
     switch (permission) {
@@ -71,7 +74,8 @@ export function useUserRole(board: Board | null | undefined, userId?: number): U
       case Permission.EDIT_MEMBERS_ROLES:
       case Permission.EDIT_BOARD_SETTINGS:
       case Permission.DELETE_BOARD:
-        return isAdmin || userRole === SystemRoles.ADMIN;
+        const hasAdminPermission = isAdmin || userRole === SystemRoles.ADMIN;
+        return hasAdminPermission;
 
       // Права редактора
       case Permission.ADD_COLUMNS:
@@ -81,9 +85,11 @@ export function useUserRole(board: Board | null | undefined, userId?: number): U
       case Permission.EDIT_TASKS:
       case Permission.DELETE_TASKS:
       case Permission.MOVE_TASKS:
-        return isAdmin || 
+      case Permission.COMMENT_TASKS:
+        const hasEditorPermission = isAdmin || 
                userRole === SystemRoles.ADMIN || 
                userRole === SystemRoles.EDITOR;
+        return hasEditorPermission;
 
       default:
         return false;

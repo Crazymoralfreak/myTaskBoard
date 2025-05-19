@@ -1147,12 +1147,12 @@ export const BoardPage: React.FC = () => {
                                             },
                                         }}
                                     >
-                                        {board.columns.map((column, index) => (
+                                        {filteredColumns.map((column, index) => (
                                             <BoardColumn
                                                 key={column.id}
                                                 column={column}
                                                 canMoveLeft={index > 0}
-                                                canMoveRight={index < board.columns.length - 1}
+                                                canMoveRight={index < filteredColumns.length - 1}
                                                 boardStatuses={board.taskStatuses}
                                                 taskTypes={taskTypes}
                                                 onTasksChange={(updatedColumn) => {

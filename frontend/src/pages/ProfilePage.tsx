@@ -35,7 +35,8 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar, uploadUserAvatar, getFullAvatarUrl, updateUserSettings } from '../api/api';
+import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar, uploadUserAvatar, updateUserSettings } from '../api/api';
+import { getAvatarUrl } from '../utils/avatarUtils';
 import AvatarUploader from '../components/AvatarUploader';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -405,6 +406,16 @@ export const ProfilePage = () => {
     });
   };
 
+  // Обработка URL аватарки с логированием
+  const processAvatarUrl = (avatarUrl?: string): string | undefined => {
+    const processedUrl = getAvatarUrl(avatarUrl);
+    console.log('ProfilePage - Обработка URL аватарки:', {
+      исходный: avatarUrl,
+      обработанный: processedUrl
+    });
+    return processedUrl;
+  };
+
   if (loading && !profile) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -426,7 +437,7 @@ export const ProfilePage = () => {
               <Box sx={{ position: 'relative' }}>
                 <Avatar 
                   sx={{ width: 100, height: 100, mr: 3 }}
-                  src={getFullAvatarUrl(selectedAvatar || profile.avatarUrl)}
+                  src={processAvatarUrl(selectedAvatar || profile.avatarUrl)}
                 >
                   {profile.username?.charAt(0) || 'U'}
                 </Avatar>
@@ -724,7 +735,7 @@ export const ProfilePage = () => {
             {AVATAR_OPTIONS.map((avatar, index) => (
               <Grid item key={index}>
                 <Avatar
-                  src={getFullAvatarUrl(avatar)}
+                  src={processAvatarUrl(avatar)}
                   alt={`Аватар ${index + 1}`}
                   sx={{ width: 64, height: 64, cursor: 'pointer' }}
                   onClick={() => handleSelectAvatar(avatar)}

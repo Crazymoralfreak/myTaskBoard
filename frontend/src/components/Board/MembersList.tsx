@@ -48,6 +48,7 @@ import { BoardMember, UpdateMemberRoleRequest } from '../../types/BoardMember';
 import { BoardMembersService } from '../../services/BoardMembersService';
 import { RolesService } from '../../services/RolesService';
 import { Role, SystemRoles } from '../../types/Role';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 
 interface MembersListProps {
   boardId: string;
@@ -343,6 +344,16 @@ const MembersList: React.FC<MembersListProps> = ({
     setPage(value);
   };
 
+  // Обработка аватарки пользователя с логированием
+  const processAvatarUrl = (avatarUrl?: string): string | undefined => {
+    const processedUrl = getAvatarUrl(avatarUrl);
+    console.log('Обработка URL аватарки:', {
+      исходный: avatarUrl,
+      обработанный: processedUrl
+    });
+    return processedUrl;
+  };
+  
   // Рендер списка участников с учетом группировки
   const renderMembersList = () => {
     if (sortOrder === 'role' && groupedMembers) {
@@ -397,179 +408,184 @@ const MembersList: React.FC<MembersListProps> = ({
   };
   
   // Рендер элемента списка участников
-  const renderMemberItem = (member: BoardMember): JSX.Element => (
-    <ListItem 
-      key={member.userId} 
-      divider 
-      sx={{ 
-        borderRadius: 1,
-        transition: 'all 0.2s',
-        '&:hover': { 
-          bgcolor: 'action.hover'
-        },
-        py: 2 // Добавляем больше вертикального пространства
-      }}
-      secondaryAction={
-        isAdmin && member.userId !== ownerId && member.userId !== currentUserId ? (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title="Изменить роль пользователя">
+  const renderMemberItem = (member: BoardMember): JSX.Element => {
+    // Подготавливаем URL аватарки заранее
+    const avatarSrc = processAvatarUrl(member.avatarUrl);
+    
+    return (
+      <ListItem 
+        key={member.userId}
+        divider
+        sx={{ 
+          borderRadius: 1,
+          transition: 'all 0.2s',
+          '&:hover': { 
+            bgcolor: 'action.hover'
+          },
+          py: 2 // Добавляем больше вертикального пространства
+        }}
+        secondaryAction={
+          isAdmin && member.userId !== ownerId && member.userId !== currentUserId ? (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Tooltip title="Изменить роль пользователя">
+                <IconButton
+                  edge="end"
+                  aria-label="изменить роль"
+                  onClick={() => handleEditRole(member)}
+                  size="small"
+                  color="primary"
+                  sx={{ mr: 1 }}
+                >
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
               <IconButton
                 edge="end"
-                aria-label="изменить роль"
-                onClick={() => handleEditRole(member)}
+                aria-label="опции"
+                onClick={(e) => handleMenuClick(e, member)}
                 size="small"
-                color="primary"
-                sx={{ mr: 1 }}
+                color="inherit"
               >
-                <EditIcon />
+                <MoreVertIcon />
               </IconButton>
-            </Tooltip>
-            <IconButton
-              edge="end"
-              aria-label="опции"
-              onClick={(e) => handleMenuClick(e, member)}
-              size="small"
-              color="inherit"
-            >
-              <MoreVertIcon />
-            </IconButton>
-          </Box>
-        ) : undefined
-      }
-    >
-      <ListItemAvatar>
-        <Avatar 
-          src={member.avatarUrl} 
-          alt={member.username}
-          sx={{ 
-            bgcolor: member.userId === ownerId ? 'primary.main' : 'default',
-            width: 40,
-            height: 40
-          }}
-        >
-          {member.username?.charAt(0)?.toUpperCase() || 'U'}
-        </Avatar>
-      </ListItemAvatar>
-      
-      <ListItemText
-        primary={
-          <Box display="flex" alignItems="center">
-            <Typography variant="body1" fontWeight={member.userId === ownerId ? 'medium' : 'regular'}>
-              {member.displayName || member.username}
-            </Typography>
-            
-            {member.userId === currentUserId && (
-              <Chip 
-                label="Вы" 
-                size="small" 
-                variant="outlined"
-                color="info"
-                sx={{ ml: 1, height: 20 }}
-              />
-            )}
-            
-            {member.userId === ownerId && (
-              <Chip 
-                label="Владелец" 
-                size="small"
-                color="primary"
-                variant="outlined"
-                sx={{ ml: 1 }}
-              />
-            )}
-          </Box>
+            </Box>
+          ) : undefined
         }
-        secondary={
-          <React.Fragment>
-            <Typography variant="body2" color="text.secondary" component="span">
-              {member.email}
-            </Typography>
-            <br />
-            <Box display="flex" alignItems="center" mt={1}>
-              {isAdmin && member.userId !== ownerId ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Tooltip title="Нажмите для изменения роли" arrow placement="top">
+      >
+        <ListItemAvatar>
+          <Avatar 
+            src={avatarSrc}
+            alt={member.username}
+            sx={{ 
+              bgcolor: member.userId === ownerId ? 'primary.main' : 'default',
+              width: 40, 
+              height: 40
+            }}
+          >
+            {!member.avatarUrl && member.username ? member.username.charAt(0).toUpperCase() : 'U'}
+          </Avatar>
+        </ListItemAvatar>
+        
+        <ListItemText
+          primary={
+            <Box display="flex" alignItems="center">
+              <Typography variant="body1" fontWeight={member.userId === ownerId ? 'medium' : 'regular'}>
+                {member.displayName || member.username}
+              </Typography>
+              
+              {member.userId === currentUserId && (
+                <Chip 
+                  label="Вы" 
+                  size="small" 
+                  variant="outlined"
+                  color="info"
+                  sx={{ ml: 1, height: 20 }}
+                />
+              )}
+              
+              {member.userId === ownerId && (
+                <Chip 
+                  label="Владелец" 
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ ml: 1 }}
+                />
+              )}
+            </Box>
+          }
+          secondary={
+            <React.Fragment>
+              <Typography variant="body2" color="text.secondary" component="span">
+                {member.email}
+              </Typography>
+              <br />
+              <Box display="flex" alignItems="center" mt={1}>
+                {isAdmin && member.userId !== ownerId ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Tooltip title="Нажмите для изменения роли" arrow placement="top">
+                      <Chip 
+                        label={member.role?.name || 'Без роли'} 
+                        size="small"
+                        variant="outlined"
+                        sx={{ 
+                          mr: 1,
+                          mb: 0.5,
+                          bgcolor: getRoleColor(member.role?.name),
+                          color: getRoleTextColor(member.role?.name),
+                          borderColor: 'transparent',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
+                          }
+                        }}
+                        icon={getRoleIcon(member.role?.name)}
+                        onClick={() => handleEditRole(member)}
+                        deleteIcon={<EditIcon fontSize="small" />}
+                        onDelete={() => handleEditRole(member)}
+                      />
+                    </Tooltip>
+                    
+                    {/* Быстрые действия для смены роли */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mr: 1, mb: 0.5 }}>
+                        Быстрая смена:
+                      </Typography>
+                      
+                      {roles.filter(role => role.id !== member.role?.id).map(role => (
+                        <Tooltip key={role.id} title={`Изменить на ${role.name}`} arrow>
+                          <Chip
+                            label={role.name}
+                            size="small"
+                            variant="outlined"
+                            sx={{ 
+                              mr: 0.5,
+                              mb: 0.5,
+                              bgcolor: 'transparent',
+                              borderColor: getRoleTextColor(role.name),
+                              color: getRoleTextColor(role.name),
+                              cursor: 'pointer',
+                              '&:hover': {
+                                bgcolor: getRoleColor(role.name)
+                              }
+                            }}
+                            onClick={() => {
+                              setEditingRoleMember(member);
+                              setSelectedRoleId(role.id);
+                              handleRoleChange();
+                            }}
+                          />
+                        </Tooltip>
+                      ))}
+                    </Box>
+                  </Box>
+                ) : (
+                  <Tooltip 
+                    title={member.role?.description || 'Описание роли отсутствует'} 
+                    arrow
+                    placement="top"
+                  >
                     <Chip 
                       label={member.role?.name || 'Без роли'} 
                       size="small"
                       variant="outlined"
                       sx={{ 
                         mr: 1,
-                        mb: 0.5,
                         bgcolor: getRoleColor(member.role?.name),
                         color: getRoleTextColor(member.role?.name),
-                        borderColor: 'transparent',
-                        cursor: 'pointer',
-                        '&:hover': {
-                          boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
-                        }
+                        borderColor: 'transparent'
                       }}
                       icon={getRoleIcon(member.role?.name)}
-                      onClick={() => handleEditRole(member)}
-                      deleteIcon={<EditIcon fontSize="small" />}
-                      onDelete={() => handleEditRole(member)}
                     />
                   </Tooltip>
-                  
-                  {/* Быстрые действия для смены роли */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ mr: 1, mb: 0.5 }}>
-                      Быстрая смена:
-                    </Typography>
-                    
-                    {roles.filter(role => role.id !== member.role?.id).map(role => (
-                      <Tooltip key={role.id} title={`Изменить на ${role.name}`} arrow>
-                        <Chip
-                          label={role.name}
-                          size="small"
-                          variant="outlined"
-                          sx={{ 
-                            mr: 0.5,
-                            mb: 0.5,
-                            bgcolor: 'transparent',
-                            borderColor: getRoleTextColor(role.name),
-                            color: getRoleTextColor(role.name),
-                            cursor: 'pointer',
-                            '&:hover': {
-                              bgcolor: getRoleColor(role.name)
-                            }
-                          }}
-                          onClick={() => {
-                            setEditingRoleMember(member);
-                            setSelectedRoleId(role.id);
-                            handleRoleChange();
-                          }}
-                        />
-                      </Tooltip>
-                    ))}
-                  </Box>
-                </Box>
-              ) : (
-                <Tooltip 
-                  title={member.role?.description || 'Описание роли отсутствует'} 
-                  arrow
-                  placement="top"
-                >
-                  <Chip 
-                    label={member.role?.name || 'Без роли'} 
-                    size="small"
-                    variant="outlined"
-                    sx={{ 
-                      mr: 1,
-                      bgcolor: getRoleColor(member.role?.name),
-                      color: getRoleTextColor(member.role?.name),
-                      borderColor: 'transparent'
-                    }}
-                    icon={getRoleIcon(member.role?.name)}
-                  />
-                </Tooltip>
-              )}
-            </Box>
-          </React.Fragment>
-        }
-      />
-    </ListItem>
-  );
+                )}
+              </Box>
+            </React.Fragment>
+          }
+        />
+      </ListItem>
+    );
+  };
   
   return (
     <>
@@ -734,11 +750,11 @@ const MembersList: React.FC<MembersListProps> = ({
             <>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                 <Avatar
-                  src={editingRoleMember.avatarUrl}
+                  src={processAvatarUrl(editingRoleMember.avatarUrl)}
                   alt={editingRoleMember.username}
                   sx={{ mr: 2, width: 48, height: 48 }}
                 >
-                  {editingRoleMember.username?.charAt(0)?.toUpperCase() || 'U'}
+                  {!editingRoleMember.avatarUrl && editingRoleMember.username ? editingRoleMember.username.charAt(0).toUpperCase() : 'U'}
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1" fontWeight="medium">

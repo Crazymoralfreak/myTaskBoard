@@ -32,7 +32,7 @@ import { Task, TaskComment } from '../../../types/task';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { useAuth } from '../../../hooks/useAuth';
 import { taskService } from '../../../services/taskService';
-import { getFullAvatarUrl } from '../../../api/api';
+import { getAvatarUrl } from '../../../utils/avatarUtils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -46,9 +46,10 @@ interface CommentWithReplies extends TaskComment {
 interface TaskCommentsProps {
     taskId: number;
     onTaskUpdate?: (updatedTaskInfo?: { id: number, commentCount: number }) => void;
+    canComment?: boolean;
 }
 
-export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate }) => {
+export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate, canComment = true }) => {
     const { user } = useAuth();
     const theme = useTheme();
     const commentsEndRef = useRef<HTMLDivElement>(null);
@@ -368,6 +369,11 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
     
     // Проверка, может ли пользователь редактировать комментарий
     const canEditComment = (comment: CommentWithReplies): boolean => {
+        // Сначала проверяем право на комментирование
+        if (!canComment) {
+            return false;
+        }
+        
         if (!user || !comment.author) {
             // Добавляем лог для случая отсутствия данных
             console.log('[canEditComment] Проверка невозможна: Нет user или comment.author', {
@@ -427,7 +433,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                         <Tooltip title={comment.author?.username || 'Пользователь'}>
                             <Avatar 
                                 alt={comment.author?.username}
-                                src={comment.author?.avatarUrl ? getFullAvatarUrl(comment.author.avatarUrl) : undefined}
+                                src={comment.author?.avatarUrl ? getAvatarUrl(comment.author.avatarUrl) : undefined}
                                 sx={{ width: 32, height: 32 }}
                             >
                                 {comment.author?.username ? comment.author.username.charAt(0).toUpperCase() : '?'}
@@ -530,6 +536,18 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                 </Box>
                             </Box>
                         )}
+                        
+                        {!editingCommentId && !replyToId && canComment && (
+                            <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button 
+                                    size="small" 
+                                    startIcon={<ReplyIcon />}
+                                    onClick={() => setReplyToId(comment.id)}
+                                >
+                                    Ответить
+                                </Button>
+                            </Box>
+                        )}
                     </Paper>
                 </Box>
             </Zoom>
@@ -564,29 +582,37 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             <Divider sx={{ my: 2 }} />
             
             {/* Поле для добавления нового комментария */} 
-            <Typography variant="subtitle1" gutterBottom>
-                Добавить комментарий
-            </Typography>
-            <Box sx={{ mt: 1 }}>
-                <ReactQuill 
-                    theme="snow"
-                    value={newComment}
-                    onChange={setNewComment}
-                    modules={quillModules}
-                    formats={quillFormats}
-                    placeholder="Введите ваш комментарий..."
-                />
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                    <Button 
-                        variant="contained"
-                        onClick={handleAddComment}
-                        disabled={!newComment.trim() || loading}
-                        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-                    >
-                        {loading ? 'Отправка...' : 'Отправить'}
-                    </Button>
-                </Box>
-            </Box>
+            {canComment ? (
+                <>
+                    <Typography variant="subtitle1" gutterBottom>
+                        Добавить комментарий
+                    </Typography>
+                    <Box sx={{ mt: 1 }}>
+                        <ReactQuill 
+                            theme="snow"
+                            value={newComment}
+                            onChange={setNewComment}
+                            modules={quillModules}
+                            formats={quillFormats}
+                            placeholder="Введите ваш комментарий..."
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                            <Button 
+                                variant="contained"
+                                onClick={handleAddComment}
+                                disabled={!newComment.trim() || loading}
+                                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+                            >
+                                {loading ? 'Отправка...' : 'Отправить'}
+                            </Button>
+                        </Box>
+                    </Box>
+                </>
+            ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                    У вас нет прав для добавления комментариев.
+                </Typography>
+            )}
             
             {/* Меню действий для комментария */} 
             <Menu
@@ -599,14 +625,14 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                         <EditIcon fontSize="small" sx={{ mr: 1 }} /> Редактировать
                     </MenuItem>
                 )}
-                {/* Пока убираем "Ответить" из меню, т.к. нет поддержки вложенности 
-                <MenuItem onClick={() => { 
-                    if (selectedCommentId) setReplyToId(selectedCommentId); 
-                    handleMenuClose(); 
-                }}>
-                    <ReplyIcon fontSize="small" sx={{ mr: 1 }} /> Ответить
-                </MenuItem> 
-                */} 
+                {canComment && (
+                    <MenuItem onClick={() => { 
+                        if (selectedCommentId) setReplyToId(selectedCommentId); 
+                        handleMenuClose(); 
+                    }}>
+                        <ReplyIcon fontSize="small" sx={{ mr: 1 }} /> Ответить
+                    </MenuItem>
+                )}
                 {selectedCommentId && canEditComment(findCommentById(selectedCommentId)!) && (
                     <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
                         <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Удалить

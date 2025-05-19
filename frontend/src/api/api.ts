@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { refreshToken } from '../services/authService';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 export const api = axios.create({
   baseURL: 'http://localhost:8081',
@@ -355,7 +356,7 @@ export const uploadUserAvatar = async (file: File) => {
     
     if (response.data && response.data.avatarUrl) {
       // Полный URL для аватара
-      const fullAvatarUrl = getFullAvatarUrl(response.data.avatarUrl);
+      const fullAvatarUrl = getAvatarUrl(response.data.avatarUrl);
       
       // Обновляем данные пользователя в localStorage
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
@@ -381,29 +382,6 @@ export const uploadUserAvatar = async (file: File) => {
     
     throw error;
   }
-};
-
-// Утилитарная функция для формирования полного URL для загруженных аватаров
-export const getFullAvatarUrl = (url: string | undefined): string | undefined => {
-  if (!url) return undefined;
-  
-  // Если это абсолютный URL или data URL, возвращаем как есть
-  if (url.startsWith('http') || url.startsWith('data:')) {
-    return url;
-  }
-  
-  // Если это URL загруженного на сервер аватара, добавляем базовый URL API
-  if (url.startsWith('/uploads/')) {
-    return `${api.defaults.baseURL}${url}`;
-  }
-  
-  // Если это относительный путь без слеша в начале, добавляем слеш
-  if (!url.startsWith('/')) {
-    return `${api.defaults.baseURL}/uploads/avatars/${url}`;
-  }
-  
-  // Для любых других случаев, возвращаем как есть
-  return url;
 };
 
 // Обновление настроек пользователя (включая тему, приватность, язык и т.д.)

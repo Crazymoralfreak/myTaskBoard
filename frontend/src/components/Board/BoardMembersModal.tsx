@@ -50,6 +50,7 @@ import InviteForm from './InviteForm';
 import { useTokenRefresh } from '../../hooks/useTokenRefresh';
 import { boardService } from '../../services/boardService';
 import { useUserRole, Permission } from '../../hooks/useUserRole';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 
 interface BoardMembersModalProps {
   open: boolean;
@@ -386,7 +387,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       >
         {/* Аватар пользователя */}
         <Avatar 
-          src={member.avatarUrl} 
+          src={getAvatarUrl(member.avatarUrl)} 
           alt={member.username || 'Пользователь'}
           sx={{ width: 40, height: 40 }}
         >
@@ -477,7 +478,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         <DialogContent dividers>
           <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
             <Avatar 
-              src={selectedMember.avatarUrl} 
+              src={getAvatarUrl(selectedMember.avatarUrl)} 
               alt={selectedMember.username}
               sx={{ mr: 2 }}
             >

@@ -69,6 +69,7 @@ import { toast } from 'react-hot-toast';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useUserRole, Permission } from '../../../hooks/useUserRole';
 import { boardService } from '../../../services/boardService';
+import { useRoleContext } from '../../../contexts/RoleContext';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -179,8 +180,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     // Состояние для данных доски и проверки ролей
     const [boardData, setBoardData] = useState<any>(null);
     
-    // Используем хук для проверки ролей
-    const userRoles = useUserRole(boardData, undefined);
+    // Получаем контекст ролей
+    const roleContext = useRoleContext();
 
     // Используем ExtendedTaskWithTypes вместо Task
     const [task, setTask] = useState<ExtendedTaskWithTypes | null>(initialTask || null);
@@ -210,16 +211,26 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     const { showConfirmDialog } = useConfirmDialog();
 
-    // Загрузка данных доски для проверки прав
+    // При загрузке доски, обновляем текущую доску в контексте ролей
     useEffect(() => {
         const loadBoardData = async () => {
             if (boardId) {
                 try {
+                    console.log('Загрузка данных доски для проверки прав, boardId:', boardId);
                     const data = await boardService.getBoard(boardId);
+                    console.log('Данные доски загружены:', data);
+                    if ((data as any).currentUser) {
+                        console.log('Текущий пользователь:', (data as any).currentUser);
+                        console.log('Роль пользователя:', (data as any).currentUser.role);
+                    } else {
+                        console.warn('Данные о текущем пользователе отсутствуют в ответе API');
+                    }
                     setBoardData(data);
                 } catch (error) {
                     console.error('Не удалось загрузить данные доски:', error);
                 }
+            } else {
+                console.warn('boardId не предоставлен для TaskModal, права будут ограничены');
             }
         };
         
@@ -228,19 +239,34 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         }
     }, [boardId, open]);
     
+    // Эффект для логирования проверок прав
+    useEffect(() => {
+        if (boardData) {
+            console.log('Проверка прав пользователя:');
+            console.log('- canEditTask:', canEditTask());
+            console.log('- canDeleteTask:', canDeleteTask());
+            console.log('- canAddComments:', canAddComments());
+            console.log('- canCopyTask:', canCopyTask());
+        }
+    }, [boardData]);
+
     // Функции для проверки прав
     const canEditTask = (): boolean => {
-        if (boardData) {
-            return userRoles.hasPermission(Permission.EDIT_TASKS);
-        }
-        return true;
+        return roleContext.hasPermission(Permission.EDIT_TASKS);
     };
     
     const canDeleteTask = (): boolean => {
-        if (boardData) {
-            return userRoles.hasPermission(Permission.DELETE_TASKS);
-        }
-        return true;
+        return roleContext.hasPermission(Permission.DELETE_TASKS);
+    };
+
+    // Функция для проверки права на добавление комментариев
+    const canAddComments = (): boolean => {
+        return roleContext.hasPermission(Permission.COMMENT_TASKS);
+    };
+
+    // Функция для проверки права на копирование задач
+    const canCopyTask = (): boolean => {
+        return roleContext.hasPermission(Permission.ADD_TASKS);
     };
 
     useEffect(() => {
@@ -755,10 +781,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     </Box>
                 );
             case 'view':
+                const canEdit = canEditTask();
+                const canDelete = canDeleteTask();
+                const canCopy = canCopyTask();
+                
+                console.log('Права при рендеринге кнопок в режиме просмотра:');
+                console.log('- canEditTask:', canEdit);
+                console.log('- canDeleteTask:', canDelete);
+                console.log('- canCopyTask:', canCopy);
+                
                 return (
                     <Box sx={actionStyles} width="100%">
                         <DialogActions>
-                            {canDeleteTask() && (
+                            {canDelete && (
                                 <Button 
                                     onClick={() => showConfirmDialog({
                                         title: "Удалить задачу",
@@ -775,15 +810,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     {isMobile ? '' : 'Удалить'}
                                 </Button>
                             )}
-                            <Button 
-                                onClick={handleCopyTask} 
-                                disabled={isSubmitting}
-                                startIcon={<ContentCopyIcon />}
-                                sx={{ mr: isMobile ? 'auto' : 1 }}
-                            >
-                                {isMobile ? '' : 'Копировать'}
-                            </Button>
-                            {onTaskUpdate && canEditTask() && (
+                            {canCopy && (
+                                <Button 
+                                    onClick={handleCopyTask} 
+                                    disabled={isSubmitting}
+                                    startIcon={<ContentCopyIcon />}
+                                    sx={{ mr: isMobile ? 'auto' : 1 }}
+                                >
+                                    {isMobile ? '' : 'Копировать'}
+                                </Button>
+                            )}
+                            {onTaskUpdate && canEdit && (
                                 <Button 
                                     onClick={() => {
                                         setMode('edit');
@@ -980,6 +1017,31 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             )}
         </Box>
     );
+
+    // При загрузке задачи, обновляем данные в контексте ролей
+    useEffect(() => {
+        if (boardData) {
+            roleContext.setCurrentBoard(boardData);
+            if ((boardData as any).currentUser) {
+                roleContext.setCurrentUserId((boardData as any).currentUser.id);
+                console.log('Установлен currentUserId в RoleContext:', (boardData as any).currentUser.id);
+                console.log('RoleContext после обновления:', {
+                    isOwner: roleContext.isOwner,
+                    isAdmin: roleContext.isAdmin,
+                    currentRole: roleContext.currentRole,
+                    permissions: {
+                        canEditTask: roleContext.hasPermission(Permission.EDIT_TASKS),
+                        canDeleteTask: roleContext.hasPermission(Permission.DELETE_TASKS),
+                        canCopyTask: roleContext.hasPermission(Permission.ADD_TASKS),
+                        canCommentTask: roleContext.hasPermission(Permission.COMMENT_TASKS)
+                    }
+                });
+            }
+        }
+    }, [boardData, roleContext]);
+
+    const hasCommentsPermission = canAddComments();
+    console.log('Права на комментирование при рендеринге вкладки комментариев:', hasCommentsPermission);
 
     return (
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
@@ -1625,6 +1687,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     }
                                                 }
                                             }}
+                                            canComment={hasCommentsPermission}
                                         />
                                     </TabPanel>
                                     <TabPanel value={selectedTab} index={3}>

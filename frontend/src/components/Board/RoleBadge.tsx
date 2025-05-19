@@ -1,5 +1,5 @@
 import React from 'react';
-import { Chip, Tooltip } from '@mui/material';
+import { Chip, Tooltip, useTheme } from '@mui/material';
 import { Role, SystemRoles } from '../../types/Role';
 
 interface RoleBadgeProps {
@@ -8,20 +8,29 @@ interface RoleBadgeProps {
 }
 
 /**
- * Возвращает цвет для роли
+ * Возвращает цвет для роли с учетом текущей темы
  * @param roleName имя роли
+ * @param isDarkMode флаг темной темы
  * @returns цвет для отображения
  */
-const getRoleColor = (roleName: string): string => {
+const getRoleColor = (roleName: string, isDarkMode: boolean): { bg: string, text: string } => {
   switch (roleName) {
     case SystemRoles.ADMIN:
-      return '#d32f2f'; // Красный
+      return isDarkMode 
+        ? { bg: '#d32f2f33', text: '#ff6b6b' } // Более светлый красный для темной темы
+        : { bg: '#d32f2f', text: '#ffffff' };  // Стандартный красный для светлой темы
     case SystemRoles.EDITOR:
-      return '#1976d2'; // Синий
+      return isDarkMode 
+        ? { bg: '#1976d233', text: '#64b5f6' } // Более светлый синий для темной темы
+        : { bg: '#1976d2', text: '#ffffff' };  // Стандартный синий для светлой темы
     case SystemRoles.VIEWER:
-      return '#388e3c'; // Зеленый
+      return isDarkMode 
+        ? { bg: '#388e3c33', text: '#81c784' } // Более светлый зеленый для темной темы
+        : { bg: '#388e3c', text: '#ffffff' };  // Стандартный зеленый для светлой темы
     default:
-      return '#757575'; // Серый
+      return isDarkMode 
+        ? { bg: '#75757533', text: '#bdbdbd' } // Более светлый серый для темной темы
+        : { bg: '#757575', text: '#ffffff' };  // Стандартный серый для светлой темы
   }
 };
 
@@ -29,7 +38,9 @@ const getRoleColor = (roleName: string): string => {
  * Компонент для отображения бейджа роли
  */
 const RoleBadge: React.FC<RoleBadgeProps> = ({ role, size = 'medium' }) => {
-  const color = getRoleColor(role.name);
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
+  const { bg, text } = getRoleColor(role.name, isDarkMode);
   
   return (
     <Tooltip title={role.description || role.name} arrow>
@@ -37,11 +48,11 @@ const RoleBadge: React.FC<RoleBadgeProps> = ({ role, size = 'medium' }) => {
         label={role.name}
         size={size}
         sx={{
-          backgroundColor: color,
-          color: 'white',
+          backgroundColor: bg,
+          color: text,
           fontWeight: 'bold',
           '&:hover': {
-            backgroundColor: color,
+            backgroundColor: bg,
             opacity: 0.9
           }
         }}
