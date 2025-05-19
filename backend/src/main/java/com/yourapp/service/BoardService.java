@@ -44,6 +44,38 @@ public class BoardService {
     private final BoardMemberService boardMemberService;
     private final RoleService roleService;
     
+    /**
+     * Возвращает сервис для работы с ролями
+     * @return сервис ролей
+     */
+    public RoleService getRoleService() {
+        return this.roleService;
+    }
+    
+    /**
+     * Получает объект BoardMember для указанных доски и пользователя
+     * @param boardId ID доски
+     * @param userId ID пользователя
+     * @return объект BoardMember или null, если пользователь не является участником доски
+     */
+    @Transactional(readOnly = true)
+    public BoardMember getBoardMember(String boardId, Long userId) {
+        try {
+            // Получаем пользователя и доску
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
+            
+            Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Доска с ID " + boardId + " не найдена"));
+            
+            // Получаем запись о членстве пользователя в доске
+            return boardMemberRepository.findByUserAndBoard(user, board).orElse(null);
+        } catch (Exception e) {
+            logger.error("Ошибка при получении объекта BoardMember: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
     public Board createBoard(Board board) {
         if (board.getName() == null || board.getName().trim().isEmpty()) {
             throw new IllegalArgumentException("Board name cannot be empty");
@@ -581,5 +613,53 @@ public class BoardService {
     public TaskType getTaskTypeById(Long typeId) {
         return taskTypeRepository.findById(typeId)
             .orElseThrow(() -> new ResourceNotFoundException("TaskType not found with id: " + typeId));
+    }
+    
+    /**
+     * Проверяет, имеет ли пользователь роль ADMIN на доске
+     * @param boardId ID доски
+     * @param userId ID пользователя
+     * @return true, если пользователь имеет роль ADMIN, иначе false
+     */
+    @Transactional(readOnly = true)
+    public boolean isUserBoardAdmin(String boardId, Long userId) {
+        logger.debug("Проверяем, имеет ли пользователь {} роль ADMIN на доске {}", userId, boardId);
+        try {
+            // Получаем пользователя и доску
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
+            
+            Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Доска с ID " + boardId + " не найдена"));
+            
+            // Проверяем, является ли пользователь владельцем доски
+            if (board.getOwner() != null && board.getOwner().getId().equals(userId)) {
+                logger.debug("Пользователь {} является владельцем доски {}", userId, boardId);
+                return true;
+            }
+            
+            // Получаем запись о членстве пользователя в доске
+            BoardMember boardMember = boardMemberRepository.findByUserAndBoard(user, board)
+                .orElse(null);
+            
+            if (boardMember == null) {
+                logger.debug("Пользователь {} не является участником доски {}", userId, boardId);
+                return false;
+            }
+            
+            // Проверяем роль пользователя
+            Role role = boardMember.getRole();
+            if (role != null && "ADMIN".equalsIgnoreCase(role.getName())) {
+                logger.debug("Пользователь {} имеет роль ADMIN на доске {}", userId, boardId);
+                return true;
+            }
+            
+            logger.debug("Пользователь {} имеет роль {} на доске {}", userId, 
+                    role != null ? role.getName() : "null", boardId);
+            return false;
+        } catch (Exception e) {
+            logger.error("Ошибка при проверке роли пользователя: {}", e.getMessage(), e);
+            return false;
+        }
     }
 }

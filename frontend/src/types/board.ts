@@ -38,4 +38,13 @@ export interface Column {
     position: number;
     tasks: Task[];
     color?: string;
+}
+
+export namespace Board {
+  export interface CurrentUser {
+    id: number;
+    isAdmin: boolean;
+    role?: string;
+    roleId?: number;
+  }
 } 

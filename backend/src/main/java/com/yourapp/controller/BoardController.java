@@ -18,6 +18,8 @@ import org.springframework.http.MediaType;
 import com.yourapp.dto.CreateBoardRequest;
 import com.yourapp.exception.ResourceNotFoundException;
 import java.util.stream.Collectors;
+import com.yourapp.model.Role;
+import com.yourapp.model.BoardMember;
 
 @RestController
 @RequestMapping(
@@ -176,6 +178,52 @@ public class BoardController {
             boolean isOwner = user != null && board.getOwner() != null && board.getOwner().getId().equals(user.getId());
             logger.info("Доска найдена. Владелец: {}. Текущий пользователь - владелец: {}", 
                        board.getOwner() != null ? board.getOwner().getUsername() : "null", isOwner);
+            
+            // Проверяем, является ли пользователь участником с ролью ADMIN
+            boolean isAdmin = isOwner; // По умолчанию владелец всегда админ
+            String roleName = "ADMIN"; // Значение по умолчанию для владельца
+            Long roleId = null;
+            
+            if (user != null) {
+                if (isOwner) {
+                    // Если пользователь владелец, ищем системную роль ADMIN
+                    try {
+                        Role adminRole = boardService.getRoleService().getSystemRoleByName("ADMIN");
+                        roleId = adminRole.getId();
+                    } catch (Exception e) {
+                        logger.warn("Не удалось найти системную роль ADMIN: {}", e.getMessage());
+                    }
+                } else {
+                    // Если пользователь не владелец, получаем его роль
+                    try {
+                        BoardMember boardMember = boardService.getBoardMember(id, user.getId());
+                        if (boardMember != null && boardMember.getRole() != null) {
+                            roleName = boardMember.getRole().getName();
+                            roleId = boardMember.getRole().getId();
+                            isAdmin = "ADMIN".equalsIgnoreCase(roleName);
+                            logger.info("Пользователь {} имеет роль {} на доске {}", 
+                                user.getUsername(), roleName, id);
+                        } else {
+                            logger.info("Пользователь {} не является участником доски {}", 
+                                user.getUsername(), id);
+                            roleName = null; // Нет роли, если не участник
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Ошибка при получении роли пользователя: {}", e.getMessage());
+                        roleName = null;
+                    }
+                }
+            }
+            
+            // Добавляем информацию о текущем пользователе в объект доски
+            Map<String, Object> currentUserInfo = new HashMap<>();
+            currentUserInfo.put("id", user != null ? user.getId() : 0);
+            currentUserInfo.put("isAdmin", isAdmin); // Оставляем для обратной совместимости
+            currentUserInfo.put("role", roleName); // Добавляем название роли
+            if (roleId != null) {
+                currentUserInfo.put("roleId", roleId); // Добавляем ID роли, если доступен
+            }
+            board.setAdditionalProperty("currentUser", currentUserInfo);
             
             return ResponseEntity.ok(board);
         } catch (Exception e) {

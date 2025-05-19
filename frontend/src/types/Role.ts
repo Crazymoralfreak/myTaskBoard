@@ -4,12 +4,12 @@
 export interface Role {
   id: number;
   name: string;
-  description: string;
-  isSystem: boolean;
+  description?: string;
+  isSystem?: boolean;
 }
 
 /**
- * Предопределенные системные роли
+ * Системные роли пользователей на доске
  */
 export enum SystemRoles {
   ADMIN = 'ADMIN',

@@ -67,6 +67,8 @@ import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import { userService } from '../../../services/userService';
 import { toast } from 'react-hot-toast';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useUserRole, Permission } from '../../../hooks/useUserRole';
+import { boardService } from '../../../services/boardService';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -174,6 +176,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [newTag, setNewTag] = useState('');
     const [userSettings, setUserSettings] = useState<{compactMode?: boolean}>({});
 
+    // Состояние для данных доски и проверки ролей
+    const [boardData, setBoardData] = useState<any>(null);
+    
+    // Используем хук для проверки ролей
+    const userRoles = useUserRole(boardData, undefined);
+
     // Используем ExtendedTaskWithTypes вместо Task
     const [task, setTask] = useState<ExtendedTaskWithTypes | null>(initialTask || null);
 
@@ -201,6 +209,39 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     ];
 
     const { showConfirmDialog } = useConfirmDialog();
+
+    // Загрузка данных доски для проверки прав
+    useEffect(() => {
+        const loadBoardData = async () => {
+            if (boardId) {
+                try {
+                    const data = await boardService.getBoard(boardId);
+                    setBoardData(data);
+                } catch (error) {
+                    console.error('Не удалось загрузить данные доски:', error);
+                }
+            }
+        };
+        
+        if (open) {
+            loadBoardData();
+        }
+    }, [boardId, open]);
+    
+    // Функции для проверки прав
+    const canEditTask = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.EDIT_TASKS);
+        }
+        return true;
+    };
+    
+    const canDeleteTask = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.DELETE_TASKS);
+        }
+        return true;
+    };
 
     useEffect(() => {
         if (open) {
@@ -683,21 +724,23 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 return (
                     <Box sx={actionStyles} width="100%">
                         <DialogActions>
-                            <Button 
-                                onClick={() => showConfirmDialog({
-                                    title: "Удалить задачу",
-                                    message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
-                                    actionType: "delete",
-                                    onConfirm: handleDelete,
-                                    loading: isSubmitting
-                                })} 
-                                color="error"
-                                disabled={isSubmitting}
-                                startIcon={<DeleteOutlineIcon />}
-                                sx={{ mr: 'auto' }}
-                            >
-                                Удалить
-                            </Button>
+                            {canDeleteTask() && (
+                                <Button 
+                                    onClick={() => showConfirmDialog({
+                                        title: "Удалить задачу",
+                                        message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                        actionType: "delete",
+                                        onConfirm: handleDelete,
+                                        loading: isSubmitting
+                                    })} 
+                                    color="error"
+                                    disabled={isSubmitting}
+                                    startIcon={<DeleteOutlineIcon />}
+                                    sx={{ mr: 'auto' }}
+                                >
+                                    Удалить
+                                </Button>
+                            )}
                             <Button onClick={() => setMode('view')} disabled={isSubmitting}>
                                 Отмена
                             </Button>
@@ -715,21 +758,23 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 return (
                     <Box sx={actionStyles} width="100%">
                         <DialogActions>
-                            <Button 
-                                onClick={() => showConfirmDialog({
-                                    title: "Удалить задачу",
-                                    message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
-                                    actionType: "delete",
-                                    onConfirm: handleDelete,
-                                    loading: isSubmitting
-                                })} 
-                                color="error"
-                                disabled={isSubmitting}
-                                startIcon={<DeleteOutlineIcon />}
-                                sx={{ mr: 1 }}
-                            >
-                                {isMobile ? '' : 'Удалить'}
-                            </Button>
+                            {canDeleteTask() && (
+                                <Button 
+                                    onClick={() => showConfirmDialog({
+                                        title: "Удалить задачу",
+                                        message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                        actionType: "delete",
+                                        onConfirm: handleDelete,
+                                        loading: isSubmitting
+                                    })} 
+                                    color="error"
+                                    disabled={isSubmitting}
+                                    startIcon={<DeleteOutlineIcon />}
+                                    sx={{ mr: 1 }}
+                                >
+                                    {isMobile ? '' : 'Удалить'}
+                                </Button>
+                            )}
                             <Button 
                                 onClick={handleCopyTask} 
                                 disabled={isSubmitting}
@@ -738,7 +783,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             >
                                 {isMobile ? '' : 'Копировать'}
                             </Button>
-                            {onTaskUpdate && (
+                            {onTaskUpdate && canEditTask() && (
                                 <Button 
                                     onClick={() => {
                                         setMode('edit');
@@ -763,7 +808,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         }
     };
 
-    const isEditable = mode === 'create' || mode === 'edit';
+    const isEditable = (mode === 'create' || mode === 'edit') && canEditTask();
 
     // Добавляем компонент для отображения типа задачи и статуса в режиме просмотра
     const TaskInfoChips = ({ task, isEditable }: { task: Task, isEditable: boolean }) => {

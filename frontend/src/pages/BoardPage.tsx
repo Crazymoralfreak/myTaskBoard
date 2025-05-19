@@ -52,6 +52,8 @@ import { toast } from 'react-hot-toast';
 import { userService } from '../services/userService';
 import { useTheme, useMediaQuery } from '@mui/material';
 import BoardMembersModal from '../components/Board/BoardMembersModal';
+import { useRoleContext } from '../contexts/RoleContext';
+import { Permission } from '../hooks/useUserRole';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -96,6 +98,23 @@ function TabPanel(props: TabPanelProps) {
     );
 }
 
+// Дополним типы для функций обратного вызова
+interface ColumnMoveFn {
+  (newPosition: number): void;
+}
+
+interface ColumnEditFn {
+  (columnId: string, name: string, color?: string): void;
+}
+
+interface ColumnDeleteFn {
+  (columnId: string, name: string): void;
+}
+
+interface TasksChangeFn {
+  (updatedColumn: Column): void;
+}
+
 export const BoardPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>();
     const [board, setBoard] = useState<Board | null>(null);
@@ -129,6 +148,9 @@ export const BoardPage: React.FC = () => {
     // Добавляем определение мобильного устройства
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+    // Получаем контекст ролей
+    const roleContext = useRoleContext();
+
     // Загружаем настройки пользователя при монтировании компонента
     useEffect(() => {
         const loadUserSettings = async () => {
@@ -152,6 +174,16 @@ export const BoardPage: React.FC = () => {
             loadBoard();
         }
     }, [boardId]);
+
+    // При загрузке доски, обновляем текущую доску в контексте ролей
+    useEffect(() => {
+        if (board) {
+            roleContext.setCurrentBoard(board);
+            if ((board as any).currentUser) {
+                roleContext.setCurrentUserId((board as any).currentUser.id);
+            }
+        }
+    }, [board, roleContext]);
 
     useEffect(() => {
         if (!board) return;
@@ -322,7 +354,28 @@ export const BoardPage: React.FC = () => {
         }
     };
 
+    // Проверяем, может ли пользователь добавлять колонки
+    const canAddColumn = () => {
+        return roleContext.hasPermission(Permission.ADD_COLUMNS);
+    };
+    
+    // Проверяем, может ли пользователь редактировать доску
+    const canEditBoard = () => {
+        return roleContext.hasPermission(Permission.EDIT_BOARD_SETTINGS);
+    };
+    
+    // Проверяем, может ли пользователь удалять доску
+    const canDeleteBoard = () => {
+        return roleContext.hasPermission(Permission.DELETE_BOARD);
+    };
+
+    // Обновляем обработчики действий с проверкой разрешений
     const handleAddColumn = async (columnName: string) => {
+        if (!canAddColumn()) {
+            toast.error('У вас нет прав на добавление колонок');
+            return;
+        }
+        
         try {
             if (!board || !boardId) return;
             const updatedBoard = await boardService.addColumn(boardId, { name: columnName });
@@ -333,7 +386,7 @@ export const BoardPage: React.FC = () => {
         }
     };
 
-    const handleColumnMove = async (columnId: string, newPosition: number): Promise<void> => {
+    const handleMoveColumn = async (columnId: string, newPosition: number): Promise<void> => {
         console.log(`Перемещение колонки ${columnId} на позицию ${newPosition}`);
         
         if (!board) {
@@ -892,17 +945,20 @@ export const BoardPage: React.FC = () => {
                         }
                     }}
                 >
-                    <MenuItem 
-                        onClick={() => {
-                            setIsEditBoardModalOpen(true);
-                            handleBoardMenuClose();
-                        }}
-                    >
-                        <Box display="flex" alignItems="center">
-                            <EditIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
-                            Редактировать доску
-                        </Box>
-                    </MenuItem>
+                    {canEditBoard() && (
+                        <MenuItem 
+                            onClick={() => {
+                                setIsEditBoardModalOpen(true);
+                                handleBoardMenuClose();
+                            }}
+                        >
+                            <Box display="flex" alignItems="center">
+                                <EditIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
+                                Редактировать доску
+                            </Box>
+                        </MenuItem>
+                    )}
+                    
                     <MenuItem 
                         onClick={() => {
                             setIsMembersModalOpen(true);
@@ -911,44 +967,27 @@ export const BoardPage: React.FC = () => {
                     >
                         <Box display="flex" alignItems="center">
                             <PeopleAltIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
-                            Управление участниками
+                            Участники
                         </Box>
                     </MenuItem>
-                    <MenuItem 
-                        onClick={() => {
-                            // Функционал дополнительных настроек колонок (пока что заглушка)
-                            handleBoardMenuClose();
-                        }}
-                    >
-                        <Box display="flex" alignItems="center">
-                            <DashboardCustomizeIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
-                            Настройки колонок
-                        </Box>
-                    </MenuItem>
-                    <MenuItem 
-                        onClick={() => {
-                            // Функционал настроек доступа (пока что заглушка)
-                            handleBoardMenuClose();
-                        }}
-                    >
-                        <Box display="flex" alignItems="center">
-                            <SecurityIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
-                            Настройки доступа
-                        </Box>
-                    </MenuItem>
+                
+                    
                     <Divider sx={{ my: 1 }} />
-                    <MenuItem 
-                        onClick={() => {
-                            setIsDeleteBoardDialogOpen(true);
-                            handleBoardMenuClose();
-                        }}
-                        sx={{ color: 'error.main' }}
-                    >
-                        <Box display="flex" alignItems="center">
-                            <DeleteIcon fontSize="small" sx={{ mr: 2 }} />
-                            Удалить доску
-                        </Box>
-                    </MenuItem>
+                    
+                    {canDeleteBoard() && (
+                        <MenuItem 
+                            onClick={() => {
+                                setIsDeleteBoardDialogOpen(true);
+                                handleBoardMenuClose();
+                            }}
+                            sx={{ color: 'error.main' }}
+                        >
+                            <Box display="flex" alignItems="center">
+                                <DeleteIcon fontSize="small" sx={{ mr: 2 }} />
+                                Удалить доску
+                            </Box>
+                        </MenuItem>
+                    )}
                 </Menu>
                 
                 <Popover
@@ -1080,77 +1119,97 @@ export const BoardPage: React.FC = () => {
                         } : {}
                     }}
                 >
-                    {board && filteredColumns && filteredColumns.length > 0 ? (
+                    {board.columns && board.columns.length > 0 ? (
                         <>
-                            {filteredColumns.map((column, index) => (
-                                <Droppable key={column.id} droppableId={column.id.toString()} type="task">
-                                    {(provided) => (
-                                        <div
-                                            ref={provided.innerRef}
-                                            {...provided.droppableProps}
-                                            style={{ height: '100%' }}
-                                        >
+                            <Droppable droppableId="board" type="column">
+                                {(provided) => (
+                                    <Box
+                                        {...provided.droppableProps}
+                                        ref={provided.innerRef}
+                                        sx={{
+                                            display: 'flex',
+                                            flexWrap: 'nowrap',
+                                            overflowX: 'auto',
+                                            gap: 2,
+                                            pb: 2,
+                                            pt: 1,
+                                            pl: 1,
+                                            width: '100%',
+                                            '&::-webkit-scrollbar': {
+                                                height: '8px',
+                                            },
+                                            '&::-webkit-scrollbar-track': {
+                                                backgroundColor: 'background.paper',
+                                            },
+                                            '&::-webkit-scrollbar-thumb': {
+                                                backgroundColor: 'primary.light',
+                                                borderRadius: '4px',
+                                            },
+                                        }}
+                                    >
+                                        {board.columns.map((column, index) => (
                                             <BoardColumn
+                                                key={column.id}
                                                 column={column}
-                                                onMove={(newPosition) => handleColumnMove(column.id.toString(), newPosition)}
                                                 canMoveLeft={index > 0}
-                                                canMoveRight={index < filteredColumns.length - 1}
+                                                canMoveRight={index < board.columns.length - 1}
                                                 boardStatuses={board.taskStatuses}
                                                 taskTypes={taskTypes}
-                                                isCompactMode={isCompactMode}
                                                 onTasksChange={(updatedColumn) => {
-                                                    if (!board) return;
+                                                    // Обновляем колонку в состоянии board
                                                     const updatedColumns = board.columns.map(col =>
                                                         col.id === updatedColumn.id ? updatedColumn : col
                                                     );
-                                                    setBoard({
-                                                        ...board,
-                                                        columns: updatedColumns
-                                                    });
+                                                    setBoard({ ...board, columns: updatedColumns });
                                                 }}
-                                                onEdit={(columnId, name, color) => {
-                                                    console.log('Вызван обработчик редактирования колонки с id:', columnId);
-                                                    // Устанавливаем данные для редактирования колонки
-                                                    setEditColumnData({ id: columnId, name, color: color || '#E0E0E0' });
+                                                onMove={(newPosition) => handleMoveColumn(column.id.toString(), newPosition)}
+                                                onEdit={(columnId, columnName, color) => {
+                                                    setEditColumnData({ id: columnId, name: columnName, color });
                                                 }}
-                                                onDelete={(columnId, name) => handleDeleteColumn(columnId, name)}
+                                                onDelete={(columnId, columnName) => {
+                                                    setDeleteColumnData({ id: columnId, name: columnName });
+                                                }}
                                                 boardId={boardId}
+                                                isCompactMode={isCompactMode}
                                             />
-                                            {provided.placeholder}
-                                        </div>
-                                    )}
-                                </Droppable>
-                            ))}
-                            {/* Кнопка добавления новой колонки */}
-                            <Box 
-                                sx={{ 
-                                    minWidth: isMobile ? '100%' : 280,
-                                    maxWidth: isMobile ? '100%' : 280,
-                                    height: 80,
-                                    border: '2px dashed',
-                                    borderColor: 'primary.light',
-                                    borderRadius: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    mt: 0.5,
-                                    transition: 'all 0.2s',
-                                    bgcolor: 'background.paper',
-                                    '&:hover': {
-                                        borderColor: 'primary.main',
-                                        bgcolor: 'primary.lighter',
-                                    }
-                                }}
-                                onClick={() => setIsAddColumnModalOpen(true)}
-                            >
-                                <Button
-                                    startIcon={<AddIcon />}
-                                    color="primary"
-                                >
-                                    Добавить колонку
-                                </Button>
-                            </Box>
+                                        ))}
+                                        {provided.placeholder}
+                                        
+                                        {/* Кнопка добавления колонки (только для админов и редакторов) */}
+                                        {roleContext.hasPermission(Permission.ADD_COLUMNS) && (
+                                            <Box 
+                                                sx={{ 
+                                                    minWidth: isMobile ? '100%' : 280,
+                                                    maxWidth: isMobile ? '100%' : 280,
+                                                    height: 80,
+                                                    border: '2px dashed',
+                                                    borderColor: 'primary.light',
+                                                    borderRadius: 1,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    mt: 0.5,
+                                                    transition: 'all 0.2s',
+                                                    bgcolor: 'background.paper',
+                                                    '&:hover': {
+                                                        borderColor: 'primary.main',
+                                                        bgcolor: 'primary.lighter',
+                                                    }
+                                                }}
+                                                onClick={() => setIsAddColumnModalOpen(true)}
+                                            >
+                                                <Button
+                                                    startIcon={<AddIcon />}
+                                                    color="primary"
+                                                >
+                                                    Добавить колонку
+                                                </Button>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                )}
+                            </Droppable>
                         </>
                     ) : (
                         searchQuery ? (
@@ -1291,6 +1350,8 @@ export const BoardPage: React.FC = () => {
                     currentUserId={(board as any).currentUser?.id || 0}
                     ownerId={(board as any).owner?.id}
                     isAdmin={(board as any).currentUser?.isAdmin || false}
+                    currentUserRole={(board as any).currentUser?.role}
+                    currentUserRoleId={(board as any).currentUser?.roleId}
                 />
             )}
         </Container>

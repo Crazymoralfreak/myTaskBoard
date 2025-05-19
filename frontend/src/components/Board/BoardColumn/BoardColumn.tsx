@@ -10,7 +10,8 @@ import {
     ListItemIcon,
     ListItemText,
     Divider,
-    Chip
+    Chip,
+    Alert
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -31,6 +32,9 @@ import { taskService } from '../../../services/taskService';
 import { EditColumnModal } from '../EditColumnModal/EditColumnModal';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 import { userService } from '../../../services/userService';
+// Импорты для проверки прав доступа
+import { useUserRole, Permission } from '../../../hooks/useUserRole';
+import { boardService } from '../../../services/boardService';
 
 interface BoardColumnProps {
     column: Column;
@@ -84,12 +88,43 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    // Состояние для отображения уведомления о недостаточных правах
+    const [showPermissionAlert, setShowPermissionAlert] = useState(false);
+    
+    // Состояние для загрузки данных доски (для проверки прав)
+    const [boardData, setBoardData] = useState<any>(null);
+    
+    // Загрузка данных доски при монтировании компонента
+    useEffect(() => {
+        const loadBoardData = async () => {
+          if (boardId) {
+            try {
+              const data = await boardService.getBoard(
+                typeof boardId === 'string' ? boardId : boardId.toString()
+              );
+              setBoardData(data);
+            } catch (error) {
+              console.error('Не удалось загрузить данные доски:', error);
+            }
+          }
+        };
+        
+        loadBoardData();
+    }, [boardId]);
+    
+    // Получаем права пользователя
+    const userRoles = useUserRole(boardData, (boardData as any)?.currentUser?.id);
 
     useEffect(() => {
         setColor(column.color || '#E0E0E0');
     }, [column.color]);
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        // Проверяем права перед открытием меню
+        if (!canEditColumn() && !canDeleteColumn()) {
+            // Не показываем баннер, просто не открываем меню
+            return;
+        }
         setAnchorEl(event.currentTarget);
     };
 
@@ -111,6 +146,13 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     };
 
     const handleAddTask = async (taskData: any) => {
+        // Проверка прав перед добавлением задачи
+        if (!canAddTasks()) {
+            setShowPermissionAlert(true);
+            setTimeout(() => setShowPermissionAlert(false), 3000);
+            return;
+        }
+        
         try {
             const response = await taskService.createTask({
                 ...taskData,
@@ -129,6 +171,13 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
     };
 
     const handleTaskDelete = async (taskId: number) => {
+        // Проверка прав перед удалением задачи
+        if (!canDeleteTasks()) {
+            setShowPermissionAlert(true);
+            setTimeout(() => setShowPermissionAlert(false), 3000);
+            return false;
+        }
+        
         try {
             // Вызов API для удаления задачи происходит внутри TaskModal
             console.log('BoardColumn: Удаление задачи', taskId);
@@ -147,6 +196,64 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
             console.error('Ошибка при удалении задачи из состояния колонки:', error);
             return false;
         }
+    };
+    
+    // Функции для проверки прав доступа
+    
+    // Проверяем права на редактирование колонки
+    const canEditColumn = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.EDIT_COLUMNS);
+        }
+        return true; // По умолчанию разрешаем, пока не загрузились данные
+    };
+    
+    // Проверяем права на удаление колонки
+    const canDeleteColumn = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.DELETE_COLUMNS);
+        }
+        return true; // По умолчанию разрешаем, пока не загрузились данные
+    };
+    
+    // Проверяем права на добавление задач
+    const canAddTasks = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.ADD_TASKS);
+        }
+        return true; // По умолчанию разрешаем, пока не загрузились данные
+    };
+    
+    // Проверяем права на редактирование задач
+    const canEditTasks = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.EDIT_TASKS);
+        }
+        return true;
+    };
+    
+    // Проверяем права на удаление задач
+    const canDeleteTasks = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.DELETE_TASKS);
+        }
+        return true;
+    };
+    
+    // Проверяем права на перемещение колонки
+    const canMoveColumn = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.EDIT_COLUMNS);
+        }
+        return true;
+    };
+
+    // Проверяем права на перемещение задач
+    const canMoveTasks = (): boolean => {
+        if (boardData) {
+            return userRoles.hasPermission(Permission.MOVE_TASKS);
+        }
+        return true;
     };
 
     const textColor = isLightColor(color) ? 'rgba(0, 0, 0, 0.87)' : 'white';
@@ -228,7 +335,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 }}
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {canMoveLeft && (
+                    {canMoveLeft && canMoveColumn() && (
                         <IconButton
                             size="small"
                             onClick={() => onMove(column.position - 1)}
@@ -256,7 +363,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     >
                         {column.name}
                     </Typography>
-                    {canMoveRight && (
+                    {canMoveRight && canMoveColumn() && (
                         <IconButton
                             size="small"
                             onClick={() => onMove(column.position + 1)}
@@ -303,20 +410,23 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     >
                         <FilterListIcon />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={handleMenuOpen}
-                        sx={{
-                            color: textColor,
-                            opacity: 0.8,
-                            '&:hover': { 
-                                bgcolor: iconBgHoverColor,
-                                opacity: 1
-                            }
-                        }}
-                    >
-                        <MoreVertIcon />
-                    </IconButton>
+                    {/* Показываем кнопку меню только если есть права на редактирование или удаление */}
+                    {(canEditColumn() || canDeleteColumn()) && (
+                        <IconButton
+                            size="small"
+                            onClick={handleMenuOpen}
+                            sx={{
+                                color: textColor,
+                                opacity: 0.8,
+                                '&:hover': { 
+                                    bgcolor: iconBgHoverColor,
+                                    opacity: 1
+                                }
+                            }}
+                        >
+                            <MoreVertIcon />
+                        </IconButton>
+                    )}
                 </Box>
             </Box>
 
@@ -363,6 +473,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                 key={task.id}
                                 draggableId={`task-${task.id}`}
                                 index={index}
+                                isDragDisabled={!canMoveTasks()}
                             >
                                 {(provided, snapshot) => (
                                     <Box
@@ -400,6 +511,13 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                                 onTasksChange?.(column);
                                             }}
                                             onTaskUpdate={(updatedTask) => {
+                                                // Проверяем права на редактирование задачи
+                                                if (!canEditTasks()) {
+                                                    setShowPermissionAlert(true);
+                                                    setTimeout(() => setShowPermissionAlert(false), 3000);
+                                                    return;
+                                                }
+                                                
                                                 const updatedTasks = column.tasks.map(t => 
                                                     t.id === updatedTask.id ? updatedTask : t
                                                 );
@@ -426,21 +544,25 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     bgcolor: alpha(color, 0.02)
                 }}
             >
-                <Button
-                    fullWidth
-                    startIcon={<AddIcon />}
-                    onClick={() => setIsAddingTask(true)}
-                    sx={{
-                        color: alpha(color, 0.8),
-                        borderColor: alpha(color, 0.2),
-                        '&:hover': {
-                            bgcolor: alpha(color, 0.1),
-                            borderColor: alpha(color, 0.3)
-                        }
-                    }}
-                >
-                    Добавить задачу
-                </Button>
+                {canAddTasks() ? (
+                    <Button
+                        fullWidth
+                        startIcon={<AddIcon />}
+                        onClick={() => setIsAddingTask(true)}
+                        sx={{
+                            color: alpha(color, 0.8),
+                            borderColor: alpha(color, 0.2),
+                            '&:hover': {
+                                bgcolor: alpha(color, 0.1),
+                                borderColor: alpha(color, 0.3)
+                            }
+                        }}
+                    >
+                        Добавить задачу
+                    </Button>
+                ) : (
+                    <Box sx={{ height: 36 }} />
+                )}
             </Box>
 
             <Menu
@@ -448,28 +570,32 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
             >
-                <MenuItem onClick={() => {
-                    handleMenuClose();
-                    console.log('Редактирование колонки с ID:', column.id.toString());
-                    onEdit?.(column.id.toString(), column.name, column.color);
-                }}>
-                    <ListItemIcon>
-                        <EditOutlinedIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>Редактировать</ListItemText>
-                </MenuItem>
-                <MenuItem
-                    onClick={() => {
+                {canEditColumn() && (
+                    <MenuItem onClick={() => {
                         handleMenuClose();
-                        onDelete?.(column.id.toString(), column.name);
-                    }}
-                    sx={{ color: 'error.main' }}
-                >
-                    <ListItemIcon>
-                        <DeleteOutlineIcon fontSize="small" color="error" />
-                    </ListItemIcon>
-                    <ListItemText>Удалить</ListItemText>
-                </MenuItem>
+                        console.log('Редактирование колонки с ID:', column.id.toString());
+                        onEdit?.(column.id.toString(), column.name, column.color);
+                    }}>
+                        <ListItemIcon>
+                            <EditOutlinedIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText>Редактировать</ListItemText>
+                    </MenuItem>
+                )}
+                {canDeleteColumn() && (
+                    <MenuItem
+                        onClick={() => {
+                            handleMenuClose();
+                            onDelete?.(column.id.toString(), column.name);
+                        }}
+                        sx={{ color: 'error.main' }}
+                    >
+                        <ListItemIcon>
+                            <DeleteOutlineIcon fontSize="small" color="error" />
+                        </ListItemIcon>
+                        <ListItemText>Удалить</ListItemText>
+                    </MenuItem>
+                )}
             </Menu>
 
             <Menu

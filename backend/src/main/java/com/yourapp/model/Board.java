@@ -8,9 +8,12 @@ import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import java.util.HashMap;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import java.time.LocalDateTime;
 import lombok.ToString;
 import lombok.EqualsAndHashCode;
@@ -71,6 +74,33 @@ public class Board {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TaskType> taskTypes = new ArrayList<>();
+    
+    // Дополнительные свойства, не хранящиеся в БД
+    @Transient
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Map<String, Object> additionalProperties = new HashMap<>();
+    
+    /**
+     * Устанавливает дополнительное свойство, которое будет сериализовано вместе с объектом
+     * @param key ключ свойства
+     * @param value значение свойства
+     */
+    public void setAdditionalProperty(String key, Object value) {
+        if (additionalProperties == null) {
+            additionalProperties = new HashMap<>();
+        }
+        additionalProperties.put(key, value);
+    }
+    
+    /**
+     * Позволяет получить все дополнительные свойства при сериализации
+     * @return карта с дополнительными свойствами
+     */
+    @JsonAnyGetter
+    public Map<String, Object> getAdditionalProperties() {
+        return additionalProperties;
+    }
     
     /**
      * Генерирует хэш-идентификатор на основе UUID

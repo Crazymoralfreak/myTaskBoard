@@ -5,8 +5,6 @@ import {
     Typography,
     Box,
     IconButton,
-    Menu,
-    MenuItem,
     Chip,
     Tooltip,
     useTheme,
@@ -18,7 +16,6 @@ import CategoryIcon from '@mui/icons-material/Category';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AlarmIcon from '@mui/icons-material/Alarm';
@@ -33,6 +30,7 @@ import { TaskType, BoardStatus } from '../../../types/board';
 import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
 import { toast } from 'react-hot-toast';
 import { useTaskDelete } from '../../../hooks/useTaskDelete';
+import { useUserRole, Permission } from '../../../hooks/useUserRole';
 
 interface TaskCardProps {
     task: Task;
@@ -124,32 +122,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const theme = useTheme();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const [isRemoving, setIsRemoving] = useState(false);
     
     const { deleteTask, isDeleting } = useTaskDelete();
     
-    const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-        event.stopPropagation();
-        setAnchorEl(event.currentTarget);
+    // Получаем информацию о правах пользователя
+    const userRoles = useUserRole(null, Number(task.boardId));
+    
+    // Проверяем права на редактирование задачи
+    const canEditTask = (): boolean => {
+        if (task.boardId) {
+            return userRoles.hasPermission(Permission.EDIT_TASKS);
+        }
+        return true; // По умолчанию разрешаем, если нет информации о правах
     };
     
-    const handleMenuClose = () => {
-        setAnchorEl(null);
-    };
-    
-    const handleEdit = (event: React.MouseEvent<HTMLLIElement>) => {
-        event.stopPropagation();
-        handleMenuClose();
-        setIsEditOpen(true);
-    };
-    
-    const handleDelete = (event: React.MouseEvent<HTMLLIElement>) => {
-        event.stopPropagation();
-        handleMenuClose();
-        setIsDeleteOpen(true);
+    // Проверяем права на удаление задачи
+    const canDeleteTask = (): boolean => {
+        if (task.boardId) {
+            return userRoles.hasPermission(Permission.DELETE_TASKS);
+        }
+        return true; // По умолчанию разрешаем, если нет информации о правах
     };
     
     const handleConfirmDelete = () => {
@@ -166,10 +161,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const handleTaskUpdate = (updatedTask: Task) => {
         onTaskUpdate(updatedTask);
         setIsEditOpen(false);
-    };
-    
-    const handleActionClick = (event: React.MouseEvent) => {
-        event.stopPropagation();
     };
     
     const formatDate = (date: string) => {
@@ -505,19 +496,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                             >
                                 {task.title}
                             </Typography>
-                            
-                            <IconButton 
-                                size="small" 
-                                onClick={handleMenuOpen}
-                                sx={{ 
-                                    p: 0.5,
-                                    mt: -0.5,
-                                    mr: -0.5,
-                                    visibility: isHovered ? 'visible' : 'hidden'
-                                }}
-                            >
-                                <MoreVertIcon fontSize="small" sx={{ color: theme.palette.action.active }} />
-                            </IconButton>
                         </Box>
                         
                         {/* Тип и статус задачи */}
@@ -767,37 +745,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 taskTypes={taskTypes}
                 onTaskUpdate={handleTaskUpdate}
             />
-            
-            {/* Диалог подтверждения удаления */}
-            <ConfirmDialog
-                open={isDeleteOpen}
-                title="Удалить задачу"
-                message={`Вы уверены, что хотите удалить задачу "${task.title}"?`}
-                onClose={() => setIsDeleteOpen(false)}
-                onConfirm={handleConfirmDelete}
-                actionType="delete"
-            />
-            
-            {/* Меню действий */}
-            <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                onClick={handleActionClick}
-            >
-                <MenuItem onClick={handleEdit}>
-                    <ListItemIcon>
-                        <EditIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>Редактировать</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
-                    <ListItemIcon>
-                        <DeleteIcon fontSize="small" color="error" />
-                    </ListItemIcon>
-                    <ListItemText>Удалить</ListItemText>
-                </MenuItem>
-            </Menu>
+        
         </>
     );
 }; 
