@@ -26,7 +26,8 @@ import {
   Switch,
   FormControlLabel,
   useTheme,
-  Tooltip
+  Tooltip,
+  useMediaQuery
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -103,6 +104,7 @@ export const ProfilePage = () => {
   const [saving, setSaving] = useState<boolean>(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const token = localStorage.getItem('token');
 
   useEffect(() => {
@@ -264,17 +266,26 @@ export const ProfilePage = () => {
   const handleAvatarUpload = async (imageUrl: string) => {
     try {
       setLoading(true);
-      await updateUserAvatar(imageUrl);
-      // Обновляем профиль после изменения аватара
-      const updatedProfile = {...profile, avatarUrl: imageUrl};
-      setProfile(updatedProfile);
-      setOriginalProfile(updatedProfile);
-      setSelectedAvatar(imageUrl);
-      setSnackbar({
-        open: true,
-        message: 'Аватар успешно обновлен',
-        severity: 'success'
-      });
+      
+      // Извлекаем из объекта URL file-объект для загрузки
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+      
+      // Загружаем файл на сервер
+      const result = await uploadUserAvatar(file);
+      
+      if (result && result.avatarUrl) {
+        const updatedProfile = {...profile, avatarUrl: result.avatarUrl};
+        setProfile(updatedProfile);
+        setOriginalProfile(updatedProfile);
+        setSelectedAvatar(result.avatarUrl);
+        setSnackbar({
+          open: true,
+          message: 'Аватар успешно обновлен',
+          severity: 'success'
+        });
+      }
     } catch (error) {
       console.error('Ошибка обновления аватара:', error);
       setSnackbar({
@@ -284,6 +295,7 @@ export const ProfilePage = () => {
       });
     } finally {
       setLoading(false);
+      setAvatarUploaderOpen(false);
     }
   };
 
@@ -425,18 +437,27 @@ export const ProfilePage = () => {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
+    <Container maxWidth="md" sx={{ mt: 4, px: isMobile ? 2 : 3 }}>
       <Typography variant="h4" gutterBottom>
         Мой профиль
       </Typography>
       
-      <Paper sx={{ p: 3, mt: 3 }}>
+      <Paper sx={{ p: isMobile ? 2 : 3, mt: 3 }}>
         {profile ? (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-              <Box sx={{ position: 'relative' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: isMobile ? 'column' : 'row',
+              alignItems: isMobile ? 'center' : 'flex-start', 
+              mb: 4 
+            }}>
+              <Box sx={{ position: 'relative', mb: isMobile ? 2 : 0 }}>
                 <Avatar 
-                  sx={{ width: 100, height: 100, mr: 3 }}
+                  sx={{ 
+                    width: isMobile ? 80 : 100, 
+                    height: isMobile ? 80 : 100, 
+                    mr: isMobile ? 0 : 3 
+                  }}
                   src={processAvatarUrl(selectedAvatar || profile.avatarUrl)}
                 >
                   {profile.username?.charAt(0) || 'U'}
@@ -446,7 +467,7 @@ export const ProfilePage = () => {
                     sx={{ 
                       position: 'absolute', 
                       bottom: 0, 
-                      right: 12, 
+                      right: isMobile ? 0 : 12, 
                       backgroundColor: 'white',
                       boxShadow: 1,
                       '&:hover': {
@@ -460,7 +481,7 @@ export const ProfilePage = () => {
                   </IconButton>
                 )}
               </Box>
-              <Box>
+              <Box sx={{ textAlign: isMobile ? 'center' : 'left' }}>
                 <Typography variant="h5" gutterBottom>
                   {profile.username || 'Пользователь'}
                 </Typography>
@@ -479,7 +500,7 @@ export const ProfilePage = () => {
                   Выбрать из стандартных
                 </MenuItem>
                 <MenuItem onClick={handleOpenAvatarUploader}>
-                  Загрузить свой аватар
+                  Загрузить и обрезать аватар
                 </MenuItem>
               </Menu>
             </Box>
@@ -562,7 +583,7 @@ export const ProfilePage = () => {
               </Box>
               
               <Collapse in={showSecuritySection}>
-                <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+                <Paper variant="outlined" sx={{ p: isMobile ? 2 : 3, mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
                     Изменение пароля
                   </Typography>
@@ -638,13 +659,14 @@ export const ProfilePage = () => {
               </Collapse>
             </Box>
             
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2, flexWrap: 'wrap' }}>
               {isEditing ? (
                 <>
                   <Button 
                     variant="outlined" 
                     color="secondary"
                     onClick={handleCancelEdit}
+                    fullWidth={isMobile}
                   >
                     Отмена
                   </Button>
@@ -653,6 +675,7 @@ export const ProfilePage = () => {
                     color="primary"
                     onClick={handleSaveProfile}
                     disabled={loading || saving}
+                    fullWidth={isMobile}
                   >
                     {loading || saving ? <CircularProgress size={24} /> : 'Сохранить изменения'}
                   </Button>
@@ -663,6 +686,7 @@ export const ProfilePage = () => {
                   color="primary"
                   onClick={() => setIsEditing(true)}
                   disabled={loading}
+                  fullWidth={isMobile}
                 >
                   {loading ? <CircularProgress size={24} /> : 'Редактировать профиль'}
                 </Button>
@@ -687,6 +711,9 @@ export const ProfilePage = () => {
       <Dialog
         open={openPasswordDialog}
         onClose={closePasswordDialog}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={isMobile}
       >
         <DialogTitle>Подтверждение смены пароля</DialogTitle>
         <DialogContent>
@@ -728,56 +755,40 @@ export const ProfilePage = () => {
       )}
       
       {/* Диалог выбора аватара */}
-      <Dialog open={Boolean(avatarMenuAnchor)} onClose={() => setAvatarMenuAnchor(null)}>
+      <Dialog 
+        open={avatarDialogOpen} 
+        onClose={() => setAvatarDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+        fullScreen={isMobile}
+      >
         <DialogTitle>Выберите аватар</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2}>
+          <Grid container spacing={2} justifyContent="center">
             {AVATAR_OPTIONS.map((avatar, index) => (
               <Grid item key={index}>
                 <Avatar
                   src={processAvatarUrl(avatar)}
                   alt={`Аватар ${index + 1}`}
-                  sx={{ width: 64, height: 64, cursor: 'pointer' }}
-                  onClick={() => handleSelectAvatar(avatar)}
+                  sx={{ 
+                    width: 64, 
+                    height: 64, 
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: '0 0 0 2px #1976d2'
+                    }
+                  }}
+                  onClick={() => {
+                    handleSelectAvatar(avatar);
+                    setAvatarDialogOpen(false);
+                  }}
                 />
               </Grid>
             ))}
           </Grid>
-          
-          <Divider sx={{ my: 2 }} />
-          
-          {/* Добавляем возможность загрузить свой аватар */}
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Typography variant="body1" gutterBottom>
-              Или загрузите свой аватар
-            </Typography>
-            
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              accept="image/*"
-              onChange={handleFileSelect}
-            />
-            
-            <Button 
-              variant="contained"
-              onClick={handleOpenFileDialog}
-              disabled={uploading}
-              startIcon={uploading ? <CircularProgress size={20} /> : null}
-            >
-              {uploading ? 'Загрузка...' : 'Выбрать файл'}
-            </Button>
-            
-            {selectedFile && (
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                Выбран файл: {selectedFile.name}
-              </Typography>
-            )}
-          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAvatarMenuAnchor(null)}>Закрыть</Button>
+          <Button onClick={() => setAvatarDialogOpen(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
       

@@ -7,7 +7,10 @@ import {
   Button, 
   Box, 
   Typography, 
-  Slider
+  Slider,
+  CircularProgress,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -41,37 +44,50 @@ function centerAspectCrop(
 
 // Функция для получения обрезанного изображения
 function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): Promise<string> {
-  const canvas = document.createElement('canvas');
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
-  canvas.width = crop.width;
-  canvas.height = crop.height;
-  const ctx = canvas.getContext('2d');
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    canvas.width = crop.width;
+    canvas.height = crop.height;
+    const ctx = canvas.getContext('2d');
 
-  if (!ctx) {
-    throw new Error('Context not available');
-  }
+    if (!ctx) {
+      reject(new Error('Не удалось создать контекст canvas'));
+      return;
+    }
 
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    crop.width,
-    crop.height,
-  );
+    // Сначала сохраняем текущее состояние контекста
+    ctx.save();
+    
+    // Рисуем изображение с учетом масштаба
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width,
+      crop.height,
+    );
 
-  return new Promise((resolve) => {
-    canvas.toBlob(blob => {
-      if (!blob) {
-        console.error('Canvas is empty');
-        return;
-      }
-      resolve(URL.createObjectURL(blob));
-    }, 'image/jpeg', 0.95);
+    // Восстанавливаем состояние контекста
+    ctx.restore();
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Не удалось создать изображение'));
+          return;
+        }
+        const imageUrl = URL.createObjectURL(blob);
+        resolve(imageUrl);
+      },
+      'image/jpeg',
+      0.95
+    );
   });
 }
 
@@ -81,7 +97,10 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [scale, setScale] = useState(1);
   const [rotate, setRotate] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const onSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -102,9 +121,16 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
 
   const handleSave = async () => {
     if (imgRef.current && completedCrop) {
-      const croppedImageUrl = await getCroppedImg(imgRef.current, completedCrop);
-      onSave(croppedImageUrl);
-      onClose();
+      try {
+        setIsLoading(true);
+        const croppedImageUrl = await getCroppedImg(imgRef.current, completedCrop);
+        onSave(croppedImageUrl);
+        onClose();
+      } catch (error) {
+        console.error('Ошибка при обрезке изображения:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -116,7 +142,13 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
   };
 
   return (
-    <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={handleCancel} 
+      maxWidth="md" 
+      fullWidth
+      fullScreen={isMobile}
+    >
       <DialogTitle>Загрузка аватара</DialogTitle>
       <DialogContent>
         {!imgSrc ? (
@@ -138,7 +170,14 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
             </Button>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            gap: 2, 
+            width: '100%',
+            overflow: 'hidden'
+          }}>
             <ReactCrop
               crop={crop}
               onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -153,7 +192,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
                 style={{ 
                   transform: `scale(${scale}) rotate(${rotate}deg)`,
                   maxWidth: '100%',
-                  maxHeight: '400px'
+                  maxHeight: isMobile ? '300px' : '400px'
                 }}
                 onLoad={onImageLoad}
               />
@@ -189,9 +228,9 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
           onClick={handleSave} 
           variant="contained" 
           color="primary" 
-          disabled={!imgSrc || !completedCrop}
+          disabled={!imgSrc || !completedCrop || isLoading}
         >
-          Сохранить
+          {isLoading ? <CircularProgress size={24} /> : 'Сохранить'}
         </Button>
       </DialogActions>
     </Dialog>
