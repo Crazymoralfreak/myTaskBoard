@@ -158,7 +158,7 @@ public class JwtTokenProvider {
                 return false;
             }
 
-            // Проверяем не был ли сброшен пароль после выдачи токена
+            // Проверяем существование пользователя
             String username = claims.getSubject();
             User user = null;
             Optional<User> userByEmail = userRepository.findByEmail(username);
@@ -173,29 +173,6 @@ public class JwtTokenProvider {
                 } else {
                     log.warn("Пользователь с идентификатором {} не найден при проверке токена", username);
                     return false;
-                }
-            }
-            
-            // Если пользователь найден, проверяем дату сброса пароля
-            if (user != null) {
-                Date tokenIssuedAt = claims.getIssuedAt();
-                log.debug("Токен выдан: {}", tokenIssuedAt);
-                
-                if (user.getLastPasswordResetDate() != null) {
-                    Date passwordResetDate = java.sql.Timestamp.valueOf(user.getLastPasswordResetDate());
-                    log.debug("Дата сброса пароля: {}", passwordResetDate);
-                    
-                    // Строгая проверка: токен должен быть выдан ПОСЛЕ сброса пароля
-                    boolean tokenIssuedAfterPasswordReset = tokenIssuedAt.after(passwordResetDate);
-                    log.debug("Токен выдан после сброса пароля: {}", tokenIssuedAfterPasswordReset);
-                    
-                    if (!tokenIssuedAfterPasswordReset) {
-                        log.info("JWT токен недействителен - выдан до сброса пароля. Токен: {}, Сброс: {}", 
-                                 tokenIssuedAt, passwordResetDate);
-                        return false;
-                    }
-                } else {
-                    log.debug("Дата сброса пароля не установлена для пользователя {}", username);
                 }
             }
             

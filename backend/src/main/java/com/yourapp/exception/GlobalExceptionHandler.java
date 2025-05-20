@@ -164,6 +164,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
         logger.error("Внутренняя ошибка сервера: {} {} {}", request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
         
+        // Специальная обработка для ошибок пароля
+        if (ex.getMessage() != null && ex.getMessage().contains("Invalid password")) {
+            logger.error("Ошибка проверки пароля: {}", ex.getMessage());
+            
+            ErrorResponse error = ErrorResponse.builder()
+                    .code("AUTH_ERROR")
+                    .message("Ошибка аутентификации")
+                    .details("Неверный пароль.")
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            
+            return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+        }
+        
         ErrorResponse error = ErrorResponse.builder()
                 .code("SERVER_ERROR")
                 .message("Произошла внутренняя ошибка сервера")

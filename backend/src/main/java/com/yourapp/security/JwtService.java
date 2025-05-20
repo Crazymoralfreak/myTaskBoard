@@ -83,8 +83,20 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        try {
+            final String username = extractUsername(token);
+            
+            // Проверяем только имя пользователя и срок действия токена,
+            // убираем проверку даты сброса пароля
+            boolean usernameMatches = username.equals(userDetails.getUsername());
+            boolean notExpired = !isTokenExpired(token);
+            
+            return usernameMatches && notExpired;
+        } catch (Exception e) {
+            System.out.println("Ошибка при проверке токена: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
     private boolean isTokenExpired(String token) {

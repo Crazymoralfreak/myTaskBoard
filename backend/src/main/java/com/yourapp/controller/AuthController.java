@@ -40,8 +40,19 @@ public class AuthController {
     }
     
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+        try {
+            logger.info("Получен запрос на авторизацию для: {}", request.getEmail());
+            AuthResponse response = authService.login(request);
+            logger.info("Успешная авторизация для: {}", request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Ошибка авторизации для {}: {}", request.getEmail(), e.getMessage(), e);
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "authentication_error");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        }
     }
     
     @PostMapping("/telegram")
