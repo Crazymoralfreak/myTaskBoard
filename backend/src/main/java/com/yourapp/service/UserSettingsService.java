@@ -78,8 +78,10 @@ public class UserSettingsService {
                 .build();
     }
 
-    @Transactional // Убираем readOnly = true, т.к. метод обновляет данные
+    @Transactional
     public UserSettingsDTO updateUserSettings(User user, UserSettingsDTO settingsDto) {
+        logger.info("Обновление настроек для пользователя ID: {}, username: {}", user.getId(), user.getUsername());
+        
         // Находим существующие настройки или создаем НОВЫЙ объект, если их нет
         // Это важно, т.к. дефолтные настройки уже должны быть созданы при регистрации
         UserSettings settings = userSettingsRepository.findByUser(user)
@@ -89,39 +91,41 @@ public class UserSettingsService {
                      return new RuntimeException("UserSettings not found for user while updating.");
                 });
         
-        // Обновляем поля существующего объекта настроек
-        settings.setDarkMode(settingsDto.getDarkMode());
-        settings.setCompactMode(settingsDto.getCompactMode());
-        settings.setEnableAnimations(settingsDto.getEnableAnimations());
-        settings.setBrowserNotifications(settingsDto.getBrowserNotifications());
-        settings.setEmailNotifications(settingsDto.getEmailNotifications());
-        settings.setTelegramNotifications(settingsDto.getTelegramNotifications());
-        settings.setProfileVisibility(settingsDto.getProfileVisibility());
-        settings.setEmailVisible(settingsDto.getEmailVisible());
-        settings.setPhoneVisible(settingsDto.getPhoneVisible());
-        settings.setPositionVisible(settingsDto.getPositionVisible());
-        settings.setBioVisible(settingsDto.getBioVisible());
-        settings.setLanguage(settingsDto.getLanguage());
-        settings.setTimezone(settingsDto.getTimezone());
+        logger.debug("Найдены настройки пользователя: ID={}", settings.getId());
+        logger.debug("Текущие настройки: darkMode={}, language={}", settings.getDarkMode(), settings.getLanguage());
         
-        // Сохраняем обновленный объект
-        settings = userSettingsRepository.save(settings);
+        // Используем безопасный метод обновления, который не изменяет связь с пользователем
+        // и не может затронуть пароль или другие поля пользователя
+        int updatedCount = userSettingsRepository.updateSettingsSafely(
+            settings.getId(),
+            settingsDto.getDarkMode(),
+            settingsDto.getCompactMode(),
+            settingsDto.getEnableAnimations(),
+            settingsDto.getLanguage(),
+            settingsDto.getTimezone()
+        );
+        
+        logger.info("Настройки обновлены, затронуто записей: {}", updatedCount);
+        
+        // Получаем обновленные настройки из БД
+        UserSettings updatedSettings = userSettingsRepository.findById(settings.getId())
+                .orElseThrow(() -> new RuntimeException("Settings not found after update"));
         
         // Маппим обновленный объект обратно в DTO
         return UserSettingsDTO.builder()
-                .darkMode(settings.getDarkMode())
-                .compactMode(settings.getCompactMode())
-                .enableAnimations(settings.getEnableAnimations())
-                .browserNotifications(settings.getBrowserNotifications())
-                .emailNotifications(settings.getEmailNotifications())
-                .telegramNotifications(settings.getTelegramNotifications())
-                .profileVisibility(settings.getProfileVisibility())
-                .emailVisible(settings.getEmailVisible())
-                .phoneVisible(settings.getPhoneVisible())
-                .positionVisible(settings.getPositionVisible())
-                .bioVisible(settings.getBioVisible())
-                .language(settings.getLanguage())
-                .timezone(settings.getTimezone())
+                .darkMode(updatedSettings.getDarkMode())
+                .compactMode(updatedSettings.getCompactMode())
+                .enableAnimations(updatedSettings.getEnableAnimations())
+                .browserNotifications(updatedSettings.getBrowserNotifications())
+                .emailNotifications(updatedSettings.getEmailNotifications())
+                .telegramNotifications(updatedSettings.getTelegramNotifications())
+                .profileVisibility(updatedSettings.getProfileVisibility())
+                .emailVisible(updatedSettings.getEmailVisible())
+                .phoneVisible(updatedSettings.getPhoneVisible())
+                .positionVisible(updatedSettings.getPositionVisible())
+                .bioVisible(updatedSettings.getBioVisible())
+                .language(updatedSettings.getLanguage())
+                .timezone(updatedSettings.getTimezone())
                 .build();
     }
 

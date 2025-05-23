@@ -90,7 +90,7 @@ public class UserController {
         }
         
         return userOptional
-            .map(ResponseEntity::ok)
+            .map(user -> ResponseEntity.ok(user.toDto()))
             .orElse(ResponseEntity.notFound().build());
     }
     
@@ -98,6 +98,11 @@ public class UserController {
     public ResponseEntity<?> updateCurrentUserProfile(@RequestBody UserProfileUpdateDto profileDto) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
+        
+        log.info("Получен запрос на обновление профиля от пользователя: {}", currentUsername);
+        log.info("Данные для обновления: username={}, email={}, phoneNumber={}, position={}, bio={}",
+                profileDto.getUsername(), profileDto.getEmail(), profileDto.getPhoneNumber(),
+                profileDto.getPosition(), profileDto.getBio());
         
         // Пробуем найти пользователя по email или username
         Optional<User> userOptional = userService.findByUsername(currentUsername);
@@ -107,6 +112,9 @@ public class UserController {
         
         return userOptional
             .map(user -> {
+                log.info("Найден пользователь для обновления: id={}, username={}, email={}, phoneNumber={}",
+                        user.getId(), user.getUsername(), user.getEmail(), user.getPhoneNumber());
+                
                 User updatedUser = new User();
                 updatedUser.setId(user.getId());
                 if (profileDto.getUsername() != null) {
@@ -117,6 +125,7 @@ public class UserController {
                 }
                 if (profileDto.getPhoneNumber() != null) {
                     updatedUser.setPhoneNumber(profileDto.getPhoneNumber());
+                    log.info("Устанавливаем номер телефона: {}", profileDto.getPhoneNumber());
                 }
                 if (profileDto.getPosition() != null) {
                     updatedUser.setPosition(profileDto.getPosition());
@@ -128,7 +137,10 @@ public class UserController {
                     updatedUser.setAvatarUrl(profileDto.getAvatarUrl());
                 }
                 
-                return ResponseEntity.ok(userService.updateUser(user.getId(), updatedUser));
+                User result = userService.updateUser(user.getId(), updatedUser);
+                log.info("Профиль успешно обновлен, phoneNumber в результате: {}", result.getPhoneNumber());
+                
+                return ResponseEntity.ok(result.toDto());
             })
             .orElse(ResponseEntity.notFound().build());
     }
@@ -258,14 +270,11 @@ public class UserController {
             User user = userOptional.get();
             logger.debug("Найден пользователь ID: {}", user.getId());
             
-            // Создаем новый объект для обновления только аватара
-            User userToUpdate = new User();
-            userToUpdate.setId(user.getId());
-            userToUpdate.setAvatarUrl(avatarDto.getAvatarUrl());
+            // Обновляем только поле аватарки, не затрагивая другие поля
+            user.setAvatarUrl(avatarDto.getAvatarUrl());
+            User updatedUser = userService.updateUser(user.getId(), user);
             
-            // Все остальные поля оставляем без изменений
-            User updatedUser = userService.updateUser(user.getId(), userToUpdate);
-            
+            // Возвращаем DTO пользователя вместо полного объекта
             return ResponseEntity.ok(updatedUser.toDto());
         } catch (Exception e) {
             Logger logger = LoggerFactory.getLogger(UserController.class);
@@ -298,13 +307,17 @@ public class UserController {
             String avatarUrl = fileStorageService.storeFile(file, "avatars");
             log.info("Аватар успешно сохранен, URL: {}", avatarUrl);
 
-            // Обновляем URL аватара пользователя в базе данных
-            user.setAvatarUrl(avatarUrl);
-            userService.updateUser(user.getId(), user);
+            // Обновляем только URL аватара пользователя в базе данных,
+            // создаем объект только с нужными полями для обновления
+            User userUpdate = new User();
+            userUpdate.setId(user.getId());
+            userUpdate.setAvatarUrl(avatarUrl);
+            User updatedUser = userService.updateUser(user.getId(), userUpdate);
 
-            // Возвращаем URL для доступа к аватару
-            Map<String, String> response = new HashMap<>();
+            // Возвращаем URL для доступа к аватару и безопасное DTO пользователя
+            Map<String, Object> response = new HashMap<>();
             response.put("avatarUrl", avatarUrl);
+            response.put("user", updatedUser.toDto());
             response.put("message", "Avatar updated successfully");
 
             return ResponseEntity.ok(response);

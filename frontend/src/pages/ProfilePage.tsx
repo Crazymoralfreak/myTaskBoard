@@ -144,17 +144,26 @@ export const ProfilePage = () => {
     try {
       console.log('Сохранение профиля:', profile);
       
-      await updateUserProfile({
+      // Сначала сохраняем информацию профиля
+      const updatedProfile = await updateUserProfile({
         username: profile.username,
         email: profile.email,
-        phone: profile.phoneNumber,
+        phone: profile.phone, // Использую поле phone вместо phoneNumber
         position: profile.position,
         bio: profile.bio
       });
       
+      // Затем отдельно сохраняем настройки пользователя (если они есть)
       if (profile?.userSettings && token) {
-        console.log('Сохранение настроек пользователя:', profile.userSettings);
-        await updateUserSettings(token, profile.userSettings);
+        try {
+          console.log('Сохранение настроек пользователя:', profile.userSettings);
+          await updateUserSettings(token, profile.userSettings);
+          console.log('Настройки пользователя успешно сохранены');
+        } catch (settingsError) {
+          console.error('Ошибка при сохранении настроек:', settingsError);
+          // Продолжаем выполнение, даже если настройки не сохранились
+          toast.error('Не удалось сохранить настройки пользователя');
+        }
       }
       
       setIsEditing(false);
@@ -272,14 +281,25 @@ export const ProfilePage = () => {
       const blob = await response.blob();
       const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
       
+      console.log('Подготовка файла для загрузки:', {
+        размер: file.size,
+        тип: file.type
+      });
+      
       // Загружаем файл на сервер
       const result = await uploadUserAvatar(file);
+      console.log('Результат загрузки аватара:', result);
       
       if (result && result.avatarUrl) {
         const updatedProfile = {...profile, avatarUrl: result.avatarUrl};
         setProfile(updatedProfile);
         setOriginalProfile(updatedProfile);
         setSelectedAvatar(result.avatarUrl);
+        
+        // Проверяем URL аватара
+        const avatarDisplay = processAvatarUrl(result.avatarUrl);
+        console.log('URL аватара для отображения после загрузки:', avatarDisplay);
+        
         setSnackbar({
           open: true,
           message: 'Аватар успешно обновлен',
@@ -420,11 +440,9 @@ export const ProfilePage = () => {
 
   // Обработка URL аватарки с логированием
   const processAvatarUrl = (avatarUrl?: string): string | undefined => {
+    console.log('ProfilePage - Исходный URL аватарки:', avatarUrl);
     const processedUrl = getAvatarUrl(avatarUrl);
-    console.log('ProfilePage - Обработка URL аватарки:', {
-      исходный: avatarUrl,
-      обработанный: processedUrl
-    });
+    console.log('ProfilePage - Обработанный URL аватарки:', processedUrl);
     return processedUrl;
   };
 

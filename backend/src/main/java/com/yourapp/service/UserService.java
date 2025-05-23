@@ -47,50 +47,49 @@ public class UserService implements UserDetailsService {
 
     public User createUser(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        // Устанавливаем дату последнего сброса пароля при создании пользователя
-        if (user.getLastPasswordResetDate() == null) {
-            user.setLastPasswordResetDate(LocalDateTime.now());
-        }
+        // Больше не устанавливаем дату последнего сброса пароля
         return userRepository.save(user);
     }
 
     @Transactional
     public User updateUser(Long id, User userDetails) {
-        User user = getUserById(id)
+        User existingUser = getUserById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
+        // Копируем только не-null значения из userDetails в existingUser
         if (userDetails.getUsername() != null) {
-            user.setUsername(userDetails.getUsername());
+            existingUser.setUsername(userDetails.getUsername());
         }
         if (userDetails.getEmail() != null) {
-            user.setEmail(userDetails.getEmail());
+            existingUser.setEmail(userDetails.getEmail());
         }
         if (userDetails.getPassword() != null) {
-            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+            // При обновлении пароля, важно его хешировать
+            existingUser.setPassword(passwordEncoder.encode(userDetails.getPassword()));
         }
         if (userDetails.getAvatarUrl() != null) {
-            user.setAvatarUrl(userDetails.getAvatarUrl());
+            existingUser.setAvatarUrl(userDetails.getAvatarUrl());
         }
         if (userDetails.getPhoneNumber() != null) {
-            user.setPhoneNumber(userDetails.getPhoneNumber());
+            existingUser.setPhoneNumber(userDetails.getPhoneNumber());
         }
         if (userDetails.getPosition() != null) {
-            user.setPosition(userDetails.getPosition());
+            existingUser.setPosition(userDetails.getPosition());
         }
         if (userDetails.getBio() != null) {
-            user.setBio(userDetails.getBio());
+            existingUser.setBio(userDetails.getBio());
         }
         if (userDetails.getTelegramId() != null) {
-            user.setTelegramId(userDetails.getTelegramId());
+            existingUser.setTelegramId(userDetails.getTelegramId());
         }
         if (userDetails.getTelegramChatId() != null) {
-            user.setTelegramChatId(userDetails.getTelegramChatId());
+            existingUser.setTelegramChatId(userDetails.getTelegramChatId());
         }
         if (userDetails.getDisplayName() != null) {
-            user.setDisplayName(userDetails.getDisplayName());
+            existingUser.setDisplayName(userDetails.getDisplayName());
         }
         
-        return userRepository.save(user);
+        return userRepository.save(existingUser);
     }
 
     @Transactional
@@ -132,12 +131,9 @@ public class UserService implements UserDetailsService {
         // Устанавливаем новый пароль
         user.setPassword(passwordEncoder.encode(newPassword));
         
-        // Устанавливаем дату последнего сброса пароля - 
-        // это критически важно для инвалидации всех имеющихся токенов
-        LocalDateTime now = LocalDateTime.now();
-        user.setLastPasswordResetDate(now);
+        // Больше не обновляем дату последнего сброса пароля
+        // так как это может привести к проблемам с JWT токенами
         
-        log.info("Дата сброса пароля установлена на: {}", now);
         userRepository.save(user);
         
         log.info("Пароль успешно изменен для пользователя: {}", email);
