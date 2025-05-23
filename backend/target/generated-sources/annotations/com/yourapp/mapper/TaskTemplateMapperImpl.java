@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-04-16T10:21:45+0300",
-    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.42.0.z20250331-1358, environment: Java 21.0.6 (Eclipse Adoptium)"
+    date = "2025-05-20T14:18:15+0300",
+    comments = "version: 1.5.5.Final, compiler: Eclipse JDT (IDE) 3.42.0.v20250514-1000, environment: Java 21.0.7 (Eclipse Adoptium)"
 )
 @Component
 public class TaskTemplateMapperImpl implements TaskTemplateMapper {
@@ -39,9 +39,9 @@ public class TaskTemplateMapperImpl implements TaskTemplateMapper {
         }
         taskTemplateDTO.setCreatedBy( templateCreatedById( template ) );
         taskTemplateDTO.setBoardId( templateBoardId( template ) );
-        taskTemplateDTO.setDescription( template.getDescription() );
         taskTemplateDTO.setId( template.getId() );
         taskTemplateDTO.setName( template.getName() );
+        taskTemplateDTO.setDescription( template.getDescription() );
 
         return taskTemplateDTO;
     }
@@ -81,14 +81,14 @@ public class TaskTemplateMapperImpl implements TaskTemplateMapper {
             }
             taskDataDTOToTaskStatus1( dto.getTaskData(), template.getStatus() );
         }
-        if ( dto.getDescription() != null ) {
-            template.setDescription( dto.getDescription() );
-        }
         if ( dto.getId() != null ) {
             template.setId( dto.getId() );
         }
         if ( dto.getName() != null ) {
             template.setName( dto.getName() );
+        }
+        if ( dto.getDescription() != null ) {
+            template.setDescription( dto.getDescription() );
         }
     }
 
@@ -127,7 +127,7 @@ public class TaskTemplateMapperImpl implements TaskTemplateMapper {
         return id;
     }
 
-    private Long templateBoardId(TaskTemplate taskTemplate) {
+    private String templateBoardId(TaskTemplate taskTemplate) {
         if ( taskTemplate == null ) {
             return null;
         }
@@ -135,7 +135,7 @@ public class TaskTemplateMapperImpl implements TaskTemplateMapper {
         if ( board == null ) {
             return null;
         }
-        Long id = board.getId();
+        String id = board.getId();
         if ( id == null ) {
             return null;
         }

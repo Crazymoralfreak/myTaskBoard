@@ -18,6 +18,8 @@ import org.springframework.http.MediaType;
 import com.yourapp.dto.CreateBoardRequest;
 import com.yourapp.exception.ResourceNotFoundException;
 import java.util.stream.Collectors;
+import com.yourapp.model.Role;
+import com.yourapp.model.BoardMember;
 
 @RestController
 @RequestMapping(
@@ -64,13 +66,13 @@ public class BoardController {
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Board> updateBoard(@PathVariable Long id, @RequestBody Board boardDetails) {
+    public ResponseEntity<Board> updateBoard(@PathVariable String id, @RequestBody Board boardDetails) {
         return ResponseEntity.ok(boardService.updateBoard(id, boardDetails));
     }
 
     @PostMapping("/{boardId}/columns")
     public ResponseEntity<Board> addColumn(
-        @PathVariable Long boardId,
+        @PathVariable String boardId,
         @RequestBody Map<String, String> payload,
         @AuthenticationPrincipal User user
     ) {
@@ -79,22 +81,17 @@ public class BoardController {
         column.setPosition(0); // Позиция по умолчанию
         column.setColor(payload.get("color") != null ? payload.get("color") : "#E0E0E0"); // Устанавливаем цвет
 
-        Board board = boardService.getBoardById(boardId);
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
         return ResponseEntity.ok(boardService.addColumnToBoard(boardId, column));
     }
 
     @DeleteMapping(value = "/{boardId}/columns/{columnId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Board removeColumn(@PathVariable Long boardId, @PathVariable Long columnId) {
+    public Board removeColumn(@PathVariable String boardId, @PathVariable Long columnId) {
         return boardService.removeColumnFromBoard(boardId, columnId);
     }
 
     @PatchMapping("/{boardId}/columns/{columnId}/move/{newPosition}")
     public ResponseEntity<?> moveColumn(
-        @PathVariable Long boardId,
+        @PathVariable String boardId,
         @PathVariable Long columnId,
         @PathVariable int newPosition
     ) {
@@ -117,7 +114,7 @@ public class BoardController {
             if (!columnExists) {
                 logger.error("Колонка с ID {} не найдена на доске {}", columnId, boardId);
                 Map<String, String> error = new HashMap<>();
-                error.put("message", String.format("Column with ID %d not found on board %d", columnId, boardId));
+                error.put("message", String.format("Column with ID %d not found on board %s", columnId, boardId));
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
             }
             
@@ -156,60 +153,113 @@ public class BoardController {
     }
 
     @PatchMapping("/{id}/archive")
-    public Board archiveBoard(@PathVariable Long id) {
+    public Board archiveBoard(@PathVariable String id) {
         return boardService.archiveBoard(id);
     }
 
     @PatchMapping("/{id}/restore")
-    public ResponseEntity<Board> restoreBoard(@PathVariable Long id) {
+    public ResponseEntity<Board> restoreBoard(@PathVariable String id) {
         return ResponseEntity.ok(boardService.unarchiveBoard(id));
     }
 
     @DeleteMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void deleteBoard(@PathVariable Long id) {
+    public void deleteBoard(@PathVariable String id) {
         boardService.deleteBoard(id);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Board> getBoard(@PathVariable Long id, @AuthenticationPrincipal User user) {
-        Board board = boardService.getBoardById(id);
+    public ResponseEntity<Board> getBoard(@PathVariable String id, @AuthenticationPrincipal User user) {
+        logger.info("Запрос на получение доски с ID: {}, пользователь: {}", id, user != null ? user.getUsername() : "null");
         
-        // Проверяем, является ли пользователь владельцем доски
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        try {
+            Board board = boardService.getBoardById(id);
+            
+            // В DTO добавляем флаг, является ли текущий пользователь владельцем
+            boolean isOwner = user != null && board.getOwner() != null && board.getOwner().getId().equals(user.getId());
+            logger.info("Доска найдена. Владелец: {}. Текущий пользователь - владелец: {}", 
+                       board.getOwner() != null ? board.getOwner().getUsername() : "null", isOwner);
+            
+            // Проверяем, является ли пользователь участником с ролью ADMIN
+            boolean isAdmin = isOwner; // По умолчанию владелец всегда админ
+            String roleName = "ADMIN"; // Значение по умолчанию для владельца
+            Long roleId = null;
+            
+            if (user != null) {
+                if (isOwner) {
+                    // Если пользователь владелец, ищем системную роль ADMIN
+                    try {
+                        Role adminRole = boardService.getRoleService().getSystemRoleByName("ADMIN");
+                        roleId = adminRole.getId();
+                    } catch (Exception e) {
+                        logger.warn("Не удалось найти системную роль ADMIN: {}", e.getMessage());
+                    }
+                } else {
+                    // Если пользователь не владелец, получаем его роль
+                    try {
+                        BoardMember boardMember = boardService.getBoardMember(id, user.getId());
+                        if (boardMember != null && boardMember.getRole() != null) {
+                            roleName = boardMember.getRole().getName();
+                            roleId = boardMember.getRole().getId();
+                            isAdmin = "ADMIN".equalsIgnoreCase(roleName);
+                            logger.info("Пользователь {} имеет роль {} на доске {}", 
+                                user.getUsername(), roleName, id);
+                        } else {
+                            logger.info("Пользователь {} не является участником доски {}", 
+                                user.getUsername(), id);
+                            roleName = null; // Нет роли, если не участник
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Ошибка при получении роли пользователя: {}", e.getMessage());
+                        roleName = null;
+                    }
+                }
+            }
+            
+            // Добавляем информацию о текущем пользователе в объект доски
+            Map<String, Object> currentUserInfo = new HashMap<>();
+            currentUserInfo.put("id", user != null ? user.getId() : 0);
+            currentUserInfo.put("isAdmin", isAdmin); // Оставляем для обратной совместимости
+            currentUserInfo.put("role", roleName); // Добавляем название роли
+            if (roleId != null) {
+                currentUserInfo.put("roleId", roleId); // Добавляем ID роли, если доступен
+            }
+            board.setAdditionalProperty("currentUser", currentUserInfo);
+            
+            return ResponseEntity.ok(board);
+        } catch (Exception e) {
+            logger.error("Ошибка при получении доски с ID: {}", id, e);
+            throw e;
         }
-        
-        return ResponseEntity.ok(board);
     }
 
     @PutMapping("/{boardId}/columns/{columnId}")
     public ResponseEntity<Board> updateColumn(
-        @PathVariable Long boardId,
+        @PathVariable String boardId,
         @PathVariable Long columnId,
         @RequestBody Map<String, String> updates,
         @AuthenticationPrincipal User user
     ) {
-        Board board = boardService.getBoardById(boardId);
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
         return ResponseEntity.ok(boardService.updateColumn(boardId, columnId, updates.get("name"), updates.get("color")));
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<Board> updateBoardDetails(
-        @PathVariable Long id,
+    @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Board> partialUpdateBoard(
+        @PathVariable String id,
         @RequestBody Map<String, String> updates,
         @AuthenticationPrincipal User user
     ) {
-        Board board = boardService.getBoardById(id);
-        if (!board.getOwner().getId().equals(user.getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        Board currentBoard = boardService.getBoardById(id);
+        
+        // Обновляем только предоставленные поля
+        if (updates.containsKey("name")) {
+            currentBoard.setName(updates.get("name"));
         }
-
-        board.setName(updates.get("name"));
-        board.setDescription(updates.get("description"));
-        return ResponseEntity.ok(boardService.updateBoard(id, board));
+        
+        if (updates.containsKey("description")) {
+            currentBoard.setDescription(updates.get("description"));
+        }
+        
+        Board updatedBoard = boardService.updateBoard(id, currentBoard);
+        return ResponseEntity.ok(updatedBoard);
     }
 }

@@ -7,6 +7,6 @@ import java.util.List;
 
 @Repository
 public interface TaskTypeRepository extends JpaRepository<TaskType, Long> {
-    List<TaskType> findByBoardId(Long boardId);
-    List<TaskType> findByBoardIdOrderByPositionAsc(Long boardId);
+    List<TaskType> findByBoardId(String boardId);
+    List<TaskType> findByBoardIdOrderByPositionAsc(String boardId);
 } 

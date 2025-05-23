@@ -12,4 +12,22 @@ import lombok.Builder;
 public class ChangePasswordRequest {
     private String currentPassword;
     private String newPassword;
+    
+    // Геттеры
+    public String getCurrentPassword() {
+        return this.currentPassword;
+    }
+    
+    public String getNewPassword() {
+        return this.newPassword;
+    }
+    
+    // Сеттеры
+    public void setCurrentPassword(String currentPassword) {
+        this.currentPassword = currentPassword;
+    }
+    
+    public void setNewPassword(String newPassword) {
+        this.newPassword = newPassword;
+    }
 } 

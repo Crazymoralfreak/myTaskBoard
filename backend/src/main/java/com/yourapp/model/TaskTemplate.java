@@ -45,4 +45,69 @@ public class TaskTemplate {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
+    
+    // Геттеры и сеттеры для полей, которые не генерируются Lombok
+    public Long getId() {
+        return this.id;
+    }
+    
+    public void setId(Long id) {
+        this.id = id;
+    }
+    
+    public String getName() {
+        return this.name;
+    }
+    
+    public void setName(String name) {
+        this.name = name;
+    }
+    
+    public String getDescription() {
+        return this.description;
+    }
+    
+    public void setDescription(String description) {
+        this.description = description;
+    }
+    
+    public TaskType getType() {
+        return this.type;
+    }
+    
+    public void setType(TaskType type) {
+        this.type = type;
+    }
+    
+    public TaskStatus getStatus() {
+        return this.status;
+    }
+    
+    public void setStatus(TaskStatus status) {
+        this.status = status;
+    }
+    
+    public Set<String> getTags() {
+        return this.tags;
+    }
+    
+    public void setTags(Set<String> tags) {
+        this.tags = tags;
+    }
+    
+    public Board getBoard() {
+        return this.board;
+    }
+    
+    public void setBoard(Board board) {
+        this.board = board;
+    }
+    
+    public User getCreatedBy() {
+        return this.createdBy;
+    }
+    
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
+    }
 } 

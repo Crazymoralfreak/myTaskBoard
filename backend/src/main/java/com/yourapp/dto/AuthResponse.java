@@ -2,12 +2,12 @@ package com.yourapp.dto;
 
 public class AuthResponse {
     private String token;
-    private UserDto user;
+    private UserDTO user;
     private String message;
 
     public AuthResponse() {}
 
-    public AuthResponse(String token, UserDto user, String message) {
+    public AuthResponse(String token, UserDTO user, String message) {
         this.token = token;
         this.user = user;
         this.message = message;
@@ -21,11 +21,11 @@ public class AuthResponse {
         this.token = token;
     }
 
-    public UserDto getUser() {
+    public UserDTO getUser() {
         return user;
     }
 
-    public void setUser(UserDto user) {
+    public void setUser(UserDTO user) {
         this.user = user;
     }
 
@@ -43,7 +43,7 @@ public class AuthResponse {
 
     public static class AuthResponseBuilder {
         private String token;
-        private UserDto user;
+        private UserDTO user;
         private String message;
 
         public AuthResponseBuilder token(String token) {
@@ -51,7 +51,7 @@ public class AuthResponse {
             return this;
         }
 
-        public AuthResponseBuilder user(UserDto user) {
+        public AuthResponseBuilder user(UserDTO user) {
             this.user = user;
             return this;
         }

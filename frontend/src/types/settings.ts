@@ -1,6 +1,6 @@
 export interface UserSettings {
     darkMode: boolean;
-    compactView: boolean;
+    compactMode: boolean;
     enableAnimations: boolean;
     browserNotifications: boolean;
     emailNotifications: boolean;

@@ -10,4 +10,6 @@ export interface User {
     avatarUrl?: string;
     createdAt: string;
     updatedAt: string;
+    displayName?: string;
+    isActive?: boolean;
 } 

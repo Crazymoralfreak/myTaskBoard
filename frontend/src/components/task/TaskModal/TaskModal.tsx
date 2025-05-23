@@ -62,6 +62,14 @@ import CommentIcon from '@mui/icons-material/Comment';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useConfirmDialog } from '../../../context/ConfirmDialogContext';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import { userService } from '../../../services/userService';
+import { toast } from 'react-hot-toast';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useUserRole, Permission } from '../../../hooks/useUserRole';
+import { boardService } from '../../../services/boardService';
+import { useRoleContext } from '../../../contexts/RoleContext';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -102,7 +110,7 @@ interface TaskModalProps {
     taskTypes?: TaskType[];
     onTaskCopy?: (task: Task) => void;
     disableBackdropClick?: boolean;
-    boardId?: number;
+    boardId?: string;
 }
 
 // Расширенный интерфейс для Task с новыми полями
@@ -141,6 +149,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -161,9 +170,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [showTemplateSelector, setShowTemplateSelector] = useState(false);
     const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
     const [templateName, setTemplateName] = useState('');
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+    const [templateError, setTemplateError] = useState<string | null>(null);
     const [tags, setTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [newTag, setNewTag] = useState('');
+    const [userSettings, setUserSettings] = useState<{compactMode?: boolean}>({});
+
+    // Состояние для данных доски и проверки ролей
+    const [boardData, setBoardData] = useState<any>(null);
+    
+    // Получаем контекст ролей
+    const roleContext = useRoleContext();
 
     // Используем ExtendedTaskWithTypes вместо Task
     const [task, setTask] = useState<ExtendedTaskWithTypes | null>(initialTask || null);
@@ -192,6 +210,64 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     ];
 
     const { showConfirmDialog } = useConfirmDialog();
+
+    // При загрузке доски, обновляем текущую доску в контексте ролей
+    useEffect(() => {
+        const loadBoardData = async () => {
+            if (boardId) {
+                try {
+                    console.log('Загрузка данных доски для проверки прав, boardId:', boardId);
+                    const data = await boardService.getBoard(boardId);
+                    console.log('Данные доски загружены:', data);
+                    if ((data as any).currentUser) {
+                        console.log('Текущий пользователь:', (data as any).currentUser);
+                        console.log('Роль пользователя:', (data as any).currentUser.role);
+                    } else {
+                        console.warn('Данные о текущем пользователе отсутствуют в ответе API');
+                    }
+                    setBoardData(data);
+                } catch (error) {
+                    console.error('Не удалось загрузить данные доски:', error);
+                }
+            } else {
+                console.warn('boardId не предоставлен для TaskModal, права будут ограничены');
+            }
+        };
+        
+        if (open) {
+            loadBoardData();
+        }
+    }, [boardId, open]);
+    
+    // Эффект для логирования проверок прав
+    useEffect(() => {
+        if (boardData) {
+            console.log('Проверка прав пользователя:');
+            console.log('- canEditTask:', canEditTask());
+            console.log('- canDeleteTask:', canDeleteTask());
+            console.log('- canAddComments:', canAddComments());
+            console.log('- canCopyTask:', canCopyTask());
+        }
+    }, [boardData]);
+
+    // Функции для проверки прав
+    const canEditTask = (): boolean => {
+        return roleContext.hasPermission(Permission.EDIT_TASKS);
+    };
+    
+    const canDeleteTask = (): boolean => {
+        return roleContext.hasPermission(Permission.DELETE_TASKS);
+    };
+
+    // Функция для проверки права на добавление комментариев
+    const canAddComments = (): boolean => {
+        return roleContext.hasPermission(Permission.COMMENT_TASKS);
+    };
+
+    // Функция для проверки права на копирование задач
+    const canCopyTask = (): boolean => {
+        return roleContext.hasPermission(Permission.ADD_TASKS);
+    };
 
     useEffect(() => {
         if (open) {
@@ -235,9 +311,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     setSelectedStatusId(loadedTask.customStatus?.id || null);
                                     setTags(loadedTask.tags || []);
                                 }
-                            } catch (error) {
+                            } catch (error: any) {
                                 console.error('Ошибка при загрузке задачи:', error);
-                                setError('Не удалось загрузить данные задачи');
+                                // Если задача не найдена (была удалена), закрываем модальное окно
+                                if (error.response && error.response.status === 404) {
+                                    console.log('Задача не найдена или была удалена');
+                                    toast.error('Задача не найдена или была удалена');
+                                    onClose();
+                                } else {
+                                    setError('Не удалось загрузить данные задачи');
+                                }
                             }
                         };
                         
@@ -426,27 +509,93 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         }
     };
 
-    const handleDelete = async () => {
-        if (!task || !onTaskDelete) {
+    // Используем useCallback для привязки handleDelete
+    const handleDelete = useCallback(async () => {
+        console.log('handleDelete called');
+        
+        if (!task) {
+            console.error('Нет задачи для удаления');
             return;
+        }
+        
+        // Больше не требуем onTaskDelete для выполнения удаления
+        if (!onTaskDelete) {
+            console.warn('Предупреждение: не передан обработчик onTaskDelete. Задача будет удалена из API, но UI может не обновиться автоматически.');
         }
 
         try {
+            console.log('Начало удаления задачи:', task.id);
             setIsSubmitting(true);
-            await taskService.deleteTask(task.id);
-            onTaskDelete(task.id);
-            handleClose();
+            
+            // Вызов API для удаления задачи
+            const result = await taskService.deleteTask(task.id);
+            console.log('Ответ сервера после удаления:', result);
+            
+            // Закрываем модальное окно
+            console.log('Закрываем модальное окно');
+            onClose();
+            
+            // Уведомляем родительский компонент, если есть обработчик
+            if (onTaskDelete) {
+                console.log('Обновляем состояние родительского компонента');
+                onTaskDelete(task.id);
+            } else {
+                console.log('Состояние не обновлено в UI - нет обработчика onTaskDelete');
+                
+                // Создаем и отправляем событие для обновления UI
+                const taskDeletedEvent = new CustomEvent('task-deleted', {
+                    detail: { taskId: task.id }
+                });
+                window.dispatchEvent(taskDeletedEvent);
+                
+                // Если задача была в колонке, создаем событие для обновления колонки
+                if (boardId) {
+                    console.log('Попытка обновить доску через событие');
+                    // Создаем событие для обновления доски
+                    const event = new CustomEvent('board:update', { 
+                        detail: { boardId, forceRefresh: true } 
+                    });
+                    window.dispatchEvent(event);
+                    
+                    // Создаем событие удаления задачи
+                    const taskDeleteEvent = new CustomEvent('task:delete', { 
+                        detail: { taskId: task.id, boardId } 
+                    });
+                    window.dispatchEvent(taskDeleteEvent);
+                } else {
+                    // Пробуем найти boardId из URL
+                    const urlMatch = window.location.pathname.match(/\/boards\/([a-zA-Z0-9_-]+)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const boardIdFromUrl = urlMatch[1];
+                        console.log('Найден boardId из URL:', boardIdFromUrl);
+                        
+                        const event = new CustomEvent('board:update', { 
+                            detail: { boardId: boardIdFromUrl, forceRefresh: true } 
+                        });
+                        window.dispatchEvent(event);
+                    }
+                }
+                
+                // Если задача была открыта в отдельном модальном окне, можно также
+                // добавить обработчик события для обновления списков задач
+                const taskListUpdateEvent = new CustomEvent('tasklist:update');
+                window.dispatchEvent(taskListUpdateEvent);
+                
+                // Показываем уведомление об успешном удалении
+                toast.success('Задача успешно удалена');
+            }
+            
         } catch (error) {
-            console.error('Failed to delete task:', error);
+            console.error('Ошибка при удалении задачи:', error);
             setError('Не удалось удалить задачу');
-        } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [task, onTaskDelete, onClose, setIsSubmitting, setError, boardId]);
 
     const handleClose = () => {
         // Перед закрытием, обновляем родительский компонент с текущими данными задачи
-        if (task && mode === 'view' && onTaskUpdate) {
+        // Только если задача не была удалена и мы в режиме просмотра
+        if (task && mode === 'view' && onTaskUpdate && !isSubmitting) {
             // Создаем копию задачи для обновления
             const updatedTask = { ...task };
             onTaskUpdate(updatedTask);
@@ -524,32 +673,36 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
     
     const saveTemplate = async () => {
-        if (!templateName.trim()) {
-            setError('Название шаблона обязательно');
-            return;
-        }
-        
+        setIsSavingTemplate(true);
         try {
             if (boardId) {
                 await taskService.createTaskTemplate(boardId, {
+                    id: 0, // ID будет присвоен на сервере
                     name: templateName.trim(),
                     taskData: {
                         title: title.trim(),
                         description: description.trim(),
-                        typeId: selectedTypeId,
-                        statusId: selectedStatusId,
-                        priority: priority,
-                        tags,
-                    }
-                } as TaskTemplate);
+                        typeId: selectedTypeId || undefined,
+                        statusId: selectedStatusId || undefined,
+                        priority: priority as TaskPriority,
+                    },
+                    tags: tags,
+                    boardId: boardId,
+                    createdBy: 0, // ID будет установлен на сервере
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
                 setTemplateName('');
                 setSaveTemplateDialogOpen(false);
             } else {
-                setError('Не удалось определить доску для сохранения шаблона');
+                console.error('Не удалось сохранить шаблон: boardId не указан');
+                setTemplateError('Не удалось сохранить шаблон');
             }
-        } catch (e) {
-            console.error('Ошибка при сохранении шаблона:', e);
-            setError('Не удалось сохранить шаблон');
+        } catch (error) {
+            console.error('Ошибка при сохранении шаблона:', error);
+            setTemplateError('Ошибка при сохранении шаблона');
+        } finally {
+            setIsSavingTemplate(false);
         }
     };
 
@@ -567,88 +720,132 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     };
 
     const renderDialogActions = () => {
+        const actionStyles = fullScreen ? {
+            position: 'sticky',
+            bottom: 0,
+            backgroundColor: theme.palette.background.paper,
+            zIndex: 10,
+            paddingTop: 1,
+            paddingBottom: 1,
+            borderTop: `1px solid ${theme.palette.divider}`
+        } : {};
+
         switch (mode) {
             case 'create':
                 return (
-                    <>
-                        <Button onClick={handleClose}>Отмена</Button>
-                        <Button 
-                            onClick={handleCreate} 
-                            variant="contained" 
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? <CircularProgress size={24} /> : 'Создать'}
-                        </Button>
-                    </>
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            <Button onClick={handleClose}>Отмена</Button>
+                            <Button 
+                                onClick={handleCreate} 
+                                variant="contained" 
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? <CircularProgress size={24} /> : 'Создать'}
+                            </Button>
+                        </DialogActions>
+                    </Box>
                 );
             case 'edit':
                 return (
-                    <>
-                        <Button 
-                            onClick={() => showConfirmDialog({
-                                title: "Удалить задачу",
-                                message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
-                                actionType: "delete",
-                                onConfirm: handleDelete,
-                                loading: isSubmitting
-                            })} 
-                            color="error"
-                            disabled={isSubmitting}
-                        >
-                            Удалить
-                        </Button>
-                        <Button onClick={handleClose}>Отмена</Button>
-                        <Button 
-                            onClick={handleUpdate} 
-                            variant="contained" 
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
-                        </Button>
-                    </>
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            {canDeleteTask() && (
+                                <Button 
+                                    onClick={() => showConfirmDialog({
+                                        title: "Удалить задачу",
+                                        message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                        actionType: "delete",
+                                        onConfirm: handleDelete,
+                                        loading: isSubmitting
+                                    })} 
+                                    color="error"
+                                    disabled={isSubmitting}
+                                    startIcon={<DeleteOutlineIcon />}
+                                    sx={{ mr: 'auto' }}
+                                >
+                                    Удалить
+                                </Button>
+                            )}
+                            <Button onClick={() => setMode('view')} disabled={isSubmitting}>
+                                Отмена
+                            </Button>
+                            <Button 
+                                onClick={handleUpdate} 
+                                variant="contained" 
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
+                            </Button>
+                        </DialogActions>
+                    </Box>
                 );
             case 'view':
+                const canEdit = canEditTask();
+                const canDelete = canDeleteTask();
+                const canCopy = canCopyTask();
+                
+                console.log('Права при рендеринге кнопок в режиме просмотра:');
+                console.log('- canEditTask:', canEdit);
+                console.log('- canDeleteTask:', canDelete);
+                console.log('- canCopyTask:', canCopy);
+                
                 return (
-                    <>
-                        {onTaskDelete && (
-                            <Button 
-                                onClick={() => showConfirmDialog({
-                                    title: "Удалить задачу",
-                                    message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
-                                    actionType: "delete",
-                                    onConfirm: handleDelete,
-                                    loading: isSubmitting
-                                })} 
-                                color="error"
-                            >
-                                Удалить
-                            </Button>
-                        )}
-                        <Button 
-                            onClick={handleCopyTask}
-                            startIcon={<ContentCopyIcon />}
-                        >
-                            Копировать
-                        </Button>
-                        <Button onClick={handleClose}>Закрыть</Button>
-                        {onTaskUpdate && (
-                            <Button 
-                                onClick={() => {
-                                    setMode('edit');
-                                }} 
-                                variant="contained"
-                            >
-                                Редактировать
-                            </Button>
-                        )}
-                    </>
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            {canDelete && (
+                                <Button 
+                                    onClick={() => showConfirmDialog({
+                                        title: "Удалить задачу",
+                                        message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                        actionType: "delete",
+                                        onConfirm: handleDelete,
+                                        loading: isSubmitting
+                                    })} 
+                                    color="error"
+                                    disabled={isSubmitting}
+                                    startIcon={<DeleteOutlineIcon />}
+                                    sx={{ mr: 1 }}
+                                >
+                                    {isMobile ? '' : 'Удалить'}
+                                </Button>
+                            )}
+                            {canCopy && (
+                                <Button 
+                                    onClick={handleCopyTask} 
+                                    disabled={isSubmitting}
+                                    startIcon={<ContentCopyIcon />}
+                                    sx={{ mr: isMobile ? 'auto' : 1 }}
+                                >
+                                    {isMobile ? '' : 'Копировать'}
+                                </Button>
+                            )}
+                            {onTaskUpdate && canEdit && (
+                                <Button 
+                                    onClick={() => {
+                                        setMode('edit');
+                                    }} 
+                                    variant="contained"
+                                >
+                                    Редактировать
+                                </Button>
+                            )}
+                            <Button onClick={handleClose}>Закрыть</Button>
+                        </DialogActions>
+                    </Box>
                 );
             default:
-                return <Button onClick={handleClose}>Закрыть</Button>;
+                return (
+                    <Box sx={actionStyles} width="100%">
+                        <DialogActions>
+                            <Button onClick={handleClose}>Закрыть</Button>
+                        </DialogActions>
+                    </Box>
+                );
         }
     };
 
-    const isEditable = mode === 'create' || mode === 'edit';
+    const isEditable = (mode === 'create' || mode === 'edit') && canEditTask();
 
     // Добавляем компонент для отображения типа задачи и статуса в режиме просмотра
     const TaskInfoChips = ({ task, isEditable }: { task: Task, isEditable: boolean }) => {
@@ -821,6 +1018,31 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         </Box>
     );
 
+    // При загрузке задачи, обновляем данные в контексте ролей
+    useEffect(() => {
+        if (boardData) {
+            roleContext.setCurrentBoard(boardData);
+            if ((boardData as any).currentUser) {
+                roleContext.setCurrentUserId((boardData as any).currentUser.id);
+                console.log('Установлен currentUserId в RoleContext:', (boardData as any).currentUser.id);
+                console.log('RoleContext после обновления:', {
+                    isOwner: roleContext.isOwner,
+                    isAdmin: roleContext.isAdmin,
+                    currentRole: roleContext.currentRole,
+                    permissions: {
+                        canEditTask: roleContext.hasPermission(Permission.EDIT_TASKS),
+                        canDeleteTask: roleContext.hasPermission(Permission.DELETE_TASKS),
+                        canCopyTask: roleContext.hasPermission(Permission.ADD_TASKS),
+                        canCommentTask: roleContext.hasPermission(Permission.COMMENT_TASKS)
+                    }
+                });
+            }
+        }
+    }, [boardData, roleContext]);
+
+    const hasCommentsPermission = canAddComments();
+    console.log('Права на комментирование при рендеринге вкладки комментариев:', hasCommentsPermission);
+
     return (
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
             <Dialog 
@@ -830,8 +1052,51 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 fullWidth
                 fullScreen={fullScreen}
                 disableEscapeKeyDown={disableBackdropClick}
+                sx={{
+                    '& .MuiDialog-paper': {
+                        ...(fullScreen && {
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '100%'
+                        })
+                    },
+                    '& .MuiDialogContent-root': {
+                        ...(isMobile && {
+                            padding: 2,
+                            paddingTop: 2,
+                            paddingBottom: 4
+                        })
+                    },
+                    '& .MuiBox-root': {
+                        ...(isMobile && {
+                            gap: 1
+                        })
+                    },
+                    '& .MuiTabs-root': {
+                        ...(isMobile && {
+                            minHeight: 40
+                        })
+                    },
+                    '& .MuiTab-root': {
+                        ...(isMobile && {
+                            minHeight: 40,
+                            padding: '6px 12px',
+                            minWidth: 0,
+                            fontSize: '0.8rem'
+                        })
+                    }
+                }}
             >
-                <DialogTitle>
+                <DialogTitle sx={{ 
+                    ...(fullScreen && {
+                        position: 'sticky',
+                        top: 0,
+                        backgroundColor: theme.palette.background.paper,
+                        zIndex: 10,
+                        paddingBottom: 1,
+                        borderBottom: `1px solid ${theme.palette.divider}`
+                    })
+                }}>
                     {renderDialogTitle()}
                     <IconButton
                         aria-label="close"
@@ -846,7 +1111,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent dividers>
+                <DialogContent 
+                    dividers 
+                    sx={{ 
+                        ...(fullScreen && {
+                            flex: 1,
+                            overflowY: 'auto',
+                            pb: 8  // Добавляем отступ, чтобы содержимое не перекрывалось кнопками
+                        })
+                    }}
+                >
                     {showTemplateSelector ? (
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -1413,6 +1687,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     }
                                                 }
                                             }}
+                                            canComment={hasCommentsPermission}
                                         />
                                     </TabPanel>
                                     <TabPanel value={selectedTab} index={3}>

@@ -5,11 +5,16 @@ import com.yourapp.model.BoardColumn;
 import com.yourapp.model.TaskStatus;
 import com.yourapp.model.TaskType;
 import com.yourapp.model.Task;
+import com.yourapp.model.Role;
+import com.yourapp.model.User;
+import com.yourapp.model.BoardMember;
 import com.yourapp.exception.ResourceNotFoundException;
 import com.yourapp.repository.BoardRepository;
 import com.yourapp.repository.TaskStatusRepository;
 import com.yourapp.repository.TaskTypeRepository;
 import com.yourapp.repository.BoardColumnRepository;
+import com.yourapp.repository.UserRepository;
+import com.yourapp.repository.BoardMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +27,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.Map;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +38,43 @@ public class BoardService {
     private final TaskStatusRepository taskStatusRepository;
     private final TaskTypeRepository taskTypeRepository;
     private final BoardColumnRepository boardColumnRepository;
+    private final UserRepository userRepository;
+    private final BoardMemberRepository boardMemberRepository;
     private final EntityManager entityManager;
+    private final BoardMemberService boardMemberService;
+    private final RoleService roleService;
+    
+    /**
+     * Возвращает сервис для работы с ролями
+     * @return сервис ролей
+     */
+    public RoleService getRoleService() {
+        return this.roleService;
+    }
+    
+    /**
+     * Получает объект BoardMember для указанных доски и пользователя
+     * @param boardId ID доски
+     * @param userId ID пользователя
+     * @return объект BoardMember или null, если пользователь не является участником доски
+     */
+    @Transactional(readOnly = true)
+    public BoardMember getBoardMember(String boardId, Long userId) {
+        try {
+            // Получаем пользователя и доску
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
+            
+            Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Доска с ID " + boardId + " не найдена"));
+            
+            // Получаем запись о членстве пользователя в доске
+            return boardMemberRepository.findByUserAndBoard(user, board).orElse(null);
+        } catch (Exception e) {
+            logger.error("Ошибка при получении объекта BoardMember: {}", e.getMessage(), e);
+            return null;
+        }
+    }
     
     public Board createBoard(Board board) {
         if (board.getName() == null || board.getName().trim().isEmpty()) {
@@ -98,11 +140,27 @@ public class BoardService {
             board.addTaskType(type);
         }
         
-        return boardRepository.save(board);
+        // Сохраняем доску
+        Board savedBoard = boardRepository.save(board);
+        
+        // Добавляем владельца как участника с ролью администратора
+        try {
+            // Получаем системную роль ADMIN
+            Role adminRole = roleService.getSystemRoleByName("ADMIN");
+            
+            // Добавляем владельца как участника с ролью администратора
+            boardMemberService.addMemberToBoard(savedBoard.getId(), savedBoard.getOwner().getId(), adminRole.getId());
+            
+            logger.info("Владелец доски {} добавлен как участник с ролью администратора", savedBoard.getId());
+        } catch (Exception e) {
+            logger.error("Ошибка при добавлении владельца доски как участника: {}", e.getMessage(), e);
+        }
+        
+        return savedBoard;
     }
     
     @Transactional
-    public Board updateBoard(Long id, Board boardDetails) {
+    public Board updateBoard(String id, Board boardDetails) {
         Board board = boardRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Board not found"));
         
@@ -114,11 +172,11 @@ public class BoardService {
     }
     
     @Transactional
-    public void deleteBoard(Long id) {
+    public void deleteBoard(String id) {
         boardRepository.deleteById(id);
     }
     
-    public Board getBoard(Long id) {
+    public Board getBoard(String id) {
         logger.debug("Начало загрузки доски с ID: {}", id);
         
         // Загружаем доску с колонками
@@ -178,25 +236,48 @@ public class BoardService {
     }
     
     @Transactional
-    public Board archiveBoard(Long id) {
+    public Board archiveBoard(String id) {
         Board board = getBoard(id);
         board.setArchived(true);
         return boardRepository.save(board);
     }
     
     @Transactional
-    public Board unarchiveBoard(Long id) {
+    public Board unarchiveBoard(String id) {
         Board board = getBoard(id);
         board.setArchived(false);
         return boardRepository.save(board);
     }
 
     public List<Board> getUserBoards(Long userId) {
-        return boardRepository.findByOwnerId(userId);
+        // Получаем доски, созданные пользователем
+        List<Board> ownedBoards = boardRepository.findByOwnerId(userId);
+        
+        // Получаем пользователя по ID
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
+        
+        // Получаем BoardMember записи для пользователя
+        List<BoardMember> membershipRecords = boardMemberRepository.findByUser(user);
+        
+        // Извлекаем доски из BoardMember записей и фильтруем, чтобы избежать дубликатов
+        List<Board> memberBoards = membershipRecords.stream()
+                .map(BoardMember::getBoard)
+                .filter(board -> !board.getOwner().getId().equals(userId)) // Исключаем доски, которые уже есть в ownedBoards
+                .collect(Collectors.toList());
+        
+        // Объединяем списки досок
+        List<Board> allBoards = new ArrayList<>(ownedBoards);
+        allBoards.addAll(memberBoards);
+        
+        logger.debug("Получены доски для пользователя ID:{}: {} созданных пользователем, {} где пользователь является участником",
+                userId, ownedBoards.size(), memberBoards.size());
+        
+        return allBoards;
     }
 
     @Transactional
-    public Board addColumnToBoard(Long boardId, BoardColumn column) {
+    public Board addColumnToBoard(String boardId, BoardColumn column) {
         logger.debug("Начало добавления колонки к доске ID:{}", boardId);
         
         Board board = getBoard(boardId);
@@ -235,7 +316,8 @@ public class BoardService {
         return savedBoard;
     }
 
-    public Board removeColumnFromBoard(Long boardId, Long columnId) {
+    @Transactional
+    public Board removeColumnFromBoard(String boardId, Long columnId) {
         Board board = boardRepository.findById(boardId)
             .orElseThrow(() -> new RuntimeException("Board not found"));
             
@@ -256,7 +338,7 @@ public class BoardService {
     }
 
     @Transactional
-    public Board moveColumnInBoard(Long boardId, Long columnId, int newPosition) {
+    public Board moveColumnInBoard(String boardId, Long columnId, int newPosition) {
         try {
             logger.debug("Начало перемещения колонки {} в позицию {} на доске {}", columnId, newPosition, boardId);
             Board board = getBoard(boardId);
@@ -340,13 +422,13 @@ public class BoardService {
         }
     }
 
-    public Board getBoardById(Long id) {
+    public Board getBoardById(String id) {
         logger.debug("Получение доски по ID: {}", id);
         return getBoard(id);
     }
 
     @Transactional
-    public Board updateColumn(Long boardId, Long columnId, String newName, String newColor) {
+    public Board updateColumn(String boardId, Long columnId, String newName, String newColor) {
         Board board = getBoardById(boardId);
         
         // Инициализируем коллекции, чтобы избежать LazyInitializationException
@@ -369,7 +451,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskStatus createTaskStatus(Long boardId, TaskStatus status) {
+    public TaskStatus createTaskStatus(String boardId, TaskStatus status) {
         Board board = getBoardById(boardId);
         
         // Устанавливаем только те поля, которые не установлены
@@ -391,7 +473,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskStatus updateTaskStatus(Long boardId, Long statusId, TaskStatus statusDetails) {
+    public TaskStatus updateTaskStatus(String boardId, Long statusId, TaskStatus statusDetails) {
         Board board = getBoardById(boardId);
         TaskStatus status = board.getTaskStatuses().stream()
             .filter(s -> s.getId().equals(statusId))
@@ -421,7 +503,7 @@ public class BoardService {
     }
 
     @Transactional
-    public void deleteTaskStatus(Long boardId, Long statusId) {
+    public void deleteTaskStatus(String boardId, Long statusId) {
         Board board = getBoardById(boardId);
         TaskStatus status = board.getTaskStatuses().stream()
             .filter(s -> s.getId().equals(statusId))
@@ -439,7 +521,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskType createTaskType(Long boardId, TaskType type) {
+    public TaskType createTaskType(String boardId, TaskType type) {
         Board board = getBoardById(boardId);
         
         // Устанавливаем только те поля, которые не установлены
@@ -461,7 +543,7 @@ public class BoardService {
     }
 
     @Transactional
-    public TaskType updateTaskType(Long boardId, Long typeId, TaskType typeDetails) {
+    public TaskType updateTaskType(String boardId, Long typeId, TaskType typeDetails) {
         Board board = getBoardById(boardId);
         TaskType type = board.getTaskTypes().stream()
             .filter(t -> t.getId().equals(typeId))
@@ -496,7 +578,7 @@ public class BoardService {
     }
 
     @Transactional
-    public void deleteTaskType(Long boardId, Long typeId) {
+    public void deleteTaskType(String boardId, Long typeId) {
         Board board = getBoardById(boardId);
         TaskType type = board.getTaskTypes().stream()
             .filter(t -> t.getId().equals(typeId))
@@ -513,7 +595,7 @@ public class BoardService {
         taskTypeRepository.delete(type);
     }
 
-    public List<TaskStatus> getBoardStatuses(Long boardId) {
+    public List<TaskStatus> getBoardStatuses(String boardId) {
         Board board = getBoardById(boardId);
         return board.getTaskStatuses().stream().sorted(Comparator.comparing(TaskStatus::getPosition)).collect(Collectors.toList());
     }
@@ -523,7 +605,7 @@ public class BoardService {
             .orElseThrow(() -> new ResourceNotFoundException("TaskStatus not found with id: " + statusId));
     }
 
-    public List<TaskType> getBoardTaskTypes(Long boardId) {
+    public List<TaskType> getBoardTaskTypes(String boardId) {
         Board board = getBoardById(boardId);
         return board.getTaskTypes().stream().sorted(Comparator.comparing(TaskType::getPosition)).collect(Collectors.toList());
     }
@@ -531,5 +613,53 @@ public class BoardService {
     public TaskType getTaskTypeById(Long typeId) {
         return taskTypeRepository.findById(typeId)
             .orElseThrow(() -> new ResourceNotFoundException("TaskType not found with id: " + typeId));
+    }
+    
+    /**
+     * Проверяет, имеет ли пользователь роль ADMIN на доске
+     * @param boardId ID доски
+     * @param userId ID пользователя
+     * @return true, если пользователь имеет роль ADMIN, иначе false
+     */
+    @Transactional(readOnly = true)
+    public boolean isUserBoardAdmin(String boardId, Long userId) {
+        logger.debug("Проверяем, имеет ли пользователь {} роль ADMIN на доске {}", userId, boardId);
+        try {
+            // Получаем пользователя и доску
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
+            
+            Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Доска с ID " + boardId + " не найдена"));
+            
+            // Проверяем, является ли пользователь владельцем доски
+            if (board.getOwner() != null && board.getOwner().getId().equals(userId)) {
+                logger.debug("Пользователь {} является владельцем доски {}", userId, boardId);
+                return true;
+            }
+            
+            // Получаем запись о членстве пользователя в доске
+            BoardMember boardMember = boardMemberRepository.findByUserAndBoard(user, board)
+                .orElse(null);
+            
+            if (boardMember == null) {
+                logger.debug("Пользователь {} не является участником доски {}", userId, boardId);
+                return false;
+            }
+            
+            // Проверяем роль пользователя
+            Role role = boardMember.getRole();
+            if (role != null && "ADMIN".equalsIgnoreCase(role.getName())) {
+                logger.debug("Пользователь {} имеет роль ADMIN на доске {}", userId, boardId);
+                return true;
+            }
+            
+            logger.debug("Пользователь {} имеет роль {} на доске {}", userId, 
+                    role != null ? role.getName() : "null", boardId);
+            return false;
+        } catch (Exception e) {
+            logger.error("Ошибка при проверке роли пользователя: {}", e.getMessage(), e);
+            return false;
+        }
     }
 }

@@ -37,7 +37,7 @@ public class Subtask {
     @JoinColumn(name = "assignee_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @JsonManagedReference("subtask-assignee")
+    @JsonBackReference("task-assignee")
     private User assignee;
     
     @Column(name = "created_at")

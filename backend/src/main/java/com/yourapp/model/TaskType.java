@@ -52,4 +52,21 @@ public class TaskType {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Task> tasks;
+    
+    // Геттеры и сеттеры, которые могут не генерироваться Lombok
+    public Board getBoard() {
+        return this.board;
+    }
+    
+    public void setBoard(Board board) {
+        this.board = board;
+    }
+    
+    public Integer getPosition() {
+        return this.position;
+    }
+    
+    public void setPosition(Integer position) {
+        this.position = position;
+    }
 } 

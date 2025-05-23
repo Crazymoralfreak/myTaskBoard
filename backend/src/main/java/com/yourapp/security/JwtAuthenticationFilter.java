@@ -47,12 +47,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         try {
             final String jwt = authHeader.substring(7);
+            logger.debug("Обработка JWT токена: {}", maskToken(jwt));
+            
             final String userEmail = jwtService.extractUsername(jwt);
+            logger.debug("Извлеченный email: {}", userEmail);
             
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                logger.debug("Загрузка пользователя по email: {}", userEmail);
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
                 
-                if (jwtService.isTokenValid(jwt, userDetails)) {
+                if (userDetails == null) {
+                    logger.warn("Пользователь с email {} не найден", userEmail);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                
+                logger.debug("Проверка валидности токена для пользователя: {}", userEmail);
+                boolean isTokenValid = jwtService.isTokenValid(jwt, userDetails);
+                logger.debug("Результат проверки токена: {}", isTokenValid);
+                
+                if (isTokenValid) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
@@ -60,11 +74,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.debug("Установлена аутентификация для пользователя: {}", userEmail);
+                } else {
+                    logger.warn("Токен недействителен для пользователя: {}", userEmail);
                 }
             }
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            logger.error("JWT Authentication error", e);
+            logger.error("Ошибка аутентификации JWT: {}", e.getMessage(), e);
             SecurityContextHolder.clearContext();
             
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -85,5 +102,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                path.startsWith("/error") ||
                path.startsWith("/v3/api-docs") ||
                path.startsWith("/swagger-ui");
+    }
+
+    // Метод для маскировки токена в логах (для безопасности)
+    private String maskToken(String token) {
+        if (token == null || token.length() < 10) {
+            return "***";
+        }
+        return token.substring(0, 5) + "..." + token.substring(token.length() - 5);
     }
 } 

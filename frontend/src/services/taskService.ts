@@ -310,7 +310,11 @@ export const taskService = {
 
     async deleteTask(taskId: number): Promise<Board> {
         try {
-            const response = await axiosInstance.delete(`/api/tasks/${taskId}`);
+            const response = await axiosInstance.delete(`/api/tasks/${taskId}`, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             console.log('Задача успешно удалена:', taskId);
             return response.data;
         } catch (error) {
@@ -771,11 +775,11 @@ export const taskService = {
     },
 
     // Методы для работы с шаблонами задач
-    getTaskTemplates(boardId: number): Promise<AxiosResponse<TaskTemplate[]>> {
+    getTaskTemplates(boardId: string): Promise<AxiosResponse<TaskTemplate[]>> {
         return axiosInstance.get(`/api/boards/${boardId}/templates`);
     },
 
-    createTaskTemplate(boardId: number, template: TaskTemplate): Promise<AxiosResponse<TaskTemplate>> {
+    createTaskTemplate(boardId: string, template: TaskTemplate): Promise<AxiosResponse<TaskTemplate>> {
         return axiosInstance.post(`/api/boards/${boardId}/templates`, template);
     },
 
@@ -1025,33 +1029,26 @@ export const taskService = {
         return safeTask;
     },
 
-    getBoardIdFromUrl(): number | null {
-        try {
-            // Пытаемся извлечь ID доски из URL
-            const url = window.location.pathname;
-            
-            // Поддержка различных форматов URL: /boards/123, /boards/123/tasks, /boards/123/columns, и т.д.
-            const boardPathRegex = /\/boards\/(\d+)(?:\/.*)?/;
-            const match = url.match(boardPathRegex);
-            
-            if (match && match[1]) {
-                return parseInt(match[1], 10);
-            }
-            
-            // Если не удалось найти ID в URL, проверяем наличие query-параметра boardId
-            const urlParams = new URLSearchParams(window.location.search);
-            const boardIdParam = urlParams.get('boardId');
-            
-            if (boardIdParam) {
-                return parseInt(boardIdParam, 10);
-            }
-            
-            console.log('Не удалось извлечь boardId из URL:', url);
-            return null;
-        } catch (error) {
-            console.error('Ошибка при получении ID доски из URL:', error);
-            return null;
+    getBoardIdFromUrl(): string | null {
+        // Пытаемся извлечь ID доски из URL
+        const url = window.location.pathname;
+        const boardUrlPattern = /\/boards\/([^\/]+)/;
+        const match = url.match(boardUrlPattern);
+        
+        if (match && match[1]) {
+            return match[1];
         }
+        
+        // Если не удалось найти ID в URL, проверяем наличие query-параметра boardId
+        const urlParams = new URLSearchParams(window.location.search);
+        const boardIdParam = urlParams.get('boardId');
+        
+        if (boardIdParam) {
+            return boardIdParam;
+        }
+        
+        console.log('Не удалось извлечь boardId из URL:', url);
+        return null;
     },
 
     // Специальный метод для сравнения значений в истории с учетом HTML-форматирования

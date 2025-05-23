@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { refreshToken } from '../services/authService';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 export const api = axios.create({
   baseURL: 'http://localhost:8081',
@@ -17,8 +18,20 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-  // Гарантируем, что для всех не-GET запросов будет установлен Content-Type: application/json
-  if (config.method?.toLowerCase() !== 'get' && !config.headers['Content-Type']) {
+  // Проверяем наличие данных в запросе
+  const hasData = config.data && (
+    (typeof config.data === 'object' && Object.keys(config.data).length > 0) || 
+    config.data instanceof FormData || 
+    typeof config.data === 'string'
+  );
+  
+  // Для DELETE запросов удаляем Content-Type только если нет данных
+  if (config.method?.toLowerCase() === 'delete' && !hasData) {
+    delete config.headers['Content-Type'];
+    console.log('Content-Type удален для DELETE запроса без данных к ' + config.url);
+  } 
+  // Для остальных не-GET запросов устанавливаем Content-Type: application/json если он не установлен и данные не являются FormData
+  else if (config.method?.toLowerCase() !== 'get' && !config.headers['Content-Type']) {
     if (config.data instanceof FormData) {
       // Для FormData не устанавливаем Content-Type, браузер сделает это с правильной boundary
       delete config.headers['Content-Type'];
@@ -343,7 +356,7 @@ export const uploadUserAvatar = async (file: File) => {
     
     if (response.data && response.data.avatarUrl) {
       // Полный URL для аватара
-      const fullAvatarUrl = getFullAvatarUrl(response.data.avatarUrl);
+      const fullAvatarUrl = getAvatarUrl(response.data.avatarUrl);
       
       // Обновляем данные пользователя в localStorage
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
@@ -369,29 +382,6 @@ export const uploadUserAvatar = async (file: File) => {
     
     throw error;
   }
-};
-
-// Утилитарная функция для формирования полного URL для загруженных аватаров
-export const getFullAvatarUrl = (url: string | undefined): string | undefined => {
-  if (!url) return undefined;
-  
-  // Если это абсолютный URL или data URL, возвращаем как есть
-  if (url.startsWith('http') || url.startsWith('data:')) {
-    return url;
-  }
-  
-  // Если это URL загруженного на сервер аватара, добавляем базовый URL API
-  if (url.startsWith('/uploads/')) {
-    return `${api.defaults.baseURL}${url}`;
-  }
-  
-  // Если это относительный путь без слеша в начале, добавляем слеш
-  if (!url.startsWith('/')) {
-    return `${api.defaults.baseURL}/uploads/avatars/${url}`;
-  }
-  
-  // Для любых других случаев, возвращаем как есть
-  return url;
 };
 
 // Обновление настроек пользователя (включая тему, приватность, язык и т.д.)

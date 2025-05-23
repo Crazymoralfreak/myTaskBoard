@@ -15,7 +15,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import com.yourapp.dto.UserDto;
+import com.yourapp.dto.UserDTO;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -106,7 +106,7 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "owner")
     private List<Board> boards;
     
-    @JsonIgnore
+    @JsonManagedReference("task-assignee")
     @OneToMany(mappedBy = "assignee")
     private List<Task> assignedTasks;
     
@@ -151,8 +151,101 @@ public class User implements UserDetails {
     }
 
     @Override
+    public String getPassword() {
+        return this.password;
+    }
+    
+    public void setPassword(String password) {
+        this.password = password;
+    }
+    
+    @Override
     public String getUsername() {
         return this.username;
+    }
+    
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+    
+    public void setId(Long id) {
+        this.id = id;
+    }
+    
+    public String getEmail() {
+        return this.email;
+    }
+    
+    public void setEmail(String email) {
+        this.email = email;
+    }
+    
+    public String getAvatarUrl() {
+        return this.avatarUrl;
+    }
+    
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+    
+    public String getPhoneNumber() {
+        return this.phoneNumber;
+    }
+    
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+    
+    public String getPosition() {
+        return this.position;
+    }
+    
+    public void setPosition(String position) {
+        this.position = position;
+    }
+    
+    public String getBio() {
+        return this.bio;
+    }
+    
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+    
+    public String getTelegramId() {
+        return this.telegramId;
+    }
+    
+    public void setTelegramId(String telegramId) {
+        this.telegramId = telegramId;
+    }
+    
+    public String getTelegramChatId() {
+        return this.telegramChatId;
+    }
+    
+    public void setTelegramChatId(String telegramChatId) {
+        this.telegramChatId = telegramChatId;
+    }
+    
+    public String getDisplayName() {
+        return this.displayName;
+    }
+    
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+    
+    public LocalDateTime getLastPasswordResetDate() {
+        return this.lastPasswordResetDate;
+    }
+    
+    public void setLastPasswordResetDate(LocalDateTime lastPasswordResetDate) {
+        this.lastPasswordResetDate = lastPasswordResetDate;
     }
 
     @Override
@@ -175,8 +268,8 @@ public class User implements UserDetails {
         return true;
     }
 
-    public UserDto toDto() {
-        return UserDto.builder()
+    public UserDTO toDto() {
+        return UserDTO.builder()
                 .id(this.id)
                 .email(this.email)
                 .username(this.username)
@@ -186,24 +279,6 @@ public class User implements UserDetails {
                 .position(this.position)
                 .bio(this.bio)
                 .build();
-    }
-
-    /**
-     * Проверяет, меняли ли пароль после выдачи указанного токена
-     * @param tokenIssuedAt дата выдачи токена
-     * @return true если пароль меняли после выдачи токена, false в противном случае
-     */
-    public boolean isPasswordChangedAfterTokenIssued(Date tokenIssuedAt) {
-        // Если нет даты сброса пароля или даты выдачи токена, считаем пароль валидным
-        if (lastPasswordResetDate == null || tokenIssuedAt == null) {
-            return false;
-        }
-        
-        // Преобразуем LocalDateTime в Date для сравнения
-        Date passwordResetDate = java.sql.Timestamp.valueOf(lastPasswordResetDate);
-        
-        // Если токен был выдан до сброса пароля, то считаем, что пароль изменен после выдачи токена
-        return tokenIssuedAt.before(passwordResetDate);
     }
 }
 

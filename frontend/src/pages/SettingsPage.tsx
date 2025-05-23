@@ -23,7 +23,7 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 
 interface UserSettings {
   darkMode: boolean;
-  compactView: boolean;
+  compactMode: boolean;
   enableAnimations: boolean;
   browserNotifications: boolean;
   emailNotifications: boolean;
@@ -73,12 +73,20 @@ export const SettingsPage: React.FC = () => {
     
     try {
       setSaving(true);
-      await userService.updateUserSettings(newSettings);
+      const updatedSettings = await userService.updateUserSettings(newSettings);
+      setSettings(updatedSettings);
       enqueueSnackbar('Настройки сохранены', { variant: 'success' });
+      
+      if (setting === 'darkMode') {
+        localStorage.setItem('darkMode', event.target.checked ? 'true' : 'false');
+      }
+      
+      if (setting === 'compactMode') {
+        localStorage.setItem('compactMode', event.target.checked ? 'true' : 'false');
+      }
     } catch (error) {
       console.error('Ошибка при сохранении настроек:', error);
       enqueueSnackbar('Не удалось сохранить настройки', { variant: 'error' });
-      // Откатываем изменения в случае ошибки
       setSettings(settings);
     } finally {
       setSaving(false);
@@ -160,8 +168,8 @@ export const SettingsPage: React.FC = () => {
                   <FormControlLabel
                     control={
                       <Switch 
-                        checked={settings.compactView}
-                        onChange={handleBooleanSettingChange('compactView')}
+                        checked={settings.compactMode}
+                        onChange={handleBooleanSettingChange('compactMode')}
                         disabled={saving}
                       />
                     }

@@ -1,6 +1,6 @@
 package com.yourapp.service;
 
-import com.yourapp.dto.UserSettingsDto;
+import com.yourapp.dto.UserSettingsDTO;
 import com.yourapp.model.User;
 import com.yourapp.model.UserSettings;
 import com.yourapp.repository.UserSettingsRepository;
@@ -19,13 +19,12 @@ public class UserSettingsService {
     private static final Logger logger = LoggerFactory.getLogger(UserSettingsService.class);
 
     @Transactional(readOnly = true)
-    public UserSettingsDto getUserSettings(User user) {
+    public UserSettingsDTO getUserSettings(User user) {
         Optional<UserSettings> settingsOpt = userSettingsRepository.findByUser(user);
         
         if (settingsOpt.isPresent()) {
-            // Если настройки найдены, маппим их в DTO
             UserSettings settings = settingsOpt.get();
-            return UserSettingsDto.builder()
+            return UserSettingsDTO.builder()
                     .darkMode(settings.getDarkMode())
                     .compactMode(settings.getCompactMode())
                     .enableAnimations(settings.getEnableAnimations())
@@ -40,30 +39,47 @@ public class UserSettingsService {
                     .language(settings.getLanguage())
                     .timezone(settings.getTimezone())
                     .build();
-        } else {
-            // Если настройки не найдены, возвращаем DTO с дефолтными значениями
-            // НЕ СОХРАНЯЕМ ничего в базу данных здесь
-            logger.warn("Настройки для пользователя ID {} не найдены, возвращаем дефолтные.", user.getId());
-            return UserSettingsDto.builder()
-                    .darkMode(false)
-                    .compactMode(false)
-                    .enableAnimations(true)
-                    .browserNotifications(true)
-                    .emailNotifications(true)
-                    .telegramNotifications(true)
-                    .profileVisibility("public")
-                    .emailVisible(true)
-                    .phoneVisible(true)
-                    .positionVisible(true)
-                    .bioVisible(true)
-                    .language("ru")
-                    .timezone("UTC+3")
-                    .build();
         }
+        
+        // Создаем дефолтные настройки если они еще не созданы
+        UserSettings defaultSettings = UserSettings.builder()
+                .user(user)
+                .darkMode(false)
+                .compactMode(false)
+                .enableAnimations(true)
+                .browserNotifications(true)
+                .emailNotifications(true)
+                .telegramNotifications(false)
+                .profileVisibility("public")
+                .emailVisible(true)
+                .phoneVisible(true)
+                .positionVisible(true)
+                .bioVisible(true)
+                .language("eng")
+                .timezone("UTC+0")
+                .build();
+        
+        userSettingsRepository.save(defaultSettings);
+        
+        return UserSettingsDTO.builder()
+                .darkMode(defaultSettings.getDarkMode())
+                .compactMode(defaultSettings.getCompactMode())
+                .enableAnimations(defaultSettings.getEnableAnimations())
+                .browserNotifications(defaultSettings.getBrowserNotifications())
+                .emailNotifications(defaultSettings.getEmailNotifications())
+                .telegramNotifications(defaultSettings.getTelegramNotifications())
+                .profileVisibility(defaultSettings.getProfileVisibility())
+                .emailVisible(defaultSettings.getEmailVisible())
+                .phoneVisible(defaultSettings.getPhoneVisible())
+                .positionVisible(defaultSettings.getPositionVisible())
+                .bioVisible(defaultSettings.getBioVisible())
+                .language(defaultSettings.getLanguage())
+                .timezone(defaultSettings.getTimezone())
+                .build();
     }
 
     @Transactional // Убираем readOnly = true, т.к. метод обновляет данные
-    public UserSettingsDto updateUserSettings(User user, UserSettingsDto settingsDto) {
+    public UserSettingsDTO updateUserSettings(User user, UserSettingsDTO settingsDto) {
         // Находим существующие настройки или создаем НОВЫЙ объект, если их нет
         // Это важно, т.к. дефолтные настройки уже должны быть созданы при регистрации
         UserSettings settings = userSettingsRepository.findByUser(user)
@@ -92,7 +108,7 @@ public class UserSettingsService {
         settings = userSettingsRepository.save(settings);
         
         // Маппим обновленный объект обратно в DTO
-        return UserSettingsDto.builder()
+        return UserSettingsDTO.builder()
                 .darkMode(settings.getDarkMode())
                 .compactMode(settings.getCompactMode())
                 .enableAnimations(settings.getEnableAnimations())

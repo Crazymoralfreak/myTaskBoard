@@ -17,7 +17,9 @@ import {
     Badge,
     Button,
     ButtonGroup,
-    Grid
+    Grid,
+    MenuItem,
+    Menu
 } from '@mui/material';
 import { Task, TaskHistory as TaskHistoryType } from '../../../types/task';
 import { format, isToday, isYesterday, isThisWeek, isSameDay } from 'date-fns';
@@ -36,7 +38,7 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import LabelIcon from '@mui/icons-material/Label';
 // @ts-ignore
 import * as DiffLib from 'diff';
-import { getFullAvatarUrl } from '../../../api/api';
+import { getAvatarUrl } from '../../../utils/avatarUtils';
 
 // Типы для библиотеки diff
 interface DiffPart {
@@ -615,7 +617,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                     <Tooltip title={item.username || 'Неизвестный пользователь'} arrow> 
                                                         <Avatar 
                                                             alt={item.username || 'User'} 
-                                                            src={item.avatarUrl ? getFullAvatarUrl(item.avatarUrl) : undefined}
+                                                            src={item.avatarUrl ? getAvatarUrl(item.avatarUrl) : undefined}
                                                             sx={{ width: compactMode ? 24 : 32, height: compactMode ? 24 : 32 }}
                                                         >
                                                             {item.username ? item.username.charAt(0).toUpperCase() : '?'}

@@ -55,10 +55,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         }
     };
     
+    const handleConfirm = () => {
+        console.log('Подтверждение диалога вызвано');
+        onConfirm();
+    };
+
     // Обработчик нажатия клавиши Enter для подтверждения
     const handleKeyDown = (event: React.KeyboardEvent) => {
         if (event.key === 'Enter' && !loading) {
-            onConfirm();
+            handleConfirm();
         }
     };
 
@@ -101,7 +106,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <DialogActions>
                 <Button onClick={onClose} disabled={loading}>Отмена</Button>
                 <Button 
-                    onClick={onConfirm} 
+                    onClick={handleConfirm} 
                     variant="contained" 
                     color={getActionColor()}
                     disabled={loading}

@@ -1,6 +1,6 @@
 package com.yourapp.controller;
 
-import com.yourapp.dto.UserSettingsDto;
+import com.yourapp.dto.UserSettingsDTO;
 import com.yourapp.service.UserSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,14 +16,14 @@ public class UserSettingsController {
     private final UserSettingsService userSettingsService;
 
     @GetMapping("/settings")
-    public ResponseEntity<UserSettingsDto> getUserSettings(@AuthenticationPrincipal User user) {
+    public ResponseEntity<UserSettingsDTO> getUserSettings(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(userSettingsService.getUserSettings(user));
     }
 
     @PutMapping("/settings")
-    public ResponseEntity<UserSettingsDto> updateUserSettings(
+    public ResponseEntity<UserSettingsDTO> updateUserSettings(
             @AuthenticationPrincipal User user,
-            @RequestBody UserSettingsDto settings) {
+            @RequestBody UserSettingsDTO settings) {
         return ResponseEntity.ok(userSettingsService.updateUserSettings(user, settings));
     }
 
