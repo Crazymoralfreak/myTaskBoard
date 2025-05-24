@@ -97,6 +97,11 @@ export function useUserRole(board: Board | null | undefined, userId?: number): U
       case Permission.ADD_COLUMNS:
       case Permission.EDIT_COLUMNS:
       case Permission.DELETE_COLUMNS:
+        // Редактор больше не может управлять колонками
+        result = isAdmin || userRole === SystemRoles.ADMIN;
+        console.log(`useUserRole - hasPermission: ${permission} - ${result ? 'предоставлено' : 'отказано'} (только админ)`);
+        return result;
+
       case Permission.ADD_TASKS:
       case Permission.EDIT_TASKS:
       case Permission.DELETE_TASKS:

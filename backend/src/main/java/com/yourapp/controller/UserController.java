@@ -303,6 +303,13 @@ public class UserController {
             User user = (User) authentication.getPrincipal();
             log.info("Загрузка аватара для пользователя: {}", user.getUsername());
 
+            // Если у пользователя уже есть аватар, удаляем его
+            if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
+                log.info("Удаление старого аватара: {}", user.getAvatarUrl());
+                boolean deleteResult = fileStorageService.deleteFile(user.getAvatarUrl());
+                log.info("Результат удаления старого аватара: {}", deleteResult ? "успешно" : "неудачно");
+            }
+
             // Используем FileStorageService для сохранения файла
             String avatarUrl = fileStorageService.storeFile(file, "avatars");
             log.info("Аватар успешно сохранен, URL: {}", avatarUrl);

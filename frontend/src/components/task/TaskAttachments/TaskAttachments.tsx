@@ -16,8 +16,19 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField,
-    Grid
+    Alert,
+    Card,
+    CardContent,
+    CardMedia,
+    CardActionArea,
+    CardActions,
+    Stack,
+    Tooltip,
+    Chip,
+    useMediaQuery,
+    Fade,
+    useTheme,
+    alpha
 } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -26,15 +37,23 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import CloseIcon from '@mui/icons-material/Close';
 import { Task, TaskAttachment } from '../../../types/task';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { taskService } from '../../../services/taskService';
+import { formatFileSize, getFileUrl } from '../../../utils/fileUtils';
 
 interface TaskAttachmentsProps {
     taskId: number;
     onTaskUpdate?: (updatedTask: Task) => void;
 }
 
+/**
+ * Компонент для работы с вложениями задачи
+ */
 export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTaskUpdate }) => {
     const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
     const [loading, setLoading] = useState(false);
@@ -46,25 +65,41 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    
+    // Индикатор, что это темная тема
+    const isDarkTheme = theme.palette.mode === 'dark';
     
     // Загрузка вложений из задачи
-    useEffect(() => {
+    const loadTaskAttachments = async () => {
         if (!taskId) return;
         
         setLoading(true);
+        setError(null);
         
-        // Используем вложения, которые уже есть в задаче
-        if (attachments) {
-            setAttachments(attachments);
-            setLoading(false);
-        } else {
-            // Если вложений нет, устанавливаем пустой массив
-            setAttachments([]);
+        try {
+            const loadedTask = await taskService.getTask(taskId);
+            
+            if (loadedTask && loadedTask.attachments) {
+                setAttachments(loadedTask.attachments);
+            } else {
+                setAttachments([]);
+            }
+        } catch (err) {
+            console.error('Ошибка при загрузке вложений:', err);
+            setError('Не удалось загрузить список вложений');
+        } finally {
             setLoading(false);
         }
-    }, [taskId, attachments]);
+    };
     
-    // Обработка клика по кнопке добавления файла
+    // Загрузка вложений при монтировании компонента
+    useEffect(() => {
+        loadTaskAttachments();
+    }, [taskId]);
+    
+    // Обработчик клика по кнопке добавления файла
     const handleAttachButtonClick = () => {
         fileInputRef.current?.click();
     };
@@ -85,8 +120,12 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 (progress) => setUploadProgress(progress)
             );
             
+            // Обновляем список вложений
             if (updatedTask && updatedTask.attachments) {
                 setAttachments(updatedTask.attachments);
+            } else {
+                // Если вложения не вернулись с сервера, перезагружаем задачу
+                loadTaskAttachments();
             }
             
             // Обновляем родительский компонент
@@ -96,7 +135,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             
         } catch (err) {
             console.error('Ошибка при загрузке файла:', err);
-            setError('Не удалось загрузить файл. Пожалуйста, попробуйте снова.');
+            setError('Не удалось загрузить файл');
         } finally {
             setUploadProgress(null);
             
@@ -123,6 +162,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             // Удаление файла через API
             const updatedTask = await taskService.deleteFile(taskId, selectedAttachmentId);
             
+            // Обновляем список вложений
             if (updatedTask && updatedTask.attachments) {
                 setAttachments(updatedTask.attachments);
             } else {
@@ -130,6 +170,9 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 setAttachments(prev => prev.filter(attachment => 
                     attachment.id !== selectedAttachmentId
                 ));
+                
+                // Перезагружаем задачу для получения актуальных данных
+                loadTaskAttachments();
             }
             
             // Обновляем родительский компонент
@@ -139,7 +182,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             
         } catch (err) {
             console.error('Ошибка при удалении файла:', err);
-            setError('Не удалось удалить файл. Пожалуйста, попробуйте снова.');
+            setError('Не удалось удалить файл');
         } finally {
             setLoading(false);
             setSelectedAttachmentId(null);
@@ -154,14 +197,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     };
     
     // Форматирование размера файла
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes';
-        
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const formatFileSizeHelper = (bytes: number) => {
+        return formatFileSize(bytes);
     };
     
     // Определение иконки для типа файла
@@ -181,14 +218,18 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     
     // Форматирование даты
     const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            return dateString;
+        }
     };
     
     // Проверка, может ли файл быть предпросмотрен
@@ -196,11 +237,38 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         return type.startsWith('image/') || type === 'application/pdf' || type.startsWith('text/');
     };
     
+    // Определение цвета для типа файла
+    const getFileTypeColor = (type: string) => {
+        if (type.startsWith('image/')) {
+            return theme.palette.success.main;
+        } else if (type === 'application/pdf') {
+            return theme.palette.error.main;
+        } else if (type.startsWith('text/')) {
+            return theme.palette.info.main;
+        } else if (type.includes('excel') || type.includes('spreadsheet')) {
+            return theme.palette.success.main;
+        } else if (type.includes('word') || type.includes('document')) {
+            return theme.palette.primary.main;
+        } else {
+            return theme.palette.grey[500];
+        }
+    };
+    
+    // Получение расширения файла из имени
+    const getFileExtension = (filename: string) => {
+        return filename.split('.').pop()?.toUpperCase() || '';
+    };
+    
     // Рендеринг содержимого предпросмотра
     const renderPreviewContent = () => {
         if (!previewAttachment) return null;
         
-        const { mimeType, url, filename } = previewAttachment;
+        const { filename, mimeType } = previewAttachment;
+        const url = getFileUrl(previewAttachment.url);
+        
+        if (!url) return (
+            <Typography color="error">Не удалось получить URL вложения</Typography>
+        );
         
         if (mimeType.startsWith('image/')) {
             return (
@@ -228,7 +296,6 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             return (
                 <Paper sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
                     <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {/* В реальном приложении здесь был бы код для загрузки и отображения текстового содержимого */}
                         Содержимое текстового файла "{filename}"
                     </Typography>
                 </Paper>
@@ -253,18 +320,301 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         }
     };
     
+    // Рендер элемента вложения в виде карточки
+    const renderAttachmentCard = (attachment: TaskAttachment, index: number) => {
+        const isImage = attachment.mimeType.startsWith('image/');
+        const fileExtension = getFileExtension(attachment.filename);
+        const fileColor = getFileTypeColor(attachment.mimeType);
+        const canPreviewFile = canPreview(attachment.mimeType);
+        const fileUrl = getFileUrl(attachment.url);
+        
+        return (
+            <Card 
+                key={attachment.id || index} 
+                variant="outlined" 
+                sx={{ 
+                    mb: 2, 
+                    overflow: 'hidden',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: isDarkTheme 
+                            ? '0 6px 12px rgba(0,0,0,0.3)'
+                            : '0 6px 12px rgba(0,0,0,0.1)'
+                    }
+                }}
+            >
+                <CardActionArea 
+                    onClick={() => canPreviewFile ? handlePreviewClick(attachment) : null}
+                    sx={{ 
+                        display: 'flex', 
+                        alignItems: 'flex-start', 
+                        p: 1,
+                        cursor: canPreviewFile ? 'pointer' : 'default'
+                    }}
+                >
+                    {isImage && fileUrl ? (
+                        <CardMedia
+                            component="img"
+                            sx={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 1 }}
+                            image={fileUrl}
+                            alt={attachment.filename}
+                        />
+                    ) : (
+                        <Box sx={{ 
+                            width: 60, 
+                            height: 60, 
+                            bgcolor: alpha(fileColor, isDarkTheme ? 0.2 : 0.1),
+                            color: fileColor,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 1
+                        }}>
+                            {getFileIcon(attachment.mimeType)}
+                            {fileExtension && (
+                                <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                        mt: 0.5, 
+                                        fontWeight: 'bold',
+                                        color: isDarkTheme ? theme.palette.text.primary : fileColor 
+                                    }}
+                                >
+                                    {fileExtension}
+                                </Typography>
+                            )}
+                        </Box>
+                    )}
+                    
+                    <CardContent sx={{ flexGrow: 1, p: 1, pl: 2, '&:last-child': { pb: 1 } }}>
+                        <Typography variant="subtitle2" noWrap title={attachment.filename}>
+                            {attachment.filename}
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }} alignItems="center">
+                            <Typography variant="caption" color="text.secondary">
+                                {formatFileSizeHelper(attachment.size)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {formatDate(attachment.createdAt)}
+                            </Typography>
+                        </Stack>
+                    </CardContent>
+                </CardActionArea>
+                
+                <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
+                    <Tooltip title="Скачать">
+                        <IconButton 
+                            size="small"
+                            component="a"
+                            href={fileUrl || '#'}
+                            download={attachment.filename}
+                        >
+                            <DownloadIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Удалить">
+                        <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteClick(attachment.id)}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                    
+                    {canPreviewFile && (
+                        <Tooltip title="Просмотреть">
+                            <IconButton 
+                                size="small" 
+                                color="primary"
+                                onClick={() => handlePreviewClick(attachment)}
+                            >
+                                <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+                </CardActions>
+            </Card>
+        );
+    };
+    
+    // Рендер элемента вложения в виде строки списка
+    const renderAttachmentListItem = (attachment: TaskAttachment, index: number) => {
+        const fileExtension = getFileExtension(attachment.filename);
+        const fileColor = getFileTypeColor(attachment.mimeType);
+        
+        return (
+            <React.Fragment key={attachment.id || index}>
+                <ListItem sx={{ 
+                    borderRadius: 1,
+                    transition: 'background-color 0.2s',
+                    '&:hover': {
+                        bgcolor: isDarkTheme ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+                    }
+                }}>
+                    <ListItemIcon>
+                        <Box sx={{ 
+                            bgcolor: alpha(fileColor, isDarkTheme ? 0.2 : 0.1),
+                            color: fileColor,
+                            width: 40,
+                            height: 40,
+                            borderRadius: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexDirection: 'column'
+                        }}>
+                            {getFileIcon(attachment.mimeType)}
+                            {fileExtension && (
+                                <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                        fontSize: '0.6rem',
+                                        fontWeight: 'bold', 
+                                        lineHeight: 1
+                                    }}
+                                >
+                                    {fileExtension}
+                                </Typography>
+                            )}
+                        </Box>
+                    </ListItemIcon>
+                    
+                    <ListItemText 
+                        primary={
+                            <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                    {attachment.filename}
+                                </Typography>
+                                
+                                {canPreview(attachment.mimeType) && (
+                                    <Chip
+                                        label="Доступен просмотр"
+                                        size="small"
+                                        color="primary"
+                                        variant="outlined"
+                                        sx={{ height: 20 }}
+                                    />
+                                )}
+                            </Box>
+                        }
+                        
+                        secondary={
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Typography variant="caption" color="text.secondary">
+                                    {formatFileSizeHelper(attachment.size)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {formatDate(attachment.createdAt)}
+                                </Typography>
+                            </Stack>
+                        }
+                        
+                        primaryTypographyProps={{
+                            sx: { marginBottom: 0.5 }
+                        }}
+                    />
+                    
+                    <ListItemSecondaryAction>
+                        <Stack direction="row" spacing={1}>
+                            {canPreview(attachment.mimeType) && (
+                                <Tooltip title="Просмотреть">
+                                    <IconButton 
+                                        edge="end" 
+                                        aria-label="preview"
+                                        onClick={() => handlePreviewClick(attachment)}
+                                        size="small"
+                                        color="primary"
+                                    >
+                                        <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                            
+                            <Tooltip title="Скачать">
+                                <IconButton 
+                                    edge="end" 
+                                    aria-label="download"
+                                    component="a"
+                                    href={getFileUrl(attachment.url) || '#'}
+                                    download={attachment.filename}
+                                    size="small"
+                                >
+                                    <DownloadIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Удалить">
+                                <IconButton 
+                                    edge="end" 
+                                    aria-label="delete" 
+                                    onClick={() => handleDeleteClick(attachment.id)}
+                                    size="small"
+                                    color="error"
+                                >
+                                    <DeleteIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
+                    </ListItemSecondaryAction>
+                </ListItem>
+                {index < attachments.length - 1 && <Divider variant="fullWidth" component="li" />}
+            </React.Fragment>
+        );
+    };
+    
     return (
         <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">Вложения</Typography>
-                <Button 
-                    variant="contained" 
-                    startIcon={<AttachFileIcon />}
-                    onClick={handleAttachButtonClick}
-                    disabled={!!uploadProgress || loading}
-                >
-                    Добавить файл
-                </Button>
+            {/* Шапка с заголовком и кнопками */}
+            <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: 2,
+                flexWrap: 'wrap',
+                gap: 1
+            }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+                    <FolderOpenIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
+                    Вложения 
+                    {attachments.length > 0 && (
+                        <Chip
+                            label={attachments.length}
+                            size="small"
+                            color="primary"
+                            sx={{ ml: 1, height: 22, minWidth: 22 }}
+                        />
+                    )}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Tooltip title="Обновить список файлов">
+                        <Button 
+                            size="small"
+                            color="info"
+                            startIcon={<RefreshIcon />}
+                            onClick={loadTaskAttachments}
+                            disabled={loading}
+                            variant="outlined"
+                        >
+                            {isMobile ? '' : 'Обновить'}
+                        </Button>
+                    </Tooltip>
+                    
+                    <Button 
+                        variant="contained" 
+                        color="primary"
+                        startIcon={<AttachFileIcon />}
+                        onClick={handleAttachButtonClick}
+                        disabled={!!uploadProgress || loading}
+                    >
+                        {isMobile ? '' : 'Добавить файл'}
+                    </Button>
+                </Box>
+                
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -273,38 +623,79 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 />
             </Box>
             
-            {uploadProgress !== null && (
+            {/* Прогресс загрузки файла */}
+            <Fade in={uploadProgress !== null}>
                 <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" gutterBottom>
-                        Загрузка файла... {uploadProgress}%
-                    </Typography>
-                    <Box sx={{ width: '100%', backgroundColor: '#e0e0e0', borderRadius: 1 }}>
-                        <Box
-                            sx={{
-                                height: 8,
-                                borderRadius: 1,
-                                backgroundColor: 'primary.main',
-                                width: `${uploadProgress}%`,
-                                transition: 'width 0.3s ease-in-out'
-                            }}
-                        />
-                    </Box>
+                    {uploadProgress !== null && (
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Загрузка файла...</span>
+                                <span>{uploadProgress}%</span>
+                            </Typography>
+                            <Box 
+                                sx={{ 
+                                    width: '100%', 
+                                    backgroundColor: isDarkTheme ? alpha('#fff', 0.1) : alpha('#000', 0.1),
+                                    borderRadius: 1,
+                                    mt: 1,
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                <Box
+                                    sx={{
+                                        height: 6,
+                                        borderRadius: 1,
+                                        backgroundColor: 'primary.main',
+                                        width: `${uploadProgress}%`,
+                                        transition: 'width 0.3s ease-in-out'
+                                    }}
+                                />
+                            </Box>
+                        </Box>
+                    )}
                 </Box>
-            )}
+            </Fade>
             
+            {/* Отображение загрузки, ошибок и пустого списка вложений */}
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                    <CircularProgress />
+                <Box sx={{ display: 'flex', justifyContent: 'center', my: 4, flexDirection: 'column', alignItems: 'center' }}>
+                    <CircularProgress size={40} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                        Загрузка вложений...
+                    </Typography>
                 </Box>
             ) : error ? (
-                <Typography color="error">{error}</Typography>
+                <Alert 
+                    severity="error" 
+                    sx={{ mb: 2 }} 
+                    action={
+                        <Button color="inherit" size="small" onClick={loadTaskAttachments}>
+                            Повторить
+                        </Button>
+                    }
+                >
+                    {error}
+                </Alert>
             ) : attachments.length === 0 ? (
-                <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
+                <Paper 
+                    variant="outlined" 
+                    sx={{ 
+                        p: 3, 
+                        textAlign: 'center',
+                        borderStyle: 'dashed',
+                        borderColor: isDarkTheme ? alpha('#fff', 0.2) : alpha('#000', 0.2),
+                        bgcolor: 'transparent'
+                    }}
+                >
+                    <Box sx={{ mb: 2 }}>
+                        <InsertDriveFileIcon sx={{ fontSize: 50, color: isDarkTheme ? alpha('#fff', 0.5) : alpha('#000', 0.3) }} />
+                    </Box>
                     <Typography sx={{ color: 'text.secondary', mb: 2 }}>
                         К этой задаче пока не прикреплено ни одного файла
                     </Typography>
                     <Button 
                         variant="outlined" 
+                        color="primary"
                         startIcon={<AttachFileIcon />}
                         onClick={handleAttachButtonClick}
                     >
@@ -312,53 +703,24 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     </Button>
                 </Paper>
             ) : (
-                <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-                    {attachments.map((attachment, index) => (
-                        <React.Fragment key={attachment.id}>
-                            <ListItem 
-                                button 
-                                onClick={() => canPreview(attachment.mimeType) ? handlePreviewClick(attachment) : null}
-                                sx={{ cursor: canPreview(attachment.mimeType) ? 'pointer' : 'default' }}
-                            >
-                                <ListItemIcon>
-                                    {getFileIcon(attachment.mimeType)}
-                                </ListItemIcon>
-                                <ListItemText 
-                                    primary={attachment.filename}
-                                    secondary={
-                                        <React.Fragment>
-                                            <Typography component="span" variant="body2" color="text.secondary">
-                                                {formatFileSize(attachment.size)} • Добавлено {formatDate(attachment.createdAt)}
-                                            </Typography>
-                                        </React.Fragment>
-                                    }
-                                />
-                                <ListItemSecondaryAction>
-                                    <IconButton 
-                                        edge="end" 
-                                        aria-label="download"
-                                        href={attachment.url}
-                                        download={attachment.filename}
-                                        sx={{ mr: 0.5 }}
-                                    >
-                                        <DownloadIcon />
-                                    </IconButton>
-                                    <IconButton 
-                                        edge="end" 
-                                        aria-label="delete" 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteClick(attachment.id);
-                                        }}
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
-                                </ListItemSecondaryAction>
-                            </ListItem>
-                            {index < attachments.length - 1 && <Divider />}
-                        </React.Fragment>
-                    ))}
-                </List>
+                /* Список вложений */
+                isMobile ? (
+                    /* Вид карточками для мобильных устройств */
+                    <Box sx={{ mt: 2 }}>
+                        {attachments.map((attachment, index) => (
+                            renderAttachmentCard(attachment, index)
+                        ))}
+                    </Box>
+                ) : (
+                    /* Вид списком для больших экранов */
+                    <Paper variant="outlined" sx={{ borderRadius: 1, overflow: 'hidden' }}>
+                        <List sx={{ width: '100%', bgcolor: 'background.paper', padding: 0 }}>
+                            {attachments.map((attachment, index) => (
+                                renderAttachmentListItem(attachment, index)
+                            ))}
+                        </List>
+                    </Paper>
+                )
             )}
             
             {/* Диалог подтверждения удаления */}
@@ -378,27 +740,69 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 onClose={() => setPreviewDialogOpen(false)}
                 maxWidth="lg"
                 fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: 2,
+                        overflowY: 'visible'
+                    }
+                }}
             >
-                <DialogTitle>
-                    {previewAttachment?.filename}
+                <DialogTitle sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    pb: 1
+                }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                        {previewAttachment && getFileIcon(previewAttachment.mimeType)}
+                        <Typography variant="h6">
+                            {previewAttachment?.filename}
+                        </Typography>
+                    </Stack>
+                    
+                    <IconButton 
+                        onClick={() => setPreviewDialogOpen(false)}
+                        size="small"
+                        aria-label="close"
+                    >
+                        <CloseIcon />
+                    </IconButton>
                 </DialogTitle>
-                <DialogContent>
+                
+                <DialogContent sx={{ p: 0, overflow: 'hidden' }}>
                     {renderPreviewContent()}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setPreviewDialogOpen(false)}>
-                        Закрыть
-                    </Button>
+                
+                <DialogActions sx={{ 
+                    justifyContent: 'space-between',
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    px: 2
+                }}>
                     {previewAttachment && (
-                        <Button 
-                            href={previewAttachment.url}
-                            download={previewAttachment.filename}
-                            variant="contained"
-                            startIcon={<DownloadIcon />}
-                        >
-                            Скачать
-                        </Button>
+                        <Typography variant="caption" color="text.secondary">
+                            {formatFileSizeHelper(previewAttachment.size || 0)}
+                        </Typography>
                     )}
+                    
+                    <Stack direction="row" spacing={1}>
+                        <Button onClick={() => setPreviewDialogOpen(false)}>
+                            Закрыть
+                        </Button>
+                        {previewAttachment && (
+                            <Button 
+                                component="a"
+                                href={getFileUrl(previewAttachment.url) || '#'}
+                                download={previewAttachment.filename}
+                                variant="contained"
+                                startIcon={<DownloadIcon />}
+                            >
+                                Скачать
+                            </Button>
+                        )}
+                    </Stack>
                 </DialogActions>
             </Dialog>
         </Box>

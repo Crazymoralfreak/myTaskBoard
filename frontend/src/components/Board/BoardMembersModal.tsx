@@ -41,6 +41,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { BoardMembersService } from '../../services/BoardMembersService';
 import { BoardMember, AddBoardMemberRequest } from '../../types/BoardMember';
 import { RolesService } from '../../services/RolesService';
@@ -90,6 +91,8 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   const [showRoleSelector, setShowRoleSelector] = useState<boolean>(false);
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [changingRole, setChangingRole] = useState<boolean>(false);
+  const [confirmDelete, setConfirmDelete] = useState<boolean>(false);
+  const [deletingMember, setDeletingMember] = useState<boolean>(false);
   
   // Используем хук для обновления токена
   const { isRefreshing, error: tokenError } = useTokenRefresh(open);
@@ -185,8 +188,8 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
     }
   };
   
-  // Обработчик начала изменения роли
-  const handleStartChangeRole = (member: BoardMember) => {
+  // Обработчик клика по кнопке изменения роли
+  const handleRoleClick = (member: BoardMember) => {
     setSelectedMember(member);
     setSelectedRoleId(member.role?.id || null);
     setShowRoleSelector(true);
@@ -198,48 +201,133 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
     
     try {
       setChangingRole(true);
-      console.log('Изменение роли для пользователя:', selectedMember.userId, 'на роль:', selectedRoleId);
       
-      const request = {
-        roleId: selectedRoleId
-      };
+      // Определяем ID пользователя из разных возможных форматов данных
+      const userId = selectedMember.userId || (selectedMember.user && selectedMember.user.id);
       
-      console.log('Отправляем запрос:', request);
-      const updatedMember = await BoardMembersService.updateMemberRole(
-        boardId, 
-        selectedMember.userId, 
-        request
-      );
-      
-      console.log('Получен ответ от сервера:', updatedMember);
-      
-      // Если нужно, исправляем роль вручную
-      if (!updatedMember.role || updatedMember.role.id !== selectedRoleId) {
-        const selectedRole = roles.find(r => r.id === selectedRoleId);
-        if (selectedRole) {
-          updatedMember.role = selectedRole;
-        }
+      if (!userId) {
+        throw new Error('Не удалось определить ID пользователя');
       }
       
-      // Обновляем список участников
-      handleMemberRoleChanged(updatedMember);
+      console.log('Обновляем роль пользователя:', { userId, roleId: selectedRoleId });
       
-      // Показываем уведомление и скрываем селектор ролей
-      const roleName = updatedMember.role?.name || 'новая роль';
-      const userName = updatedMember.displayName || updatedMember.username;
-      setSuccessMessage(`Роль пользователя ${userName} успешно изменена на "${roleName}"`);
+      const updatedMember = await BoardMembersService.updateMemberRole(
+        boardId,
+        userId,
+        { roleId: selectedRoleId }
+      );
+      
+      console.log('Получен обновленный участник:', updatedMember);
+      
+      // Проверяем, что получили валидный объект
+      if (!updatedMember) {
+        throw new Error('Сервер вернул пустой ответ');
+      }
+      
+      // Проверяем наличие обязательных полей
+      if (!updatedMember.userId && !(updatedMember.user && updatedMember.user.id)) {
+        console.warn('Обновленный участник не содержит ID пользователя:', updatedMember);
+      }
+      
+      // Обновляем участника в списке, используя метод проверки соответствия
+      setMembers(prev => prev.map(member => 
+        isSameMember(member, updatedMember) ? updatedMember : member
+      ));
+      
+      setFilteredMembers(prev => prev.map(member => 
+        isSameMember(member, updatedMember) ? updatedMember : member
+      ));
+      
       setShowRoleSelector(false);
       
-      // Очищаем сообщение через 5 секунд
+      // Получаем имя пользователя из разных возможных форматов данных
+      const username = updatedMember.username || 
+                       (updatedMember.user && updatedMember.user.username) || 
+                       selectedMember.username || 
+                       (selectedMember.user && selectedMember.user.username) || 
+                       'Пользователь';
+      
+      setSuccessMessage(`Роль участника ${username} успешно изменена на ${getRoleName(selectedRoleId)}`);
+      
+      // Сбрасываем выбранные значения после небольшой задержки
       setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
-    } catch (err) {
-      console.error('Ошибка при обновлении роли участника:', err);
-      setError(`Не удалось обновить роль: ${err instanceof Error ? err.message : 'неизвестная ошибка'}`);
+        setSelectedMember(null);
+        setSelectedRoleId(null);
+      }, 300);
+    } catch (error) {
+      console.error('Ошибка при изменении роли:', error);
+      setError('Не удалось изменить роль участника');
+      
+      // Закрываем диалог при ошибке после небольшой задержки
+      setTimeout(() => {
+        setShowRoleSelector(false);
+      }, 1500);
     } finally {
       setChangingRole(false);
     }
+  };
+  
+  // Вспомогательная функция для проверки, является ли member тем же участником, что и updatedMember
+  const isSameMember = (member: BoardMember, updatedMember: BoardMember): boolean => {
+    try {
+      // Проверяем совпадение по ID пользователя в разных форматах
+      const memberId = member?.userId || (member?.user && member.user.id);
+      const updatedMemberId = updatedMember?.userId || (updatedMember?.user && updatedMember.user.id);
+      
+      // Если не удалось определить ID, считаем, что это не тот же пользователь
+      if (memberId === undefined || updatedMemberId === undefined) {
+        console.log('Не удалось определить ID для сравнения участников:', { member, updatedMember });
+        return false;
+      }
+      
+      // Сравниваем ID участников
+      return memberId === updatedMemberId;
+    } catch (err) {
+      console.error('Ошибка при сравнении участников:', err, { member, updatedMember });
+      return false;
+    }
+  };
+  
+  // Обработчик удаления участника
+  const handleDeleteMember = async () => {
+    if (!selectedMember) return;
+    
+    try {
+      setDeletingMember(true);
+      
+      // Получаем ID пользователя с учетом разных структур данных
+      const userId = selectedMember.userId || (selectedMember.user && selectedMember.user.id);
+      
+      if (!userId) {
+        throw new Error('Не удалось определить ID пользователя');
+      }
+      
+      await BoardMembersService.removeMemberFromBoard(boardId, userId);
+      
+      // Удаляем участника из списка
+      setMembers(prev => prev.filter(member => 
+        (member.userId || (member.user && member.user.id)) !== userId
+      ));
+      setFilteredMembers(prev => prev.filter(member => 
+        (member.userId || (member.user && member.user.id)) !== userId
+      ));
+      
+      const username = selectedMember.username || (selectedMember.user && selectedMember.user.username) || 'Пользователь';
+      setSuccessMessage(`Участник ${username} успешно удален из доски`);
+    } catch (error) {
+      console.error('Ошибка при удалении участника:', error);
+      setError('Не удалось удалить участника');
+    } finally {
+      setDeletingMember(false);
+      setConfirmDelete(false);
+      setSelectedMember(null);
+    }
+  };
+  
+  // Обработчик открытия диалога удаления участника
+  const handleOpenDeleteDialog = (member: BoardMember) => {
+    setSelectedMember(member);
+    setConfirmDelete(true);
   };
   
   // Фильтрация участников при изменении поискового запроса или фильтра по роли
@@ -372,91 +460,102 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
     return isAdmin || currentUserId === ownerId || currentUserRole === SystemRoles.ADMIN;
   };
   
-  // Рендер элемента одного участника в списке
+  // Функция для рендера отдельного элемента списка участников
   const renderMemberItem = (member: BoardMember) => {
+    const isCurrentUser = member.userId === currentUserId;
+    const isOwner = member.userId === ownerId;
+    const roleName = member.role?.name || 'Без роли';
+    
     return (
       <ListItem
         key={member.userId}
-        divider
         sx={{ 
-          display: 'flex',
-          alignItems: 'center',
-          p: 2,
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' }
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          py: 1
         }}
       >
-        {/* Аватар пользователя */}
-        <Avatar 
-          src={getAvatarUrl(member.avatarUrl)} 
-          alt={member.username || 'Пользователь'}
-          sx={{ width: 40, height: 40 }}
-        >
-          {member.username ? member.username.charAt(0).toUpperCase() : 'U'}
-        </Avatar>
+        <ListItemAvatar>
+          <Avatar src={getAvatarUrl(member.avatarUrl)} alt={member.username}>
+            {member.username.charAt(0).toUpperCase()}
+          </Avatar>
+        </ListItemAvatar>
         
-        {/* Информация об участнике */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', ml: 2, flexGrow: 1 }}>
-          <Typography variant="subtitle1" component="div">
-            {member.username}
-            {currentUserId === member.userId && (
-              <Chip 
-                label="Вы" 
-                size="small" 
-                color="primary" 
-                sx={{ ml: 1, height: 20, fontSize: '0.7rem' }} 
-              />
-            )}
-            {ownerId === member.userId && (
-              <Chip 
-                label="Владелец" 
-                size="small" 
-                color="secondary" 
-                sx={{ ml: 1, height: 20, fontSize: '0.7rem' }} 
-              />
-            )}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {member.email}
-          </Typography>
-        </Box>
-        
-        {/* Кнопка роли и действий */}
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {/* Показываем кнопку роли только если есть права на управление */}
-          {canManageRoles() && member.userId !== ownerId && member.userId !== currentUserId && (
-            <Tooltip title="Изменить роль">
-              <Button
-                variant="outlined"
+        <ListItemText
+          primary={
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="subtitle1" component="span">
+                {member.displayName || member.username}
+              </Typography>
+              {isOwner && (
+                <Chip 
+                  label="Владелец" 
+                  size="small" 
+                  color="primary" 
+                  sx={{ ml: 1, height: 20 }} 
+                />
+              )}
+              {isCurrentUser && (
+                <Chip 
+                  label="Вы" 
+                  size="small" 
+                  variant="outlined" 
+                  sx={{ ml: 1, height: 20 }} 
+                />
+              )}
+            </Box>
+          }
+          secondary={
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+              <Chip
+                label={roleName}
                 size="small"
-                startIcon={getRoleIcon(member.role?.name)}
-                onClick={() => handleStartChangeRole(member)}
-                sx={{
-                  mr: 1,
-                  backgroundColor: getRoleColor(member.role?.name),
-                  '&:hover': {
-                    backgroundColor: getRoleColor(member.role?.name),
-                    opacity: 0.9,
-                  },
+                sx={{ 
+                  height: 20, 
+                  backgroundColor: getRoleColor(roleName),
+                  color: 'white',
+                  '& .MuiChip-label': { px: 1, fontSize: '0.7rem' }
                 }}
+                icon={getRoleIcon(roleName)}
+              />
+              <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                Присоединился {new Date(member.joinedAt).toLocaleDateString()}
+              </Typography>
+            </Box>
+          }
+        />
+        
+        {/* Действия с участником */}
+        {canManageRoles() && !isOwner && !isCurrentUser && (
+          <ListItemSecondaryAction>
+            <Tooltip title="Изменить роль">
+              <IconButton 
+                edge="end" 
+                aria-label="edit-role"
+                onClick={() => handleRoleClick(member)}
+                size="small"
               >
-                Роль: {member.role?.name || 'Не задана'}
-              </Button>
+                <EditIcon fontSize="small" />
+              </IconButton>
             </Tooltip>
-          )}
-          
-          {/* Если нет прав на управление, просто показываем роль */}
-          {(!canManageRoles() || member.userId === ownerId || member.userId === currentUserId) && (
-            <Chip
-              icon={getRoleIcon(member.role?.name)}
-              label={member.role?.name || 'Не задана'}
-              size="small"
-              sx={{
-                mr: 1,
-                backgroundColor: getRoleColor(member.role?.name),
-              }}
-            />
-          )}
-        </Box>
+            
+            {/* Добавляем кнопку удаления участника */}
+            {canManageMembers() && (
+              <Tooltip title="Удалить участника">
+                <IconButton 
+                  edge="end" 
+                  aria-label="delete-member"
+                  onClick={() => handleOpenDeleteDialog(member)}
+                  size="small"
+                  sx={{ ml: 1 }}
+                  color="error"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </ListItemSecondaryAction>
+        )}
       </ListItem>
     );
   };
@@ -857,8 +956,39 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         </Button>
       </DialogActions>
       
-      {/* Диалог изменения роли */}
+      {/* Модальное окно для выбора роли */}
       {renderMemberRoleSelector()}
+      
+      {/* Диалог подтверждения удаления участника */}
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          Удаление участника
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" id="alert-dialog-description">
+            Вы действительно хотите удалить участника {selectedMember?.username || selectedMember?.user?.username || 'выбранного пользователя'} из доски?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)} color="primary">
+            Отмена
+          </Button>
+          <Button 
+            onClick={handleDeleteMember} 
+            color="error" 
+            autoFocus
+            disabled={deletingMember}
+            startIcon={deletingMember && <CircularProgress size={16} />}
+          >
+            {deletingMember ? 'Удаление...' : 'Удалить'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };
