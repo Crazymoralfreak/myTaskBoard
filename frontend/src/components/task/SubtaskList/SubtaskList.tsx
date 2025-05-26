@@ -15,21 +15,17 @@ import {
     Menu,
     MenuItem,
     CircularProgress,
-    Paper,
-    LinearProgress,
     ListItemAvatar
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { Subtask } from '../../../types/subtask';
 import { Task } from '../../../types/task';
 import { taskService } from '../../../services/taskService';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { formatFileSize } from '../../../utils/formatters';
 
 interface SubtaskListProps {
     task: Task;
@@ -43,8 +39,6 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
     const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedSubtask, setSelectedSubtask] = useState<number | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
     const formatDate = (date: string) => {
         return format(new Date(date), 'dd MMM yyyy HH:mm', { locale: ru });
@@ -211,40 +205,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
         }
     };
 
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (!event.target.files || loading) return;
 
-        const file = event.target.files[0];
-        if (!file) return;
-
-        try {
-            setLoading(true);
-            setUploadProgress(0);
-            const updatedTask = await taskService.uploadFile(task.id, file, (progress) => {
-                setUploadProgress(progress);
-            });
-            onTaskUpdate(updatedTask);
-        } catch (error) {
-            console.error('Failed to upload file:', error);
-        } finally {
-            setLoading(false);
-            setUploadProgress(null);
-        }
-    };
-
-    const handleDeleteFile = async (fileId: number) => {
-        if (loading) return;
-
-        try {
-            setLoading(true);
-            const updatedTask = await taskService.deleteFile(task.id, fileId);
-            onTaskUpdate(updatedTask);
-        } catch (error) {
-            console.error('Failed to delete file:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     return (
         <Box>
@@ -390,56 +351,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
                 </Droppable>
             </DragDropContext>
 
-            {/* Список файлов */}
-            <Box sx={{ mt: 2 }}>
-                {task.attachments?.map((attachment) => (
-                    <Paper key={attachment.id} variant="outlined" sx={{ p: 2, mb: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <AttachFileIcon color="action" />
-                            <Box sx={{ flex: 1 }}>
-                                <Typography variant="subtitle2">
-                                    {attachment.filename}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {formatFileSize(attachment.size)} • Загружен {formatDate(attachment.createdAt)}
-                                </Typography>
-                            </Box>
-                            <IconButton
-                                size="small"
-                                onClick={() => handleDeleteFile(attachment.id)}
-                                disabled={loading}
-                            >
-                                <DeleteIcon />
-                            </IconButton>
-                        </Box>
-                    </Paper>
-                ))}
 
-                <Box sx={{ mt: 2 }}>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        onChange={handleFileUpload}
-                    />
-                    <Button
-                        variant="outlined"
-                        startIcon={<AttachFileIcon />}
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={loading}
-                    >
-                        Прикрепить файл
-                    </Button>
-                </Box>
-
-                {uploadProgress !== null && (
-                    <LinearProgress 
-                        variant="determinate" 
-                        value={uploadProgress} 
-                        sx={{ mt: 1 }}
-                    />
-                )}
-            </Box>
 
             <Menu
                 anchorEl={anchorEl}

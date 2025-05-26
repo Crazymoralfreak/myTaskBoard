@@ -28,7 +28,14 @@ import {
     useMediaQuery,
     Fade,
     useTheme,
-    alpha
+    alpha,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    TextField,
+    InputAdornment,
+    Skeleton
 } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -39,9 +46,30 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import CloseIcon from '@mui/icons-material/Close';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
+import SortIcon from '@mui/icons-material/Sort';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import InfoIcon from '@mui/icons-material/Info';
+import StorageIcon from '@mui/icons-material/Storage';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
+import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
+import CompressIcon from '@mui/icons-material/Compress';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import Menu from '@mui/material/Menu';
 import { Task, TaskAttachment } from '../../../types/task';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { taskService } from '../../../services/taskService';
@@ -124,6 +152,13 @@ const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
     );
 };
 
+
+
+// Типы для фильтрации и сортировки
+type FileFilter = 'all' | 'images' | 'videos' | 'documents' | 'text' | 'other';
+type SortBy = 'name' | 'size' | 'date' | 'type';
+type SortOrder = 'asc' | 'desc';
+
 interface TaskAttachmentsProps {
     taskId: number;
     onTaskUpdate?: (updatedTask: Task) => void;
@@ -143,12 +178,230 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     
+    // Состояния для фильтрации и сортировки
+    const [filter, setFilter] = useState<FileFilter>('all');
+    const [sortBy, setSortBy] = useState<SortBy>('date');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+    const [searchQuery, setSearchQuery] = useState('');
+    
+    // Состояния для множественной загрузки
+    const [multipleUploadProgress, setMultipleUploadProgress] = useState<{[key: string]: number}>({});
+    const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+    
+    // Состояния для массовых операций
+    const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    
+    // Состояния для адаптивности
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+    const [compactMode, setCompactMode] = useState(false);
+    const [thumbnailSize, setThumbnailSize] = useState<'small' | 'medium' | 'large'>('medium');
+    
+    // Состояния для расширенного предпросмотра
+    const [fullscreenPreview, setFullscreenPreview] = useState(false);
+    const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+    
+    // Состояния для упрощенного UI
+    const [showInfoPanel, setShowInfoPanel] = useState(false);
+    const [actionsMenuAnchor, setActionsMenuAnchor] = useState<null | HTMLElement>(null);
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     
     // Индикатор, что это темная тема
     const isDarkTheme = theme.palette.mode === 'dark';
+    
+    // Функция определения типа файла для фильтрации
+    const getFileFilterType = (mimeType: string): FileFilter => {
+        if (mimeType.startsWith('image/')) return 'images';
+        if (mimeType.startsWith('video/')) return 'videos';
+        if (mimeType.startsWith('text/') || 
+            mimeType === 'application/pdf' ||
+            mimeType.includes('word') ||
+            mimeType.includes('document') ||
+            mimeType.includes('excel') ||
+            mimeType.includes('spreadsheet')) return 'documents';
+        if (mimeType.startsWith('text/')) return 'text';
+        return 'other';
+    };
+    
+    // Функция фильтрации файлов
+    const filterAttachments = (attachments: TaskAttachment[]): TaskAttachment[] => {
+        let filtered = attachments;
+        
+        // Применяем фильтр по типу
+        if (filter !== 'all') {
+            filtered = filtered.filter(attachment => getFileFilterType(attachment.mimeType) === filter);
+        }
+        
+        // Применяем поиск
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            filtered = filtered.filter(attachment => 
+                attachment.filename.toLowerCase().includes(query)
+            );
+        }
+        
+        return filtered;
+    };
+    
+    // Функция сортировки файлов
+    const sortAttachments = (attachments: TaskAttachment[]): TaskAttachment[] => {
+        return [...attachments].sort((a, b) => {
+            let comparison = 0;
+            
+            switch (sortBy) {
+                case 'name':
+                    comparison = a.filename.localeCompare(b.filename);
+                    break;
+                case 'size':
+                    comparison = a.size - b.size;
+                    break;
+                case 'date':
+                    comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                    break;
+                case 'type':
+                    comparison = a.mimeType.localeCompare(b.mimeType);
+                    break;
+                default:
+                    return 0;
+            }
+            
+            return sortOrder === 'asc' ? comparison : -comparison;
+        });
+    };
+    
+    // Получаем отфильтрованные и отсортированные вложения
+    const processedAttachments = sortAttachments(filterAttachments(attachments));
+    
+    // Функция получения количества файлов по типам для статистики
+    const getFileTypeStats = () => {
+        const stats = {
+            all: attachments.length,
+            images: 0,
+            videos: 0,
+            documents: 0,
+            text: 0,
+            other: 0
+        };
+        
+        attachments.forEach(attachment => {
+            const type = getFileFilterType(attachment.mimeType);
+            stats[type]++;
+        });
+        
+        return stats;
+    };
+    
+    // Функция расчета общего размера файлов
+    const getTotalSize = () => {
+        return attachments.reduce((total, attachment) => total + attachment.size, 0);
+    };
+
+    // Функция расчета размера выбранных файлов
+    const getSelectedSize = () => {
+        return attachments
+            .filter(attachment => selectedFiles.has(attachment.id))
+            .reduce((total, attachment) => total + attachment.size, 0);
+    };
+
+    // Функция для получения детальной статистики
+    const getDetailedStats = () => {
+        const totalSize = getTotalSize();
+        const fileStats = getFileTypeStats();
+        
+        return {
+            totalFiles: attachments.length,
+            totalSize,
+            selectedFiles: selectedFiles.size,
+            selectedSize: getSelectedSize(),
+            fileTypes: fileStats,
+            avgFileSize: attachments.length > 0 ? totalSize / attachments.length : 0
+        };
+    };
+
+    // Функция массового скачивания
+    const handleMassDownload = async () => {
+        if (selectedFiles.size === 0) return;
+        
+        const selectedAttachments = attachments.filter(attachment => 
+            selectedFiles.has(attachment.id)
+        );
+        
+        if (selectedAttachments.length === 1) {
+            // Если выбран только один файл, скачиваем его напрямую
+            await handleDownload(selectedAttachments[0]);
+        } else {
+            // Массовое скачивание с интервалами для избежания блокировки браузером
+            let downloadIndex = 0;
+            const downloadNext = () => {
+                if (downloadIndex < selectedAttachments.length) {
+                    const attachment = selectedAttachments[downloadIndex];
+                    handleDownload(attachment);
+                    downloadIndex++;
+                    // Интервал между скачиваниями для браузера
+                    setTimeout(downloadNext, 1000);
+                }
+            };
+            downloadNext();
+        }
+    };
+    
+    const fileStats = getFileTypeStats();
+    
+    // Функции для массовых операций
+    const toggleSelectionMode = () => {
+        setIsSelectionMode(!isSelectionMode);
+        if (isSelectionMode) {
+            setSelectedFiles(new Set());
+        }
+    };
+    
+    const toggleFileSelection = (fileId: number) => {
+        const newSelected = new Set(selectedFiles);
+        if (newSelected.has(fileId)) {
+            newSelected.delete(fileId);
+        } else {
+            newSelected.add(fileId);
+        }
+        setSelectedFiles(newSelected);
+    };
+    
+    const selectAllFiles = () => {
+        if (selectedFiles.size === processedAttachments.length) {
+            setSelectedFiles(new Set());
+        } else {
+            setSelectedFiles(new Set(processedAttachments.map(f => f.id)));
+        }
+    };
+    
+    const deleteSelectedFiles = async () => {
+        if (selectedFiles.size === 0) return;
+        
+        try {
+            setLoading(true);
+            
+            // Удаляем файлы по одному
+            for (const fileId of selectedFiles) {
+                await taskService.deleteFile(taskId, fileId);
+            }
+            
+            // Перезагружаем список файлов
+            await loadTaskAttachments();
+            
+            // Сбрасываем выбор
+            setSelectedFiles(new Set());
+            setIsSelectionMode(false);
+            
+        } catch (err) {
+            console.error('Ошибка при массовом удалении файлов:', err);
+            setError('Не удалось удалить выбранные файлы');
+        } finally {
+            setLoading(false);
+        }
+    };
     
     // Загрузка вложений из задачи
     const loadTaskAttachments = async () => {
@@ -183,43 +436,125 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         fileInputRef.current?.click();
     };
     
-    // Обработка выбора файла
-    const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files || files.length === 0) return;
+    // Функция для загрузки множественных файлов
+    const uploadMultipleFiles = async (files: File[]) => {
+        const filesArray = Array.from(files);
+        setUploadingFiles(filesArray.map(f => f.name));
         
-        const file = files[0];
-        setUploadProgress(0);
+        const uploadPromises = filesArray.map(async (file) => {
+            const fileKey = file.name;
+            
+            try {
+                const updatedTask = await taskService.uploadFile(
+                    taskId, 
+                    file, 
+                    (progress) => {
+                        setMultipleUploadProgress(prev => ({
+                            ...prev,
+                            [fileKey]: progress
+                        }));
+                    }
+                );
+                
+                // Успешная загрузка
+                setMultipleUploadProgress(prev => {
+                    const newProgress = { ...prev };
+                    delete newProgress[fileKey];
+                    return newProgress;
+                });
+                
+                return updatedTask;
+            } catch (error) {
+                console.error(`Ошибка при загрузке файла ${file.name}:`, error);
+                setError(`Не удалось загрузить файл: ${file.name}`);
+                
+                setMultipleUploadProgress(prev => {
+                    const newProgress = { ...prev };
+                    delete newProgress[fileKey];
+                    return newProgress;
+                });
+                
+                throw error;
+            }
+        });
         
         try {
-            // Загрузка файла через API
-            const updatedTask = await taskService.uploadFile(
-                taskId, 
-                file, 
-                (progress) => setUploadProgress(progress)
-            );
+            const results = await Promise.allSettled(uploadPromises);
             
-            // Обновляем список вложений
-            if (updatedTask && updatedTask.attachments) {
-                setAttachments(updatedTask.attachments);
+            // Получаем последний успешный результат для обновления списка
+            const successResults = results
+                .filter((result): result is PromiseFulfilledResult<Task> => 
+                    result.status === 'fulfilled' && result.value != null
+                )
+                .map(result => result.value);
+            
+            if (successResults.length > 0) {
+                const lastResult = successResults[successResults.length - 1];
+                if (lastResult.attachments) {
+                    setAttachments(lastResult.attachments);
+                } else {
+                    // Если все загрузки провалились, перезагружаем список
+                    loadTaskAttachments();
+                }
             } else {
-                // Если вложения не вернулись с сервера, перезагружаем задачу
+                // Если все загрузки провалились, перезагружаем список
                 loadTaskAttachments();
             }
             
-            // НЕ обновляем родительский компонент для предотвращения дублирования записей в истории
-            // История уже автоматически записывается на Backend при загрузке файла
+            // Показываем статистику загрузки
+            const successful = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.filter(r => r.status === 'rejected').length;
             
-        } catch (err) {
-            console.error('Ошибка при загрузке файла:', err);
-            setError('Не удалось загрузить файл');
-        } finally {
-            setUploadProgress(null);
-            
-            // Сбрасываем input file, чтобы можно было загрузить тот же файл повторно
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
+            if (failed > 0) {
+                setError(`Загружено файлов: ${successful}, не удалось загрузить: ${failed}`);
             }
+            
+        } catch (error) {
+            console.error('Ошибка при массовой загрузке:', error);
+            setError('Ошибка при загрузке файлов');
+        } finally {
+            setUploadingFiles([]);
+            setMultipleUploadProgress({});
+        }
+    };
+    
+    // Обработка выбора файлов (поддержка множественной загрузки)
+    const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+        
+        // Если выбран только один файл, используем старую логику с прогрессом
+        if (files.length === 1) {
+            const file = files[0];
+            setUploadProgress(0);
+            
+            try {
+                const updatedTask = await taskService.uploadFile(
+                    taskId, 
+                    file, 
+                    (progress) => setUploadProgress(progress)
+                );
+                
+                if (updatedTask && updatedTask.attachments) {
+                    setAttachments(updatedTask.attachments);
+                } else {
+                    loadTaskAttachments();
+                }
+                
+            } catch (err) {
+                console.error('Ошибка при загрузке файла:', err);
+                setError('Не удалось загрузить файл');
+            } finally {
+                setUploadProgress(null);
+            }
+        } else {
+            // Множественная загрузка
+            await uploadMultipleFiles(files);
+        }
+        
+        // Сбрасываем input file для возможности повторного выбора
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     };
     
@@ -310,7 +645,83 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     const handlePreviewClick = (attachment: TaskAttachment) => {
         setPreviewAttachment(attachment);
         setPreviewDialogOpen(true);
+        
+        // Находим индекс текущего файла для навигации
+        const previewableAttachments = processedAttachments.filter(att => 
+            canPreview(att.mimeType, att.filename)
+        );
+        const index = previewableAttachments.findIndex(att => att.id === attachment.id);
+        setCurrentPreviewIndex(index >= 0 ? index : 0);
     };
+    
+    // Получение списка файлов доступных для предпросмотра
+    const getPreviewableAttachments = () => {
+        return processedAttachments.filter(attachment => 
+            canPreview(attachment.mimeType, attachment.filename)
+        );
+    };
+    
+    // Навигация к предыдущему файлу
+    const goToPreviousFile = () => {
+        const previewableFiles = getPreviewableAttachments();
+        if (previewableFiles.length <= 1) return;
+        
+        const newIndex = currentPreviewIndex > 0 
+            ? currentPreviewIndex - 1 
+            : previewableFiles.length - 1;
+        
+        setCurrentPreviewIndex(newIndex);
+        setPreviewAttachment(previewableFiles[newIndex]);
+    };
+    
+    // Навигация к следующему файлу
+    const goToNextFile = () => {
+        const previewableFiles = getPreviewableAttachments();
+        if (previewableFiles.length <= 1) return;
+        
+        const newIndex = currentPreviewIndex < previewableFiles.length - 1 
+            ? currentPreviewIndex + 1 
+            : 0;
+        
+        setCurrentPreviewIndex(newIndex);
+        setPreviewAttachment(previewableFiles[newIndex]);
+    };
+    
+    // Переключение полноэкранного режима
+    const toggleFullscreenPreview = () => {
+        setFullscreenPreview(!fullscreenPreview);
+    };
+    
+    // Обработка клавиатурной навигации в предпросмотре
+    useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            if (!previewDialogOpen) return;
+            
+            switch (event.key) {
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    goToPreviousFile();
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    goToNextFile();
+                    break;
+                case 'Escape':
+                    event.preventDefault();
+                    setPreviewDialogOpen(false);
+                    break;
+                case 'F11':
+                case 'f':
+                case 'F':
+                    event.preventDefault();
+                    toggleFullscreenPreview();
+                    break;
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyPress);
+        return () => document.removeEventListener('keydown', handleKeyPress);
+    }, [previewDialogOpen, currentPreviewIndex, fullscreenPreview]);
     
     // Форматирование размера файла
     const formatFileSizeHelper = (bytes: number) => {
@@ -352,15 +763,24 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     
     // Проверка, может ли файл быть предпросмотрен
     const canPreview = (type: string, filename?: string) => {
-        // Поддерживаем изображения и текстовые файлы
-        if (type.startsWith('image/') || type.startsWith('text/') || type.startsWith('video/')) {
+        // Поддерживаем изображения, видео и текстовые файлы
+        if (type.startsWith('image/') || 
+            type.startsWith('text/') || 
+            type.startsWith('video/')) {
+            return true;
+        }
+        
+        // Поддерживаем JSON и XML по MIME-типу
+        if (type === 'application/json' || 
+            type === 'application/xml' ||
+            type === 'text/xml') {
             return true;
         }
         
         // Проверяем по расширению файла для дополнительных текстовых типов
         if (filename) {
             const extension = filename.toLowerCase().split('.').pop();
-            return ['txt', 'log'].includes(extension || '');
+            return ['txt', 'log', 'md', 'markdown', 'json', 'xml', 'csv', 'yaml', 'yml', 'js', 'ts', 'jsx', 'tsx', 'css', 'scss', 'html', 'htm'].includes(extension || '');
         }
         
         return false;
@@ -437,8 +857,14 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             );
         }
         
-        // Предпросмотр текстовых файлов
-        if (mimeType.startsWith('text/') || fileExtension === 'txt' || fileExtension === 'log') {
+        // Предпросмотр текстовых файлов, JSON, XML, Markdown и т.д.
+        if (mimeType.startsWith('text/') || 
+            mimeType === 'application/json' ||
+            mimeType === 'application/xml' ||
+            mimeType === 'text/xml' ||
+            fileExtension === 'txt' || 
+            fileExtension === 'log' || 
+            ['md', 'markdown', 'json', 'xml', 'csv', 'yaml', 'yml', 'js', 'ts', 'jsx', 'tsx', 'css', 'scss', 'html', 'htm'].includes(fileExtension || '')) {
             return <TextFilePreview url={url} filename={filename} />;
         }
         
@@ -473,16 +899,30 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         const canPreviewFile = canPreview(attachment.mimeType, attachment.filename);
         const fileUrl = getAttachmentUrl(attachment.url);
         
+        // Размеры в зависимости от настроек
+        const cardSizes = {
+            small: { width: 80, height: 80, imageSize: 60 },
+            medium: { width: 120, height: 120, imageSize: 80 },
+            large: { width: 160, height: 160, imageSize: 120 }
+        };
+        
+        const sizes = cardSizes[thumbnailSize];
+        const isSelected = selectedFiles.has(attachment.id);
+        
         return (
             <Card 
                 key={attachment.id || index} 
                 variant="outlined" 
                 sx={{ 
-                    mb: 2, 
+                    mb: compactMode ? 1 : 2,
+                    width: viewMode === 'grid' ? sizes.width : '100%',
+                    minHeight: viewMode === 'grid' ? sizes.height : 'auto',
                     overflow: 'hidden',
                     transition: 'transform 0.2s, box-shadow 0.2s',
+                    transform: isSelected ? 'scale(0.95)' : 'scale(1)',
+                    boxShadow: isSelected ? `0 0 0 2px ${theme.palette.primary.main}` : 'none',
                     '&:hover': {
-                        transform: 'translateY(-2px)',
+                        transform: isSelected ? 'scale(0.95)' : 'translateY(-2px)',
                         boxShadow: isDarkTheme 
                             ? '0 6px 12px rgba(0,0,0,0.3)'
                             : '0 6px 12px rgba(0,0,0,0.1)'
@@ -493,38 +933,71 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     onClick={() => canPreviewFile ? handlePreviewClick(attachment) : null}
                     sx={{ 
                         display: 'flex', 
-                        alignItems: 'flex-start', 
-                        p: 1,
+                        flexDirection: viewMode === 'grid' ? 'column' : 'row',
+                        alignItems: viewMode === 'grid' ? 'center' : 'flex-start', 
+                        p: compactMode ? 0.5 : 1,
+                        height: '100%',
                         cursor: canPreviewFile ? 'pointer' : 'default'
                     }}
                 >
+                    {/* Чекбокс для выбора */}
+                    {isSelectionMode && (
+                        <Box 
+                            sx={{ 
+                                position: 'absolute', 
+                                top: 4, 
+                                left: 4, 
+                                zIndex: 2,
+                                backgroundColor: 'rgba(255,255,255,0.9)',
+                                borderRadius: '50%',
+                                p: 0.5
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFileSelection(attachment.id);
+                            }}
+                        >
+                            <IconButton size="small" sx={{ p: 0 }}>
+                                {isSelected ? <CheckBoxIcon color="primary" /> : <CheckBoxOutlineBlankIcon />}
+                            </IconButton>
+                        </Box>
+                    )}
+
                     {isImage && fileUrl ? (
                         <CardMedia
                             component="img"
-                            sx={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 1 }}
+                            sx={{ 
+                                width: viewMode === 'grid' ? sizes.imageSize : 60, 
+                                height: viewMode === 'grid' ? sizes.imageSize : 60, 
+                                objectFit: 'cover', 
+                                borderRadius: 1,
+                                flexShrink: 0
+                            }}
                             image={fileUrl}
                             alt={attachment.filename}
                         />
                     ) : (
                         <Box sx={{ 
-                            width: 60, 
-                            height: 60, 
+                            width: viewMode === 'grid' ? sizes.imageSize : 60, 
+                            height: viewMode === 'grid' ? sizes.imageSize : 60, 
                             bgcolor: alpha(fileColor, isDarkTheme ? 0.2 : 0.1),
                             color: fileColor,
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            borderRadius: 1
+                            borderRadius: 1,
+                            flexShrink: 0
                         }}>
                             {getFileIcon(attachment.mimeType)}
-                            {fileExtension && (
+                            {fileExtension && !compactMode && (
                                 <Typography 
                                     variant="caption" 
                                     sx={{ 
                                         mt: 0.5, 
                                         fontWeight: 'bold',
-                                        color: isDarkTheme ? theme.palette.text.primary : fileColor 
+                                        color: isDarkTheme ? theme.palette.text.primary : fileColor,
+                                        fontSize: thumbnailSize === 'small' ? '0.6rem' : '0.75rem'
                                     }}
                                 >
                                     {fileExtension}
@@ -533,53 +1006,77 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         </Box>
                     )}
                     
-                    <CardContent sx={{ flexGrow: 1, p: 1, pl: 2, '&:last-child': { pb: 1 } }}>
-                        <Typography variant="subtitle2" noWrap title={attachment.filename}>
+                    <CardContent sx={{ 
+                        flexGrow: 1, 
+                        p: compactMode ? 0.5 : 1, 
+                        pl: viewMode === 'grid' ? (compactMode ? 0.5 : 1) : 2, 
+                        '&:last-child': { pb: compactMode ? 0.5 : 1 },
+                        minWidth: 0 // Важно для правильного обрезания текста
+                    }}>
+                        <Typography 
+                            variant={compactMode ? "caption" : "subtitle2"} 
+                            noWrap 
+                            title={attachment.filename}
+                            sx={{ 
+                                fontSize: thumbnailSize === 'small' && compactMode ? '0.7rem' : undefined
+                            }}
+                        >
                             {attachment.filename}
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }} alignItems="center">
-                            <Typography variant="caption" color="text.secondary">
-                                {formatFileSizeHelper(attachment.size)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                {formatDate(attachment.createdAt)}
-                            </Typography>
-                        </Stack>
+                        {!compactMode && (
+                            <Stack 
+                                direction={viewMode === 'grid' ? 'column' : 'row'} 
+                                spacing={1} 
+                                sx={{ mt: 0.5 }} 
+                                alignItems={viewMode === 'grid' ? 'center' : 'center'}
+                            >
+                                <Typography variant="caption" color="text.secondary">
+                                    {formatFileSizeHelper(attachment.size)}
+                                </Typography>
+                                {viewMode === 'grid' && thumbnailSize !== 'small' && (
+                                    <Typography variant="caption" color="text.secondary">
+                                        {formatDate(attachment.createdAt)}
+                                    </Typography>
+                                )}
+                            </Stack>
+                        )}
                     </CardContent>
                 </CardActionArea>
                 
-                <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                    <Tooltip title="Скачать">
-                        <IconButton 
-                            size="small"
-                            onClick={() => handleDownload(attachment)}
-                        >
-                            <DownloadIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    
-                    <Tooltip title="Удалить">
-                        <IconButton 
-                            size="small" 
-                            color="error"
-                            onClick={() => handleDeleteClick(attachment.id)}
-                        >
-                            <DeleteIcon fontSize="small" />
-                        </IconButton>
-                    </Tooltip>
-                    
-                    {canPreviewFile && (
-                        <Tooltip title="Просмотреть">
+                {!compactMode && (
+                    <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
+                        <Tooltip title="Скачать">
                             <IconButton 
-                                size="small" 
-                                color="primary"
-                                onClick={() => handlePreviewClick(attachment)}
+                                size="small"
+                                onClick={() => handleDownload(attachment)}
                             >
-                                <VisibilityIcon fontSize="small" />
+                                <DownloadIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
-                    )}
-                </CardActions>
+                        
+                        <Tooltip title="Удалить">
+                            <IconButton 
+                                size="small" 
+                                color="error"
+                                onClick={() => handleDeleteClick(attachment.id)}
+                            >
+                                <DeleteIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                        
+                        {canPreviewFile && (
+                            <Tooltip title="Просмотреть">
+                                <IconButton 
+                                    size="small" 
+                                    color="primary"
+                                    onClick={() => handlePreviewClick(attachment)}
+                                >
+                                    <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                    </CardActions>
+                )}
             </Card>
         );
     };
@@ -759,31 +1256,33 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         const files = Array.from(e.dataTransfer.files);
         if (files.length === 0) return;
 
-        // Обрабатываем только первый файл (можно расширить для множественной загрузки)
-        const file = files[0];
-        setUploadProgress(0);
+        // Поддерживаем множественную загрузку через drag-and-drop
+        if (files.length === 1) {
+            const file = files[0];
+            setUploadProgress(0);
 
-        try {
-            // Загрузка файла через API
-            const updatedTask = await taskService.uploadFile(
-                taskId, 
-                file, 
-                (progress) => setUploadProgress(progress)
-            );
-            
-            // Обновляем список вложений
-            if (updatedTask && updatedTask.attachments) {
-                setAttachments(updatedTask.attachments);
-            } else {
-                // Если вложения не вернулись с сервера, перезагружаем задачу
-                loadTaskAttachments();
+            try {
+                const updatedTask = await taskService.uploadFile(
+                    taskId, 
+                    file, 
+                    (progress) => setUploadProgress(progress)
+                );
+                
+                if (updatedTask && updatedTask.attachments) {
+                    setAttachments(updatedTask.attachments);
+                } else {
+                    loadTaskAttachments();
+                }
+                
+            } catch (err) {
+                console.error('Ошибка при загрузке файла:', err);
+                setError('Не удалось загрузить файл');
+            } finally {
+                setUploadProgress(null);
             }
-            
-        } catch (err) {
-            console.error('Ошибка при загрузке файла:', err);
-            setError('Не удалось загрузить файл');
-        } finally {
-            setUploadProgress(null);
+        } else {
+            // Множественная загрузка файлов
+            await uploadMultipleFiles(files);
         }
     };
     
@@ -837,57 +1336,292 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 fontWeight: 600
                             }}
                         >
-                            Отпустите файл для загрузки
+                            Отпустите файлы для загрузки
+                        </Typography>
+                        <Typography 
+                            variant="body2" 
+                            sx={{ 
+                                color: theme.palette.primary.main,
+                                mt: 1
+                            }}
+                        >
+                            Поддерживается загрузка нескольких файлов
                         </Typography>
                     </Box>
                 </Box>
             )}
             
-            {/* Шапка с заголовком и кнопками */}
+            {/* Компактная панель поиска и фильтрации */}
+            {attachments.length > 0 && (
+                <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
+                    {/* Основная строка с поиском */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: showAdvancedFilters ? 1.5 : 0 }}>
+                        <TextField
+                            size="small"
+                            placeholder="Поиск файлов..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon fontSize="small" />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: searchQuery && (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => setSearchQuery('')}
+                                            edge="end"
+                                        >
+                                            <ClearIcon fontSize="small" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                            sx={{ flexGrow: 1, minWidth: 200 }}
+                        />
+                        
+                        {/* Быстрые фильтры */}
+                        <Chip
+                            label={`${filter === 'all' ? 'Все' : filter} (${
+                                filter === 'all' ? fileStats.all : 
+                                filter === 'images' ? fileStats.images :
+                                filter === 'videos' ? fileStats.videos :
+                                filter === 'documents' ? fileStats.documents :
+                                filter === 'text' ? fileStats.text : fileStats.other
+                            })`}
+                            size="small"
+                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                            variant={filter !== 'all' ? 'filled' : 'outlined'}
+                            color={filter !== 'all' ? 'primary' : 'default'}
+                        />
+                        
+                        <Tooltip title="Расширенные фильтры">
+                            <IconButton
+                                size="small"
+                                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                                color={showAdvancedFilters ? 'primary' : 'default'}
+                            >
+                                {showAdvancedFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            </IconButton>
+                        </Tooltip>
+                        
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                            {processedAttachments.length}/{attachments.length}
+                        </Typography>
+                    </Box>
+                    
+                    {/* Расширенные фильтры */}
+                    {showAdvancedFilters && (
+                        <Fade in={showAdvancedFilters}>
+                            <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems="center">
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Тип файлов</InputLabel>
+                                    <Select
+                                        value={filter}
+                                        label="Тип файлов"
+                                        onChange={(e) => setFilter(e.target.value as FileFilter)}
+                                    >
+                                        <MenuItem value="all">Все файлы ({fileStats.all})</MenuItem>
+                                        {fileStats.images > 0 && (
+                                            <MenuItem value="images">Изображения ({fileStats.images})</MenuItem>
+                                        )}
+                                        {fileStats.videos > 0 && (
+                                            <MenuItem value="videos">Видео ({fileStats.videos})</MenuItem>
+                                        )}
+                                        {fileStats.documents > 0 && (
+                                            <MenuItem value="documents">Документы ({fileStats.documents})</MenuItem>
+                                        )}
+                                        {fileStats.text > 0 && (
+                                            <MenuItem value="text">Текстовые ({fileStats.text})</MenuItem>
+                                        )}
+                                        {fileStats.other > 0 && (
+                                            <MenuItem value="other">Прочие ({fileStats.other})</MenuItem>
+                                        )}
+                                    </Select>
+                                </FormControl>
+                                
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <InputLabel>Сортировка</InputLabel>
+                                    <Select
+                                        value={sortBy}
+                                        label="Сортировка"
+                                        onChange={(e) => setSortBy(e.target.value as SortBy)}
+                                    >
+                                        <MenuItem value="date">По дате</MenuItem>
+                                        <MenuItem value="name">По имени</MenuItem>
+                                        <MenuItem value="size">По размеру</MenuItem>
+                                        <MenuItem value="type">По типу</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                
+                                <Tooltip title={`Сортировать по ${sortOrder === 'asc' ? 'убыванию' : 'возрастанию'}`}>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                        color="primary"
+                                    >
+                                        <SortIcon 
+                                            sx={{ 
+                                                transform: sortOrder === 'desc' ? 'rotate(180deg)' : 'none',
+                                                transition: 'transform 0.2s'
+                                            }} 
+                                        />
+                                    </IconButton>
+                                </Tooltip>
+                            </Stack>
+                        </Fade>
+                    )}
+                </Paper>
+            )}
+
+            {/* Компактная панель управления */}
             <Box sx={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
                 mb: 2,
-                flexWrap: 'wrap',
-                gap: 1
+                gap: 1,
+                flexWrap: 'wrap'
             }}>
-                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <FolderOpenIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    Вложения 
-                    {attachments.length > 0 && (
-                        <Chip
-                            label={attachments.length}
-                            size="small"
-                            color="primary"
-                            sx={{ ml: 1, height: 22, minWidth: 22 }}
-                        />
-                    )}
-                </Typography>
-                
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="Обновить список файлов">
-                        <Button 
-                            size="small"
-                            color="info"
-                            startIcon={<RefreshIcon />}
-                            onClick={loadTaskAttachments}
-                            disabled={loading}
-                            variant="outlined"
-                        >
-                            {isMobile ? '' : 'Обновить'}
-                        </Button>
-                    </Tooltip>
-                    
+                {/* Левая группа - основные действия */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <Button 
                         variant="contained" 
                         color="primary"
                         startIcon={<AttachFileIcon />}
                         onClick={handleAttachButtonClick}
-                        disabled={!!uploadProgress || loading}
+                        disabled={!!uploadProgress || uploadingFiles.length > 0 || loading}
                     >
-                        {isMobile ? '' : 'Добавить файл'}
+                        {isMobile ? 'Добавить' : 'Добавить файлы'}
                     </Button>
+                    
+                    {/* Массовые операции - компактно */}
+                    {attachments.length > 0 && (
+                        <>
+                            <Button
+                                size="small"
+                                variant={isSelectionMode ? "contained" : "outlined"}
+                                color={isSelectionMode ? "secondary" : "primary"}
+                                startIcon={isSelectionMode ? <CheckBoxIcon /> : <CheckBoxOutlineBlankIcon />}
+                                onClick={toggleSelectionMode}
+                                disabled={loading}
+                            >
+                                {isSelectionMode ? 'Выбор' : 'Выбрать'}
+                            </Button>
+                            
+                            {selectedFiles.size > 0 && (
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<DownloadIcon />}
+                                    onClick={handleMassDownload}
+                                    disabled={loading}
+                                >
+                                    Скачать ({selectedFiles.size})
+                                </Button>
+                            )}
+                        </>
+                    )}
+                </Box>
+                
+                {/* Правая группа - дополнительные действия */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    {/* Режим отображения и доп. действия */}
+                    {attachments.length > 0 && (
+                        <>
+                            <Tooltip title={viewMode === 'grid' ? "Список" : "Сетка"}>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                                    color={viewMode === 'grid' ? 'primary' : 'default'}
+                                >
+                                    {viewMode === 'grid' ? <ViewModuleIcon /> : <ViewListIcon />}
+                                </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Статистика">
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setShowInfoPanel(!showInfoPanel)}
+                                    color={showInfoPanel ? 'primary' : 'default'}
+                                >
+                                    <InfoIcon />
+                                </IconButton>
+                            </Tooltip>
+                            
+                            <Tooltip title="Дополнительно">
+                                <IconButton
+                                    size="small"
+                                    onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
+                                >
+                                    <MoreHorizIcon />
+                                </IconButton>
+                            </Tooltip>
+                            
+                            {/* Меню дополнительных действий */}
+                            <Menu
+                                anchorEl={actionsMenuAnchor}
+                                open={Boolean(actionsMenuAnchor)}
+                                onClose={() => setActionsMenuAnchor(null)}
+                                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                            >
+                                <MenuItem onClick={() => {
+                                    loadTaskAttachments();
+                                    setActionsMenuAnchor(null);
+                                }}>
+                                    <RefreshIcon fontSize="small" sx={{ mr: 1 }} />
+                                    Обновить
+                                </MenuItem>
+                                
+                                {isSelectionMode && selectedFiles.size > 0 && (
+                                    <>
+                                        <MenuItem onClick={() => {
+                                            selectAllFiles();
+                                            setActionsMenuAnchor(null);
+                                        }}>
+                                            <SelectAllIcon fontSize="small" sx={{ mr: 1 }} />
+                                            {selectedFiles.size === processedAttachments.length ? 'Снять все' : 'Выбрать все'}
+                                        </MenuItem>
+                                        
+                                        <MenuItem onClick={() => {
+                                            deleteSelectedFiles();
+                                            setActionsMenuAnchor(null);
+                                        }} sx={{ color: 'error.main' }}>
+                                            <DeleteSweepIcon fontSize="small" sx={{ mr: 1 }} />
+                                            Удалить выбранные ({selectedFiles.size})
+                                        </MenuItem>
+                                    </>
+                                )}
+                                
+                                {!isMobile && (
+                                    <>
+                                        <MenuItem onClick={() => {
+                                            setCompactMode(!compactMode);
+                                            setActionsMenuAnchor(null);
+                                        }}>
+                                            <CompressIcon fontSize="small" sx={{ mr: 1 }} />
+                                            {compactMode ? 'Полный режим' : 'Компактный режим'}
+                                        </MenuItem>
+                                        
+                                        <MenuItem onClick={() => {
+                                            const sizes = ['small', 'medium', 'large'] as const;
+                                            const currentIndex = sizes.indexOf(thumbnailSize);
+                                            const nextIndex = (currentIndex + 1) % sizes.length;
+                                            setThumbnailSize(sizes[nextIndex]);
+                                            setActionsMenuAnchor(null);
+                                        }}>
+                                            <PhotoSizeSelectLargeIcon fontSize="small" sx={{ mr: 1 }} />
+                                            Размер: {thumbnailSize === 'small' ? 'Малый' : thumbnailSize === 'medium' ? 'Средний' : 'Большой'}
+                                        </MenuItem>
+                                    </>
+                                )}
+                            </Menu>
+                        </>
+                    )}
                 </Box>
                 
                 <input
@@ -895,8 +1629,79 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                     onChange={handleFileSelected}
+                    multiple
+                    accept="*"
                 />
             </Box>
+            
+            {/* Компактная информационная панель */}
+            {attachments.length > 0 && showInfoPanel && (
+                <Fade in={showInfoPanel}>
+                    <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: isDarkTheme ? 'grey.900' : 'grey.50' }}>
+                        <Stack spacing={1.5}>
+                            {/* Основная статистика */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <StorageIcon fontSize="small" color="primary" />
+                                    <Typography variant="body2">
+                                        <strong>{attachments.length}</strong> файлов, <strong>{formatFileSizeHelper(getTotalSize())}</strong>
+                                    </Typography>
+                                </Box>
+                                
+                                {selectedFiles.size > 0 && (
+                                    <>
+                                        <Divider orientation="vertical" flexItem />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <CheckBoxIcon fontSize="small" color="primary" />
+                                            <Typography variant="body2" color="primary">
+                                                Выбрано: <strong>{selectedFiles.size}</strong>, <strong>{formatFileSizeHelper(getSelectedSize())}</strong>
+                                            </Typography>
+                                        </Box>
+                                    </>
+                                )}
+                                
+                                {!isMobile && attachments.length > 1 && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                                        Средний: {formatFileSizeHelper(getTotalSize() / attachments.length)}
+                                    </Typography>
+                                )}
+                            </Box>
+                            
+                            {/* Статистика по типам - компактно */}
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                {(() => {
+                                    const stats = getFileTypeStats();
+                                    const types = [
+                                        { key: 'images', label: 'Изображения', shortLabel: 'Изобр', color: theme.palette.success.main },
+                                        { key: 'videos', label: 'Видео', shortLabel: 'Видео', color: theme.palette.secondary.main },
+                                        { key: 'documents', label: 'Документы', shortLabel: 'Док', color: theme.palette.error.main },
+                                        { key: 'text', label: 'Текст', shortLabel: 'Текст', color: theme.palette.info.main },
+                                        { key: 'other', label: 'Прочие', shortLabel: 'Прочие', color: theme.palette.grey[500] }
+                                    ];
+                                    
+                                    return types
+                                        .filter(type => stats[type.key as keyof typeof stats] > 0)
+                                        .map(type => (
+                                            <Chip
+                                                key={type.key}
+                                                label={`${isMobile ? type.shortLabel : type.label}: ${stats[type.key as keyof typeof stats]}`}
+                                                size="small"
+                                                sx={{
+                                                    fontSize: '0.7rem',
+                                                    height: 24,
+                                                    backgroundColor: alpha(type.color, 0.1),
+                                                    color: type.color,
+                                                    borderColor: alpha(type.color, 0.3),
+                                                    border: `1px solid ${alpha(type.color, 0.3)}`
+                                                }}
+                                            />
+                                        ));
+                                })()}
+                            </Box>
+                        </Stack>
+                    </Paper>
+                </Fade>
+            )}
             
             {/* Прогресс загрузки файла */}
             <Fade in={uploadProgress !== null}>
@@ -927,6 +1732,53 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 />
                             </Box>
                         </Box>
+                    )}
+                </Box>
+            </Fade>
+            
+            {/* Прогресс множественной загрузки файлов */}
+            <Fade in={uploadingFiles.length > 0}>
+                <Box sx={{ mb: 2 }}>
+                    {uploadingFiles.length > 0 && (
+                        <Paper variant="outlined" sx={{ p: 2 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                                <CircularProgress size={16} sx={{ mr: 1 }} />
+                                Загрузка файлов ({uploadingFiles.length})
+                            </Typography>
+                            {uploadingFiles.map((fileName) => {
+                                const progress = multipleUploadProgress[fileName] || 0;
+                                return (
+                                    <Box key={fileName} sx={{ mb: 1 }}>
+                                        <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {fileName}
+                                            </span>
+                                            <span>{Math.round(progress)}%</span>
+                                        </Typography>
+                                        <Box 
+                                            sx={{ 
+                                                width: '100%', 
+                                                backgroundColor: isDarkTheme ? alpha('#fff', 0.1) : alpha('#000', 0.1),
+                                                borderRadius: 1,
+                                                mt: 0.5,
+                                                overflow: 'hidden',
+                                                height: 4
+                                            }}
+                                        >
+                                            <Box
+                                                sx={{
+                                                    height: '100%',
+                                                    borderRadius: 1,
+                                                    backgroundColor: 'primary.main',
+                                                    width: `${progress}%`,
+                                                    transition: 'width 0.3s ease-in-out'
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                );
+                            })}
+                        </Paper>
                     )}
                 </Box>
             </Fade>
@@ -977,26 +1829,60 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         Прикрепить файл
                     </Button>
                 </Paper>
-            ) : (
-                /* Список вложений */
-                isMobile ? (
-                    /* Вид карточками для мобильных устройств */
-                    <Box sx={{ mt: 2 }}>
-                        {attachments.map((attachment, index) => (
-                            renderAttachmentCard(attachment, index)
-                        ))}
+            ) : processedAttachments.length === 0 ? (
+                <Paper 
+                    variant="outlined" 
+                    sx={{ 
+                        p: 3, 
+                        textAlign: 'center',
+                        borderStyle: 'dashed',
+                        borderColor: isDarkTheme ? alpha('#fff', 0.2) : alpha('#000', 0.2),
+                        bgcolor: 'transparent'
+                    }}
+                >
+                    <Box sx={{ mb: 2 }}>
+                        <SearchIcon sx={{ fontSize: 50, color: isDarkTheme ? alpha('#fff', 0.5) : alpha('#000', 0.3) }} />
                     </Box>
-                ) : (
-                    /* Вид списком для больших экранов */
-                    <Paper variant="outlined" sx={{ borderRadius: 1, overflow: 'hidden' }}>
-                        <List sx={{ width: '100%', bgcolor: 'background.paper', padding: 0 }}>
-                            {attachments.map((attachment, index) => (
-                                renderAttachmentListItem(attachment, index)
+                    <Typography sx={{ color: 'text.secondary', mb: 2 }}>
+                        По заданным фильтрам ничего не найдено
+                    </Typography>
+                    <Button 
+                        variant="outlined" 
+                        color="primary"
+                        onClick={() => {
+                            setFilter('all');
+                            setSearchQuery('');
+                        }}
+                    >
+                        Сбросить фильтры
+                    </Button>
+                </Paper>
+                            ) : (
+                    /* Список вложений */
+                    viewMode === 'grid' ? (
+                        /* Вид сеткой карточек */
+                        <Box sx={{ 
+                            mt: 2,
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: compactMode ? 1 : 2,
+                            justifyContent: isMobile ? 'center' : 'flex-start'
+                        }}>
+                            {processedAttachments.map((attachment, index) => (
+                                renderAttachmentCard(attachment, index)
                             ))}
-                        </List>
-                    </Paper>
-                )
-            )}
+                        </Box>
+                    ) : (
+                        /* Вид списком */
+                        <Paper variant="outlined" sx={{ borderRadius: 1, overflow: 'hidden' }}>
+                            <List sx={{ width: '100%', bgcolor: 'background.paper', padding: 0 }}>
+                                {processedAttachments.map((attachment, index) => (
+                                    renderAttachmentListItem(attachment, index)
+                                ))}
+                            </List>
+                        </Paper>
+                    )
+                )}
             
             {/* Диалог подтверждения удаления */}
             <ConfirmDialog
@@ -1013,11 +1899,12 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             <Dialog
                 open={previewDialogOpen}
                 onClose={() => setPreviewDialogOpen(false)}
-                maxWidth="lg"
+                maxWidth={fullscreenPreview ? false : "lg"}
                 fullWidth
+                fullScreen={fullscreenPreview}
                 PaperProps={{
                     sx: {
-                        borderRadius: 2,
+                        borderRadius: fullscreenPreview ? 0 : 2,
                         overflowY: 'visible'
                     }
                 }}
@@ -1035,19 +1922,107 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         <Typography variant="h6">
                             {previewAttachment?.filename}
                         </Typography>
+                        {(() => {
+                            const previewableFiles = getPreviewableAttachments();
+                            return previewableFiles.length > 1 && (
+                                <Chip 
+                                    label={`${currentPreviewIndex + 1} из ${previewableFiles.length}`}
+                                    size="small"
+                                    variant="outlined"
+                                />
+                            );
+                        })()}
                     </Stack>
                     
-                    <IconButton 
-                        onClick={() => setPreviewDialogOpen(false)}
-                        size="small"
-                        aria-label="close"
-                    >
-                        <CloseIcon />
-                    </IconButton>
+                    <Stack direction="row" spacing={1}>
+                        {/* Навигация между файлами */}
+                        {(() => {
+                            const previewableFiles = getPreviewableAttachments();
+                            return previewableFiles.length > 1 && (
+                                <>
+                                    <Tooltip title="Предыдущий файл">
+                                        <IconButton 
+                                            onClick={goToPreviousFile}
+                                            size="small"
+                                        >
+                                            <NavigateBeforeIcon />
+                                        </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Следующий файл">
+                                        <IconButton 
+                                            onClick={goToNextFile}
+                                            size="small"
+                                        >
+                                            <NavigateNextIcon />
+                                        </IconButton>
+                                    </Tooltip>
+                                </>
+                            );
+                        })()}
+                        
+                        {/* Полноэкранный режим */}
+                        <Tooltip title={fullscreenPreview ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
+                            <IconButton 
+                                onClick={toggleFullscreenPreview}
+                                size="small"
+                            >
+                                {fullscreenPreview ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                            </IconButton>
+                        </Tooltip>
+                        
+                        <IconButton 
+                            onClick={() => setPreviewDialogOpen(false)}
+                            size="small"
+                            aria-label="close"
+                        >
+                            <CloseIcon />
+                        </IconButton>
+                    </Stack>
                 </DialogTitle>
                 
-                <DialogContent sx={{ p: 0, overflow: 'hidden' }}>
+                <DialogContent sx={{ p: 0, overflow: 'hidden', position: 'relative' }}>
                     {renderPreviewContent()}
+                    
+                    {/* Навигация клавишами или свайпами */}
+                    {(() => {
+                        const previewableFiles = getPreviewableAttachments();
+                        return previewableFiles.length > 1 && (
+                            <>
+                                <IconButton
+                                    sx={{
+                                        position: 'absolute',
+                                        left: 16,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        backgroundColor: 'rgba(0,0,0,0.5)',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: 'rgba(0,0,0,0.7)'
+                                        }
+                                    }}
+                                    onClick={goToPreviousFile}
+                                >
+                                    <NavigateBeforeIcon />
+                                </IconButton>
+                                <IconButton
+                                    sx={{
+                                        position: 'absolute',
+                                        right: 16,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        backgroundColor: 'rgba(0,0,0,0.5)',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: 'rgba(0,0,0,0.7)'
+                                        }
+                                    }}
+                                    onClick={goToNextFile}
+                                >
+                                    <NavigateNextIcon />
+                                </IconButton>
+                            </>
+                        );
+                    })()}
                 </DialogContent>
                 
                 <DialogActions sx={{ 

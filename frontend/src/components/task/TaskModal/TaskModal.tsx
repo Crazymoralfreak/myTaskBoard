@@ -160,7 +160,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [tabValue, setTabValue] = useState(0);
     const [mode, setMode] = useState<ModalMode>(initialMode);
     const [selectedTab, setSelectedTab] = useState(0);
     const [errors, setErrors] = useState<{
