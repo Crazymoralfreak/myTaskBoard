@@ -24,6 +24,7 @@ public class TaskResponse {
     private TaskTypeResponse type;
     private List<CommentResponse> comments;
     private Long commentCount;
+    private List<AttachmentResponse> attachments;
     private Long attachmentCount;
 
     @Data
@@ -63,5 +64,16 @@ public class TaskResponse {
         private String avatarUrl;
         private String email;
         private String displayName;
+    }
+
+    @Data
+    public static class AttachmentResponse {
+        private Long id;
+        private String filename;
+        private String url;
+        private String mimeType;
+        private Long size;
+        private LocalDateTime createdAt;
+        private UserResponse uploadedBy;
     }
 } 

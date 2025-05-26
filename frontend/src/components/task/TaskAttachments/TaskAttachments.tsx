@@ -41,10 +41,88 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import CloseIcon from '@mui/icons-material/Close';
+import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { Task, TaskAttachment } from '../../../types/task';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { taskService } from '../../../services/taskService';
-import { formatFileSize, getFileUrl } from '../../../utils/fileUtils';
+import { formatFileSize } from '../../../utils/fileUtils';
+import { getAttachmentUrl } from '../../../utils/attachmentUtils';
+
+interface TextFilePreviewProps {
+    url: string;
+    filename: string;
+}
+
+const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
+    const [content, setContent] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const loadTextContent = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить файл');
+                }
+                
+                const text = await response.text();
+                setContent(text);
+            } catch (err) {
+                console.error('Ошибка при загрузке текстового файла:', err);
+                setError('Не удалось загрузить содержимое файла');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadTextContent();
+    }, [url]);
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
+                <CircularProgress />
+                <Typography sx={{ ml: 2 }}>Загрузка содержимого файла...</Typography>
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box sx={{ textAlign: 'center', p: 3 }}>
+                <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+                <Button variant="outlined" onClick={() => window.location.reload()}>
+                    Попробовать снова
+                </Button>
+            </Box>
+        );
+    }
+
+    return (
+        <Paper sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
+            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
+                {filename}
+            </Typography>
+            <Typography 
+                variant="body2" 
+                component="pre" 
+                sx={{ 
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                    wordBreak: 'break-word'
+                }}
+            >
+                {content}
+            </Typography>
+        </Paper>
+    );
+};
 
 interface TaskAttachmentsProps {
     taskId: number;
@@ -63,6 +141,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
     const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const theme = useTheme();
@@ -128,10 +207,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 loadTaskAttachments();
             }
             
-            // Обновляем родительский компонент
-            if (onTaskUpdate) {
-                onTaskUpdate(updatedTask);
-            }
+            // НЕ обновляем родительский компонент для предотвращения дублирования записей в истории
+            // История уже автоматически записывается на Backend при загрузке файла
             
         } catch (err) {
             console.error('Ошибка при загрузке файла:', err);
@@ -175,10 +252,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 loadTaskAttachments();
             }
             
-            // Обновляем родительский компонент
-            if (onTaskUpdate) {
-                onTaskUpdate(updatedTask);
-            }
+            // НЕ обновляем родительский компонент, чтобы избежать дублирования записей истории
+            // onTaskUpdate уже был обновлен в TaskModal для предотвращения закрытия модального окна
             
         } catch (err) {
             console.error('Ошибка при удалении файла:', err);
@@ -187,6 +262,47 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             setLoading(false);
             setSelectedAttachmentId(null);
             setConfirmDelete(false);
+        }
+    };
+    
+    // Функция для принудительного скачивания файла
+    const handleDownload = async (attachment: TaskAttachment) => {
+        const url = getAttachmentUrl(attachment.url);
+        if (!url) return;
+        
+        try {
+            // Для надёжного скачивания используем fetch + blob
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            // Создаем временную ссылку для скачивания
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = attachment.filename;
+            link.style.display = 'none';
+            
+            // Добавляем ссылку в DOM, кликаем и удаляем
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Освобождаем память
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Ошибка при скачивании файла:', error);
+            // Fallback: пробуем старый метод
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = attachment.filename;
+            link.target = '_blank';
+            link.style.display = 'none';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     };
     
@@ -205,6 +321,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     const getFileIcon = (type: string) => {
         if (type.startsWith('image/')) {
             return <ImageIcon />;
+        } else if (type.startsWith('video/')) {
+            return <PlayCircleIcon />;
         } else if (type === 'application/pdf') {
             return <PictureAsPdfIcon />;
         } else if (type.startsWith('text/') || 
@@ -233,14 +351,27 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     };
     
     // Проверка, может ли файл быть предпросмотрен
-    const canPreview = (type: string) => {
-        return type.startsWith('image/') || type === 'application/pdf' || type.startsWith('text/');
+    const canPreview = (type: string, filename?: string) => {
+        // Поддерживаем изображения и текстовые файлы
+        if (type.startsWith('image/') || type.startsWith('text/') || type.startsWith('video/')) {
+            return true;
+        }
+        
+        // Проверяем по расширению файла для дополнительных текстовых типов
+        if (filename) {
+            const extension = filename.toLowerCase().split('.').pop();
+            return ['txt', 'log'].includes(extension || '');
+        }
+        
+        return false;
     };
     
     // Определение цвета для типа файла
     const getFileTypeColor = (type: string) => {
         if (type.startsWith('image/')) {
             return theme.palette.success.main;
+        } else if (type.startsWith('video/')) {
+            return theme.palette.secondary.main;
         } else if (type === 'application/pdf') {
             return theme.palette.error.main;
         } else if (type.startsWith('text/')) {
@@ -264,60 +395,74 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         if (!previewAttachment) return null;
         
         const { filename, mimeType } = previewAttachment;
-        const url = getFileUrl(previewAttachment.url);
+        const url = getAttachmentUrl(previewAttachment.url);
+        const fileExtension = filename.toLowerCase().split('.').pop();
         
         if (!url) return (
             <Typography color="error">Не удалось получить URL вложения</Typography>
         );
         
+        // Предпросмотр изображений
         if (mimeType.startsWith('image/')) {
             return (
                 <Box sx={{ textAlign: 'center' }}>
                     <img 
                         src={url} 
                         alt={filename} 
-                        style={{ maxWidth: '100%', maxHeight: '70vh' }} 
+                        style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} 
                     />
-                </Box>
-            );
-        } else if (mimeType === 'application/pdf') {
-            return (
-                <Box sx={{ height: '70vh' }}>
-                    <iframe 
-                        src={`${url}#toolbar=0&navpanes=0`} 
-                        width="100%" 
-                        height="100%" 
-                        style={{ border: 'none' }}
-                        title={filename}
-                    />
-                </Box>
-            );
-        } else if (mimeType.startsWith('text/')) {
-            return (
-                <Paper sx={{ p: 2, maxHeight: '70vh', overflow: 'auto' }}>
-                    <Typography variant="body2" component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
-                        Содержимое текстового файла "{filename}"
-                    </Typography>
-                </Paper>
-            );
-        } else {
-            return (
-                <Box sx={{ textAlign: 'center', p: 3 }}>
-                    <Typography variant="body1">
-                        Предпросмотр недоступен для данного типа файла
-                    </Typography>
-                    <Button 
-                        variant="contained" 
-                        startIcon={<DownloadIcon />}
-                        sx={{ mt: 2 }}
-                        href={url}
-                        download={filename}
-                    >
-                        Скачать файл
-                    </Button>
                 </Box>
             );
         }
+        
+        // Предпросмотр видео файлов
+        if (mimeType.startsWith('video/')) {
+            return (
+                <Box sx={{ textAlign: 'center', height: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <video 
+                        controls 
+                        style={{ 
+                            maxWidth: '100%', 
+                            maxHeight: '100%',
+                            objectFit: 'contain'
+                        }}
+                        preload="metadata"
+                    >
+                        <source src={url} type={mimeType} />
+                        <Typography>
+                            Ваш браузер не поддерживает воспроизведение видео.
+                        </Typography>
+                    </video>
+                </Box>
+            );
+        }
+        
+        // Предпросмотр текстовых файлов
+        if (mimeType.startsWith('text/') || fileExtension === 'txt' || fileExtension === 'log') {
+            return <TextFilePreview url={url} filename={filename} />;
+        }
+        
+        // Fallback для других типов файлов
+        return (
+            <Box sx={{ textAlign: 'center', p: 3 }}>
+                <InsertDriveFileIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                    Предпросмотр недоступен
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
+                    Для этого типа файла предпросмотр не поддерживается.<br />
+                    Скачайте файл для просмотра.
+                </Typography>
+                <Button 
+                    variant="contained" 
+                    startIcon={<DownloadIcon />}
+                    onClick={() => handleDownload(previewAttachment)}
+                    size="large"
+                >
+                    Скачать файл
+                </Button>
+            </Box>
+        );
     };
     
     // Рендер элемента вложения в виде карточки
@@ -325,8 +470,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         const isImage = attachment.mimeType.startsWith('image/');
         const fileExtension = getFileExtension(attachment.filename);
         const fileColor = getFileTypeColor(attachment.mimeType);
-        const canPreviewFile = canPreview(attachment.mimeType);
-        const fileUrl = getFileUrl(attachment.url);
+        const canPreviewFile = canPreview(attachment.mimeType, attachment.filename);
+        const fileUrl = getAttachmentUrl(attachment.url);
         
         return (
             <Card 
@@ -407,9 +552,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     <Tooltip title="Скачать">
                         <IconButton 
                             size="small"
-                            component="a"
-                            href={fileUrl || '#'}
-                            download={attachment.filename}
+                            onClick={() => handleDownload(attachment)}
                         >
                             <DownloadIcon fontSize="small" />
                         </IconButton>
@@ -445,6 +588,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     const renderAttachmentListItem = (attachment: TaskAttachment, index: number) => {
         const fileExtension = getFileExtension(attachment.filename);
         const fileColor = getFileTypeColor(attachment.mimeType);
+        const isImage = attachment.mimeType.startsWith('image/');
+        const fileUrl = getAttachmentUrl(attachment.url);
         
         return (
             <React.Fragment key={attachment.id || index}>
@@ -456,31 +601,46 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     }
                 }}>
                     <ListItemIcon>
-                        <Box sx={{ 
-                            bgcolor: alpha(fileColor, isDarkTheme ? 0.2 : 0.1),
-                            color: fileColor,
-                            width: 40,
-                            height: 40,
-                            borderRadius: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexDirection: 'column'
-                        }}>
-                            {getFileIcon(attachment.mimeType)}
-                            {fileExtension && (
-                                <Typography 
-                                    variant="caption" 
-                                    sx={{ 
-                                        fontSize: '0.6rem',
-                                        fontWeight: 'bold', 
-                                        lineHeight: 1
-                                    }}
-                                >
-                                    {fileExtension}
-                                </Typography>
-                            )}
-                        </Box>
+                        {isImage && fileUrl ? (
+                            <Box
+                                component="img"
+                                src={fileUrl}
+                                alt={attachment.filename}
+                                sx={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 1,
+                                    objectFit: 'cover',
+                                    border: `1px solid ${alpha(fileColor, 0.3)}`
+                                }}
+                            />
+                        ) : (
+                            <Box sx={{ 
+                                bgcolor: alpha(fileColor, isDarkTheme ? 0.2 : 0.1),
+                                color: fileColor,
+                                width: 40,
+                                height: 40,
+                                borderRadius: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexDirection: 'column'
+                            }}>
+                                {getFileIcon(attachment.mimeType)}
+                                {fileExtension && (
+                                    <Typography 
+                                        variant="caption" 
+                                        sx={{ 
+                                            fontSize: '0.6rem',
+                                            fontWeight: 'bold', 
+                                            lineHeight: 1
+                                        }}
+                                    >
+                                        {fileExtension}
+                                    </Typography>
+                                )}
+                            </Box>
+                        )}
                     </ListItemIcon>
                     
                     <ListItemText 
@@ -490,7 +650,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                     {attachment.filename}
                                 </Typography>
                                 
-                                {canPreview(attachment.mimeType) && (
+                                {canPreview(attachment.mimeType, attachment.filename) && (
                                     <Chip
                                         label="Доступен просмотр"
                                         size="small"
@@ -520,7 +680,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     
                     <ListItemSecondaryAction>
                         <Stack direction="row" spacing={1}>
-                            {canPreview(attachment.mimeType) && (
+                            {canPreview(attachment.mimeType, attachment.filename) && (
                                 <Tooltip title="Просмотреть">
                                     <IconButton 
                                         edge="end" 
@@ -538,10 +698,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 <IconButton 
                                     edge="end" 
                                     aria-label="download"
-                                    component="a"
-                                    href={getFileUrl(attachment.url) || '#'}
-                                    download={attachment.filename}
                                     size="small"
+                                    onClick={() => handleDownload(attachment)}
                                 >
                                     <DownloadIcon fontSize="small" />
                                 </IconButton>
@@ -566,8 +724,125 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         );
     };
     
+    // Обработчики drag-and-drop
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isDragOver) setIsDragOver(true);
+    };
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Проверяем, что мы действительно покинули область
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const isOutside = e.clientX < rect.left || e.clientX > rect.right || 
+                         e.clientY < rect.top || e.clientY > rect.bottom;
+        
+        if (isOutside) {
+            setIsDragOver(false);
+        }
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length === 0) return;
+
+        // Обрабатываем только первый файл (можно расширить для множественной загрузки)
+        const file = files[0];
+        setUploadProgress(0);
+
+        try {
+            // Загрузка файла через API
+            const updatedTask = await taskService.uploadFile(
+                taskId, 
+                file, 
+                (progress) => setUploadProgress(progress)
+            );
+            
+            // Обновляем список вложений
+            if (updatedTask && updatedTask.attachments) {
+                setAttachments(updatedTask.attachments);
+            } else {
+                // Если вложения не вернулись с сервера, перезагружаем задачу
+                loadTaskAttachments();
+            }
+            
+        } catch (err) {
+            console.error('Ошибка при загрузке файла:', err);
+            setError('Не удалось загрузить файл');
+        } finally {
+            setUploadProgress(null);
+        }
+    };
+    
     return (
-        <Box>
+        <Box 
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            sx={{
+                position: 'relative',
+                border: isDragOver ? `2px dashed ${theme.palette.primary.main}` : '2px dashed transparent',
+                borderRadius: 2,
+                backgroundColor: isDragOver 
+                    ? alpha(theme.palette.primary.main, 0.05)
+                    : 'transparent',
+                transition: 'all 0.2s ease-in-out',
+                p: isDragOver ? 1 : 0
+            }}
+        >
+            {/* Overlay для drag-and-drop */}
+            {isDragOver && (
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        borderRadius: 2,
+                        border: `2px dashed ${theme.palette.primary.main}`
+                    }}
+                >
+                    <Box sx={{ textAlign: 'center' }}>
+                        <AttachFileIcon 
+                            sx={{ 
+                                fontSize: 60, 
+                                color: theme.palette.primary.main,
+                                mb: 2
+                            }} 
+                        />
+                        <Typography 
+                            variant="h6" 
+                            sx={{ 
+                                color: theme.palette.primary.main,
+                                fontWeight: 600
+                            }}
+                        >
+                            Отпустите файл для загрузки
+                        </Typography>
+                    </Box>
+                </Box>
+            )}
+            
             {/* Шапка с заголовком и кнопками */}
             <Box sx={{ 
                 display: 'flex', 
@@ -793,11 +1068,9 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         </Button>
                         {previewAttachment && (
                             <Button 
-                                component="a"
-                                href={getFileUrl(previewAttachment.url) || '#'}
-                                download={previewAttachment.filename}
                                 variant="contained"
                                 startIcon={<DownloadIcon />}
+                                onClick={() => handleDownload(previewAttachment)}
                             >
                                 Скачать
                             </Button>

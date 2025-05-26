@@ -1697,9 +1697,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                         <TaskAttachments
                                             taskId={task.id}
                                             onTaskUpdate={updatedTask => {
-                                                if (onTaskUpdate) {
-                                                    onTaskUpdate(updatedTask);
+                                                // Обновляем локальное состояние задачи, но НЕ передаем обновление родительскому компоненту
+                                                // чтобы предотвратить закрытие модального окна
+                                                if (updatedTask && updatedTask.attachments) {
+                                                    const updatedTaskState = {
+                                                        ...task,
+                                                        attachments: updatedTask.attachments,
+                                                        attachmentCount: updatedTask.attachmentCount || updatedTask.attachments.length
+                                                    };
+                                                    setTask(updatedTaskState as ExtendedTaskWithTypes);
                                                 }
+                                                
+                                                // НЕ вызываем onTaskUpdate для предотвращения закрытия модального окна
+                                                // if (onTaskUpdate) {
+                                                //     onTaskUpdate(updatedTask);
+                                                // }
                                             }}
                                         />
                                     </TabPanel>

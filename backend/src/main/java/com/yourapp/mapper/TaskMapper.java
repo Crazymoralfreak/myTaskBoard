@@ -5,6 +5,7 @@ import com.yourapp.model.Task;
 import com.yourapp.model.TaskStatus;
 import org.springframework.stereotype.Component;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @Component
@@ -86,9 +87,34 @@ public class TaskMapper {
             response.setCommentCount(0L);
         }
         
-        if (task.getAttachments() != null) {
+        if (task.getAttachments() != null && !task.getAttachments().isEmpty()) {
+            List<TaskResponse.AttachmentResponse> attachments = task.getAttachments().stream()
+                .map(attachment -> {
+                    TaskResponse.AttachmentResponse attachmentResponse = new TaskResponse.AttachmentResponse();
+                    attachmentResponse.setId(attachment.getId());
+                    attachmentResponse.setFilename(attachment.getFileName());
+                    attachmentResponse.setUrl(attachment.getFilePath());
+                    attachmentResponse.setMimeType(attachment.getContentType());
+                    attachmentResponse.setSize(attachment.getSize());
+                    attachmentResponse.setCreatedAt(attachment.getCreatedAt());
+                    
+                    if (attachment.getUploadedBy() != null) {
+                        TaskResponse.UserResponse uploadedBy = new TaskResponse.UserResponse();
+                        uploadedBy.setId(attachment.getUploadedBy().getId());
+                        uploadedBy.setUsername(attachment.getUploadedBy().getUsername());
+                        uploadedBy.setAvatarUrl(attachment.getUploadedBy().getAvatarUrl());
+                        uploadedBy.setEmail(attachment.getUploadedBy().getEmail());
+                        uploadedBy.setDisplayName(attachment.getUploadedBy().getDisplayName());
+                        attachmentResponse.setUploadedBy(uploadedBy);
+                    }
+                    
+                    return attachmentResponse;
+                })
+                .collect(Collectors.toList());
+            response.setAttachments(attachments);
             response.setAttachmentCount((long) task.getAttachments().size());
         } else {
+            response.setAttachments(new ArrayList<>());
             response.setAttachmentCount(0L);
         }
         

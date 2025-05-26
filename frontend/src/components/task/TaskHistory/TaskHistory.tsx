@@ -36,6 +36,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import LabelIcon from '@mui/icons-material/Label';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DeleteIcon from '@mui/icons-material/Delete';
 // @ts-ignore
 import * as DiffLib from 'diff';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
@@ -117,6 +119,9 @@ const getActionIcon = (action: string) => {
         case 'endDate_changed':
         case 'dates_changed':
             return <AccessTimeIcon fontSize="small" />;
+        case 'attachment_added':
+        case 'attachment_deleted':
+            return <AttachFileIcon fontSize="small" />;
         default:
             return undefined;
     }
@@ -139,6 +144,10 @@ const getActionColor = (action: string): "default" | "primary" | "secondary" | "
         case 'tags_changed':
         case 'tag_added':
             return 'info';
+        case 'attachment_added':
+            return 'success';
+        case 'attachment_deleted':
+            return 'error';
         default:
             return 'default';
     }
@@ -345,6 +354,10 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                 return 'Добавлен комментарий';
             case 'file_added':
                 return 'Добавлен файл';
+            case 'attachment_added':
+                return 'Добавлено вложение';
+            case 'attachment_deleted':
+                return 'Удалено вложение';
             case 'moved_between_columns':
             case 'column_changed':
                 return 'Перемещение задачи';
@@ -447,6 +460,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
         { value: 'даты', label: 'Даты' },
         { value: 'перемещение', label: 'Перемещение' },
         { value: 'теги', label: 'Теги' },
+        { value: 'вложение', label: 'Вложения' },
         { value: 'создание', label: 'Создание' }
     ];
 
@@ -952,6 +966,31 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
                 {processedText}
             </Typography>
         );
+    }
+    
+    // Если это события с вложениями
+    if (item.action === 'attachment_added' || item.action === 'attachment_deleted') {
+        const fileName = item.newValue || item.oldValue;
+        if (fileName) {
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <AttachFileIcon 
+                        fontSize="small" 
+                        color={item.action === 'attachment_added' ? 'success' : 'error'}
+                    />
+                    <Typography 
+                        variant="body2" 
+                        sx={{ 
+                            fontWeight: 500,
+                            color: item.action === 'attachment_added' ? 'success.main' : 'error.main'
+                        }}
+                    >
+                        {fileName}
+                    </Typography>
+                </Box>
+            );
+        }
+        return value;
     }
     
     // Если это изменение тегов
