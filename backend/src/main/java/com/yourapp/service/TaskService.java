@@ -529,6 +529,21 @@ public class TaskService {
             }
             task.getAttachments().add(attachment);
             
+            // Добавляем запись в историю
+            TaskHistory history = new TaskHistory();
+            history.setTask(task);
+            history.setChangedBy(uploader);
+            history.setUsername(uploader.getUsername());
+            history.setAvatarUrl(uploader.getAvatarUrl());
+            history.setAction("attachment_added");
+            history.setNewValue(fileName); // Используем имя файла вместо ID
+            history.setTimestamp(LocalDateTime.now());
+            
+            if (task.getHistory() == null) {
+                task.setHistory(new ArrayList<>());
+            }
+            task.getHistory().add(history);
+            
             return taskRepository.save(task);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save attachment: " + e.getMessage());
@@ -536,9 +551,45 @@ public class TaskService {
     }
 
     @Transactional
-    public Task deleteAttachment(Long taskId, Long attachmentId) {
+    public Task deleteAttachment(Long taskId, Long attachmentId, User currentUser) {
         Task task = getTask(taskId);
+        
+        // Находим вложение для получения его имени
+        String deletedFileName = null;
+        String deletedFilePath = null;
+        for (Attachment attachment : task.getAttachments()) {
+            if (attachment.getId().equals(attachmentId)) {
+                deletedFileName = attachment.getFileName();
+                deletedFilePath = attachment.getFilePath();
+                break;
+            }
+        }
+        
+        // Удаляем вложение из списка
         task.getAttachments().removeIf(attachment -> attachment.getId().equals(attachmentId));
+        
+        // Удаляем файл из файловой системы
+        if (deletedFilePath != null) {
+            fileStorageService.deleteFile(deletedFilePath);
+        }
+        
+        // Добавляем запись в историю (только если нашли имя файла)
+        if (deletedFileName != null && currentUser != null) {
+            TaskHistory history = new TaskHistory();
+            history.setTask(task);
+            history.setChangedBy(currentUser);
+            history.setUsername(currentUser.getUsername());
+            history.setAvatarUrl(currentUser.getAvatarUrl());
+            history.setAction("attachment_deleted");
+            history.setOldValue(deletedFileName); // Используем имя файла вместо ID
+            history.setTimestamp(LocalDateTime.now());
+            
+            if (task.getHistory() == null) {
+                task.setHistory(new ArrayList<>());
+            }
+            task.getHistory().add(history);
+        }
+        
         return taskRepository.save(task);
     }
 

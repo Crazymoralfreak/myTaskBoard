@@ -161,11 +161,13 @@ export const updateUserProfile = async (profileData: any) => {
     const profileUpdateDto = {
       username: profileData.username,
       email: profileData.email,
-      phoneNumber: profileData.phone, // Обратите внимание на маппинг phone -> phoneNumber
+      phoneNumber: profileData.phone, // Здесь берем данные из phone
       position: profileData.position,
       bio: profileData.bio
       // Удаляем avatarUrl отсюда, так как теперь мы обновляем его отдельно
     };
+    
+    console.log('Отправляем данные профиля:', profileUpdateDto);
     
     const response = await api.put('/api/users/profile', profileUpdateDto);
     
@@ -355,18 +357,24 @@ export const uploadUserAvatar = async (file: File) => {
     console.log('Ответ сервера при загрузке аватара:', response.data);
     
     if (response.data && response.data.avatarUrl) {
+      // Сохраняем оригинальный URL из ответа
+      const originalUrl = response.data.avatarUrl;
+      console.log('Оригинальный URL аватара из ответа сервера:', originalUrl);
+      
       // Полный URL для аватара
-      const fullAvatarUrl = getAvatarUrl(response.data.avatarUrl);
+      const fullAvatarUrl = getAvatarUrl(originalUrl);
+      console.log('Полный URL аватара для отображения:', fullAvatarUrl);
       
       // Обновляем данные пользователя в localStorage
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      userData.avatarUrl = response.data.avatarUrl; // Сохраняем оригинальный URL для API
+      userData.avatarUrl = originalUrl; // Сохраняем оригинальный URL для API
       localStorage.setItem('user', JSON.stringify(userData));
       
       // Возвращаем данные с полным URL для отображения
       return {
         ...response.data,
-        avatarUrl: fullAvatarUrl
+        avatarUrl: originalUrl,
+        fullAvatarUrl: fullAvatarUrl
       };
     }
     

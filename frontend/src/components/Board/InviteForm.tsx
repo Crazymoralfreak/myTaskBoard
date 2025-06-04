@@ -254,6 +254,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
         ];
         permissions.cannot = [
           'Добавлять/удалять участников',
+          'Создавать и редактировать колонки',
           'Изменять настройки доски',
           'Удалять доску'
         ];

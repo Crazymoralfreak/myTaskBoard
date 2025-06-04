@@ -113,20 +113,12 @@ public class AuthService {
         
         logger.info("Проверка пароля: хеш из БД (длина {}): {}", 
                 storedPasswordHash.length(), storedPasswordHash.substring(0, Math.min(10, storedPasswordHash.length())) + "...");
-        logger.debug("Проверка пароля: введённый пароль (длина {}): {}", 
-                rawPassword.length(), rawPassword);
         
         // Проверяем пароль
         boolean matches = false;
         try {
             matches = passwordEncoder.matches(rawPassword, storedPasswordHash);
             logger.info("Результат проверки пароля: {}", matches);
-            
-            // Если не совпадает, логируем подробности
-            if (!matches) {
-                logger.warn("Хеш пароля из БД: {}", storedPasswordHash);
-                logger.warn("Новый хеш того же пароля: {}", passwordEncoder.encode(rawPassword));
-            }
         } catch (Exception e) {
             logger.error("Ошибка при проверке пароля: {}", e.getMessage(), e);
             throw new RuntimeException("Error validating password");
@@ -263,7 +255,6 @@ public class AuthService {
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
             user.setPassword(passwordEncoder.encode(newPassword));
-            user.setLastPasswordResetDate(LocalDateTime.now()); // Для аудита
             userRepository.save(user);
             
             logger.info("Пароль успешно сброшен администратором для пользователя: {}", user.getUsername());
@@ -296,8 +287,7 @@ public class AuthService {
         
         // Устанавливаем новый пароль
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setLastPasswordResetDate(LocalDateTime.now()); // Для аудита
-        user = userRepository.save(user);
+        userRepository.save(user);
         
         logger.info("Пароль успешно изменен пользователем: {}", email);
         
@@ -328,23 +318,17 @@ public class AuthService {
         // Получаем сохраненный хеш
         String storedHash = user.getPassword();
         
-        // Создаем новый пароль (на всякий случай)
-        String newHash = passwordEncoder.encode(request.getPassword());
-        
         // Сохраняем для диагностики
         logger.info("Диагностика пароля для {}", user.getEmail());
         logger.info("Введённый пароль: '{}'", request.getPassword());
         logger.info("Сохранённый хеш: '{}'", storedHash);
-        logger.info("Новый хеш: '{}'", newHash);
         
         // Прямая проверка соответствия
         boolean matches = passwordEncoder.matches(request.getPassword(), storedHash);
         logger.info("Результат проверки: {}", matches);
         
-        // Обновляем пароль принудительно
-        user.setPassword(newHash);
-        userRepository.save(user);
-        logger.info("Пароль принудительно обновлен");
+        // Больше не обновляем пароль принудительно
+        // так как это создает проблемы с авторизацией
         
         // Создаем токен
         String token = jwtService.generateToken(user);

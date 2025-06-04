@@ -160,7 +160,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [selectedStatusId, setSelectedStatusId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [tabValue, setTabValue] = useState(0);
     const [mode, setMode] = useState<ModalMode>(initialMode);
     const [selectedTab, setSelectedTab] = useState(0);
     const [errors, setErrors] = useState<{
@@ -1697,9 +1696,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                         <TaskAttachments
                                             taskId={task.id}
                                             onTaskUpdate={updatedTask => {
-                                                if (onTaskUpdate) {
-                                                    onTaskUpdate(updatedTask);
+                                                // Обновляем локальное состояние задачи, но НЕ передаем обновление родительскому компоненту
+                                                // чтобы предотвратить закрытие модального окна
+                                                if (updatedTask && updatedTask.attachments) {
+                                                    const updatedTaskState = {
+                                                        ...task,
+                                                        attachments: updatedTask.attachments,
+                                                        attachmentCount: updatedTask.attachmentCount || updatedTask.attachments.length
+                                                    };
+                                                    setTask(updatedTaskState as ExtendedTaskWithTypes);
                                                 }
+                                                
+                                                // НЕ вызываем onTaskUpdate для предотвращения закрытия модального окна
+                                                // if (onTaskUpdate) {
+                                                //     onTaskUpdate(updatedTask);
+                                                // }
                                             }}
                                         />
                                     </TabPanel>

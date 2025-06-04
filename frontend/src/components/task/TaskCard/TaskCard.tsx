@@ -119,6 +119,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     isCompact = false,
     onTasksChange
 }) => {
+    // Отладочный вывод для диагностики проблем с отображением типа задачи
+    if (task.type) {
+        console.log(`TaskCard: Задача ${task.id} (${task.title}) имеет тип:`, 
+            JSON.stringify(task.type, null, 2));
+    } else {
+        console.log(`TaskCard: Задача ${task.id} (${task.title}) НЕ имеет типа`);
+    }
+    
     const theme = useTheme();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);

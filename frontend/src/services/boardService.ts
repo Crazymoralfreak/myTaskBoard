@@ -41,9 +41,21 @@ export const boardService = {
     },
 
     async addColumn(boardId: string, column: Partial<Column>): Promise<Board> {
-        const response = await api.post<Board>(`/api/boards/${boardId}/columns`, column);
-        // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами
-        return this.processBoard(response.data);
+        try {
+            console.log('Добавление новой колонки:', column);
+            
+            // Отправляем запрос на добавление колонки
+            const response = await api.post<Board>(`/api/boards/${boardId}/columns`, column);
+            
+            // Загружаем доску полностью, чтобы получить актуальные данные (включая права и типы задач)
+            const updatedBoard = await this.getBoard(boardId);
+            
+            // Обрабатываем полученную доску, чтобы сохранить связи задач с типами и статусами
+            return this.processBoard(updatedBoard);
+        } catch (error) {
+            console.error('Ошибка при добавлении колонки:', error);
+            throw error;
+        }
     },
 
     async removeColumn(boardId: string, columnId: string): Promise<Board> {
@@ -72,9 +84,48 @@ export const boardService = {
     },
 
     async getBoard(boardId: string): Promise<Board> {
-        const response = await api.get<Board>(`/api/boards/${boardId}`);
-        const processedBoard = this.processBoard(response.data);
-        return processedBoard;
+        try {
+            console.log('Загрузка доски с ID:', boardId);
+            
+            // Загружаем доску и права пользователя параллельно
+            const boardPromise = api.get(`/api/boards/${boardId}`);
+            const permissionsPromise = this.loadBoardPermissions(boardId).catch(err => {
+                console.warn('Не удалось загрузить права пользователя:', err);
+                return null; // Возвращаем null в случае ошибки, чтобы не блокировать загрузку доски
+            });
+            
+            // Дожидаемся обоих запросов
+            const [boardResponse, permissions] = await Promise.all([boardPromise, permissionsPromise]);
+            
+            // Получаем данные доски
+            const board = boardResponse.data;
+            
+            // Добавляем права пользователя к объекту доски, если они были получены
+            if (permissions) {
+                console.log('Обновление прав пользователя в объекте доски');
+                
+                // Обновляем информацию о текущем пользователе
+                if (!board.currentUser) {
+                    board.currentUser = {};
+                }
+                
+                // Добавляем полученные права
+                board.currentUser = {
+                    ...board.currentUser,
+                    permissions: permissions.permissions || {},
+                    role: permissions.role,
+                    roleId: permissions.roleId,
+                    isAdmin: permissions.isAdmin || false
+                };
+                
+                console.log('Обновленная информация о пользователе:', board.currentUser);
+            }
+            
+            return board;
+        } catch (error) {
+            console.error('Ошибка при загрузке доски:', error);
+            throw error;
+        }
     },
 
     // Обрабатывает доску, добавляя типы и статусы к задачам
@@ -449,5 +500,28 @@ export const boardService = {
                 reject(error);
             }
         });
+    },
+
+    // Добавляю метод для загрузки или обновления прав пользователя на доске
+    async loadBoardPermissions(boardId: string): Promise<any> {
+        try {
+            console.log('Загрузка прав пользователя для доски:', boardId);
+            // Получаем данные из ответа на запрос доски, а не через отдельный endpoint
+            const response = await api.get(`/api/boards/${boardId}`);
+            
+            // Извлекаем данные о правах из объекта доски
+            const permissionsData = {
+                permissions: response.data.currentUser?.permissions || {},
+                role: response.data.currentUser?.role,
+                roleId: response.data.currentUser?.roleId,
+                isAdmin: response.data.currentUser?.isAdmin || false
+            };
+            
+            console.log('Получены права пользователя из доски:', permissionsData);
+            return permissionsData;
+        } catch (error) {
+            console.error('Ошибка при загрузке прав пользователя:', error);
+            throw error;
+        }
     }
 }; 

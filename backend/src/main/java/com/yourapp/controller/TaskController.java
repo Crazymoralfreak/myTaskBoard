@@ -403,9 +403,10 @@ public class TaskController {
     @DeleteMapping("/{taskId}/attachments/{attachmentId}")
     public TaskResponse deleteAttachment(
         @PathVariable Long taskId,
-        @PathVariable Long attachmentId
+        @PathVariable Long attachmentId,
+        @AuthenticationPrincipal User user
     ) {
-        Task task = taskService.deleteAttachment(taskId, attachmentId);
+        Task task = taskService.deleteAttachment(taskId, attachmentId, user);
         return taskMapper.toResponse(task);
     }
 

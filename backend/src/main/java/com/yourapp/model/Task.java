@@ -94,7 +94,7 @@ public class Task {
     private List<Comment> comments = new ArrayList<>();
     
     @JsonManagedReference("task-attachments")
-    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Attachment> attachments;
     
     @ManyToMany

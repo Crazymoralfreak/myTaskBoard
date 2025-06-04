@@ -19,6 +19,7 @@ export interface BoardStatus {
     isCustom: boolean;
     position: number;
     boardId?: string;
+    tasks?: Task[];
 }
 
 export interface TaskType {
@@ -30,6 +31,7 @@ export interface TaskType {
     isCustom: boolean;
     position: number;
     boardId?: string;
+    tasks?: Task[];
 }
 
 export interface Column {
@@ -46,5 +48,6 @@ export namespace Board {
     isAdmin: boolean;
     role?: string;
     roleId?: number;
+    permissions?: Record<string, boolean>;
   }
 } 

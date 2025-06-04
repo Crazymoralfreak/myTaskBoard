@@ -21,6 +21,12 @@ export interface BoardMember {
   displayName?: string;
   role: Role;
   joinedAt: string; // ISO 8601 date string
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    avatarUrl?: string;
+  };
 }
 
 /**

@@ -42,19 +42,32 @@ export function useUserRole(board: Board | null | undefined, userId?: number): U
   // Получаем информацию о текущем пользователе из board
   const currentUser = useMemo(() => {
     if (!board) return null;
-    return (board as any).currentUser as Board.CurrentUser | undefined;
+    const user = (board as any).currentUser as Board.CurrentUser | undefined;
+    console.log('useUserRole - информация о пользователе в контексте доски:', user);
+    return user;
   }, [board]);
 
   // Определяем, является ли пользователь владельцем доски
   const isOwner = useMemo(() => {
     if (!board || !userId) return false;
-    return (board as any).owner?.id === userId;
+    const ownerStatus = (board as any).owner?.id === userId;
+    console.log('useUserRole - проверка владельца доски:', { userId, ownerId: (board as any).owner?.id, isOwner: ownerStatus });
+    return ownerStatus;
   }, [board, userId]);
 
   // Получаем роль пользователя
-  const userRole = useMemo(() => currentUser?.role, [currentUser]);
+  const userRole = useMemo(() => {
+    const role = currentUser?.role;
+    console.log('useUserRole - роль пользователя:', role);
+    return role;
+  }, [currentUser]);
+  
   const userRoleId = useMemo(() => currentUser?.roleId, [currentUser]);
-  const isAdmin = useMemo(() => isOwner || !!currentUser?.isAdmin, [isOwner, currentUser]);
+  const isAdmin = useMemo(() => {
+    const adminStatus = isOwner || !!currentUser?.isAdmin;
+    console.log('useUserRole - проверка админа:', { isOwner, isAdmin: !!currentUser?.isAdmin, result: adminStatus });
+    return adminStatus;
+  }, [isOwner, currentUser]);
 
   /**
    * Проверяет наличие у пользователя определенного разрешения
@@ -64,34 +77,44 @@ export function useUserRole(board: Board | null | undefined, userId?: number): U
   const hasPermission = (permission: Permission): boolean => {
     // Владелец доски имеет все права
     if (isOwner) {
+      console.log(`useUserRole - hasPermission: ${permission} - предоставлено (пользователь владелец)`);
       return true;
     }
 
     // Проверяем роль и конкретное разрешение
+    let result = false;
     switch (permission) {
       // Права администратора
       case Permission.MANAGE_MEMBERS:
       case Permission.EDIT_MEMBERS_ROLES:
       case Permission.EDIT_BOARD_SETTINGS:
       case Permission.DELETE_BOARD:
-        const hasAdminPermission = isAdmin || userRole === SystemRoles.ADMIN;
-        return hasAdminPermission;
+        result = isAdmin || userRole === SystemRoles.ADMIN;
+        console.log(`useUserRole - hasPermission: ${permission} - ${result ? 'предоставлено' : 'отказано'} (admin)`);
+        return result;
 
       // Права редактора
       case Permission.ADD_COLUMNS:
       case Permission.EDIT_COLUMNS:
       case Permission.DELETE_COLUMNS:
+        // Редактор больше не может управлять колонками
+        result = isAdmin || userRole === SystemRoles.ADMIN;
+        console.log(`useUserRole - hasPermission: ${permission} - ${result ? 'предоставлено' : 'отказано'} (только админ)`);
+        return result;
+
       case Permission.ADD_TASKS:
       case Permission.EDIT_TASKS:
       case Permission.DELETE_TASKS:
       case Permission.MOVE_TASKS:
       case Permission.COMMENT_TASKS:
-        const hasEditorPermission = isAdmin || 
+        result = isAdmin || 
                userRole === SystemRoles.ADMIN || 
                userRole === SystemRoles.EDITOR;
-        return hasEditorPermission;
+        console.log(`useUserRole - hasPermission: ${permission} - ${result ? 'предоставлено' : 'отказано'} (editor)`);
+        return result;
 
       default:
+        console.log(`useUserRole - hasPermission: ${permission} - отказано (по умолчанию)`);
         return false;
     }
   };
