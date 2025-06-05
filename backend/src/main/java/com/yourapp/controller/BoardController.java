@@ -172,7 +172,7 @@ public class BoardController {
         logger.info("Запрос на получение доски с ID: {}, пользователь: {}", id, user != null ? user.getUsername() : "null");
         
         try {
-            Board board = boardService.getBoardById(id);
+            Board board = boardService.getBoard(id);
             
             // В DTO добавляем флаг, является ли текущий пользователь владельцем
             boolean isOwner = user != null && board.getOwner() != null && board.getOwner().getId().equals(user.getId());

@@ -146,10 +146,43 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-  const handleMarkAsRead = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  // Логгирование для диагностики проблемы со статусом "Новое"
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Notification ${notification.id}:`, {
+        title: notification.title,
+        isRead: notification.isRead,
+        readAt: notification.readAt,
+        shouldShowNew: notification.isRead === false
+      });
+    }
+  }, [notification.id, notification.isRead, notification.readAt]);
+
+  const handleClick = () => {
+    // Автоматически отмечаем как прочитанное при клике на уведомление
     if (!notification.isRead) {
-      onMarkAsRead(notification.id);
+      console.log('Marking notification as read on click:', notification.id);
+      handleMarkAsRead(notification.id);
+    }
+    
+    if (onClick) {
+      onClick(notification);
+    }
+  };
+
+  // Обработчик отметки как прочитанное с принудительным обновлением
+  const handleMarkAsRead = async (notificationId: number) => {
+    try {
+      console.log('NotificationItem: Marking as read:', notificationId);
+      await onMarkAsRead(notificationId);
+      
+      // Принудительно обновляем локальное состояние
+      notification.isRead = true;
+      notification.readAt = new Date().toISOString();
+      
+      console.log('NotificationItem: Marked as read successfully');
+    } catch (error) {
+      console.error('NotificationItem: Error marking as read:', error);
     }
   };
 
@@ -187,6 +220,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   
   const handleNavigateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Отмечаем как прочитанное при навигации
+    if (!notification.isRead) {
+      console.log('Marking notification as read on navigation:', notification.id);
+      handleMarkAsRead(notification.id);
+    }
+    
     if (onNavigate) {
       onNavigate(notification);
     }
@@ -197,21 +237,38 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     addSuffix: true,
     locale: ru
   });
+
+  // Строгая проверка статуса "Новое" - должен показываться только если isRead === false
+  const shouldShowNewStatus = notification.isRead === false;
   
   return (
     <ListItem 
       alignItems="flex-start"
+      onClick={handleClick}
       sx={{ 
-        cursor: 'default',
+        cursor: 'pointer',
         bgcolor: notification.isRead ? 'transparent' : 'action.hover',
         '&:hover': { bgcolor: 'action.selected' },
-        borderRadius: 1,
+        borderRadius: 2,
         mb: 1,
-        border: `2px solid ${getPriorityColor(notification.priority)}20`,
-        borderLeft: `4px solid ${getPriorityColor(notification.priority)}`
+        border: `1px solid ${getPriorityColor(notification.priority)}30`,
+        borderLeft: `4px solid ${getPriorityColor(notification.priority)}`,
+        transition: 'all 0.2s ease-in-out',
+        '&:hover .notification-actions': {
+          opacity: 1
+        }
       }}
       secondaryAction={
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          gap={1}
+          className="notification-actions"
+          sx={{ 
+            opacity: notification.isRead ? 0.7 : 1,
+            transition: 'opacity 0.2s ease-in-out'
+          }}
+        >
           {/* Кнопка навигации */}
           {onNavigate && (
             <Tooltip title="Перейти к связанной задаче/доске">
@@ -220,24 +277,17 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 aria-label="navigate"
                 onClick={handleNavigateClick}
                 size="small"
+                sx={{ 
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' }
+                }}
               >
-                <OpenInNewIcon />
+                <OpenInNewIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
           
-          {showActions && !notification.isRead && (
-            <Tooltip title="Отметить как прочитанное">
-              <IconButton 
-                edge="end" 
-                aria-label="mark as read"
-                onClick={handleMarkAsRead}
-                size="small"
-              >
-                <DoneIcon />
-              </IconButton>
-            </Tooltip>
-          )}
           {showActions && (
             <Tooltip title="Действия">
               <IconButton 
@@ -269,49 +319,67 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       
       <ListItemText
         primary={
-          <Box display="flex" alignItems="center" gap={1}>
-            <Typography variant="subtitle2" component="div">
+          <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+            <Typography 
+              variant="subtitle2" 
+              component="div"
+              sx={{ 
+                fontWeight: notification.isRead ? 400 : 600,
+                color: notification.isRead ? 'text.secondary' : 'text.primary'
+              }}
+            >
               {notification.title}
             </Typography>
             <Chip 
               label={getPriorityLabel(notification.priority)} 
               size="small" 
               sx={{ 
-                height: 20, 
-                fontSize: '0.7rem',
+                height: 18, 
+                fontSize: '0.65rem',
                 backgroundColor: getPriorityColor(notification.priority),
-                color: 'white'
+                color: 'white',
+                opacity: notification.isRead ? 0.7 : 1
               }}
             />
+            {shouldShowNewStatus && (
+              <Chip 
+                label="Новое" 
+                size="small" 
+                color="error"
+                variant="filled"
+                sx={{ 
+                  height: 18, 
+                  fontSize: '0.65rem',
+                  animation: 'pulse 2s infinite'
+                }}
+              />
+            )}
           </Box>
         }
         secondary={
           <Box component="span">
-            <Typography
-              variant="body2"
-              color="textPrimary"
-              component="span"
-              sx={{ display: 'block', mb: 1 }}
-            >
-              {notification.message}
-            </Typography>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
+            {/* Показываем message только если он отличается от title */}
+            {notification.message !== notification.title && (
               <Typography
-                variant="caption"
-                color="textSecondary"
+                variant="body2"
+                color={notification.isRead ? 'text.secondary' : 'text.primary'}
                 component="span"
+                sx={{ 
+                  display: 'block', 
+                  mb: 1,
+                  fontWeight: notification.isRead ? 400 : 500
+                }}
               >
-                {timeAgo}
+                {notification.message}
               </Typography>
-              {!notification.isRead && (
-                <Chip 
-                  label="Новое" 
-                  size="small" 
-                  color="primary" 
-                  sx={{ height: 20, fontSize: '0.7rem' }}
-                />
-              )}
-            </Box>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="span"
+            >
+              {timeAgo}
+            </Typography>
           </Box>
         }
       />
@@ -330,12 +398,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           horizontal: 'right',
         }}
       >
-        {!notification.isRead && (
-          <MenuItem onClick={handleMarkAsRead}>
-            <DoneIcon fontSize="small" sx={{ mr: 1 }} />
-            Отметить как прочитанное
-          </MenuItem>
-        )}
         {onArchive && !notification.isArchived && (
           <MenuItem onClick={handleArchive}>
             <ArchiveIcon fontSize="small" sx={{ mr: 1 }} />

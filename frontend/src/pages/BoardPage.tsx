@@ -169,6 +169,43 @@ export const BoardPage: React.FC = () => {
         loadUserSettings();
     }, []);
 
+    // Добавляем обработчик события удаления задачи
+    useEffect(() => {
+        const handleTaskDeleted = (event: CustomEvent) => {
+            const { taskId } = event.detail;
+            console.log('Получено событие удаления задачи:', taskId);
+            
+            // Обновляем состояние доски, удаляя задачу из колонок
+            setBoard(prevBoard => {
+                if (!prevBoard) return prevBoard;
+                
+                const updatedColumns = prevBoard.columns.map(column => ({
+                    ...column,
+                    tasks: column.tasks.filter(task => task.id !== taskId)
+                }));
+                
+                return {
+                    ...prevBoard,
+                    columns: updatedColumns
+                };
+            });
+            
+            // Также обновляем filteredColumns
+            setFilteredColumns(prevColumns => 
+                prevColumns.map(column => ({
+                    ...column,
+                    tasks: column.tasks.filter(task => task.id !== taskId)
+                }))
+            );
+        };
+
+        window.addEventListener('task-deleted', handleTaskDeleted as EventListener);
+        
+        return () => {
+            window.removeEventListener('task-deleted', handleTaskDeleted as EventListener);
+        };
+    }, []);
+
     // Оптимизирую useEffect для загрузки доски
     useEffect(() => {
         if (boardId) {
@@ -176,7 +213,7 @@ export const BoardPage: React.FC = () => {
         }
     }, [boardId]);
 
-    // Оптимизирую useEffect для контекста ролей - не вызываем getBoard повторно
+    // Оптимизирую useEffect для контекста ролей - обновляем только когда доска изменяется
     useEffect(() => {
         if (board) {
             console.log('Обновление контекста ролей и прав пользователя для доски');
@@ -185,7 +222,7 @@ export const BoardPage: React.FC = () => {
                 roleContext.setCurrentUserId((board as any).currentUser.id);
             }
         }
-    }, [board, roleContext]);
+    }, [board?.id, (board as any)?.currentUser?.id]); // Зависимости только от ID для минимизации перерендеров
 
     useEffect(() => {
         if (!board) return;
@@ -383,7 +420,17 @@ export const BoardPage: React.FC = () => {
         // Теперь обрабатываем колонки и задачи
         const processedColumns: Column[] = boardData.columns.map(column => {
             const processedTasks = column.tasks.map(task => {
-                let processedTask = { ...task };
+                // ИСПРАВЛЕНИЕ: Полное копирование задачи с сохранением всех полей включая assignee
+                let processedTask = { 
+                    ...task,
+                    // Явно сохраняем критически важные поля
+                    assignee: task.assignee,
+                    type: task.type,
+                    customStatus: task.customStatus,
+                    tags: task.tags,
+                    commentCount: task.commentCount || 0,
+                    attachmentCount: task.attachmentCount || 0
+                };
                 
                 // Добавляем тип задачи из индекса задач
                 const taskType = taskTypeMap.get(task.id);
@@ -447,6 +494,12 @@ export const BoardPage: React.FC = () => {
                     }
                 }
                 
+                // Отладочный вывод для проверки сохранения assignee
+                if (task.assignee) {
+                    console.log(`Задача ${task.id} имеет назначенного пользователя: ${task.assignee.username} (ID: ${task.assignee.id})`);
+                    console.log(`processedTask сохранил assignee:`, processedTask.assignee);
+                }
+                
                 return processedTask;
             });
             
@@ -474,23 +527,18 @@ export const BoardPage: React.FC = () => {
         try {
             setLoading(true);
             
-            // Загружаем доску без дополнительных параллельных запросов
+            // Загружаем доску одним запросом
             const boardData = await boardService.getBoard(boardId);
             console.log('Данные доски после загрузки:', boardData);
             
             // Обрабатываем типы и статусы задач
             const processedBoard = processTasksWithTypeAndStatus(boardData);
             
-            // Устанавливаем обновленное состояние
+            // Устанавливаем состояние одним обновлением
             setBoard(processedBoard);
             setFilteredColumns([...processedBoard.columns]);
             setTaskTypes(processedBoard.taskTypes || []);
             
-            // Обновляем контекст ролей с обработанной доской
-            roleContext.setCurrentBoard(processedBoard);
-            if ((processedBoard as any).currentUser) {
-                roleContext.setCurrentUserId((processedBoard as any).currentUser.id);
-            }
         } catch (error) {
             console.error('Failed to load board:', error instanceof Error ? error.message : error);
             setError('Не удалось загрузить доску');
@@ -538,12 +586,6 @@ export const BoardPage: React.FC = () => {
             setBoard(processedBoard);
             setFilteredColumns([...processedBoard.columns]);
             setTaskTypes(processedBoard.taskTypes || []);
-            
-            // Обновляем контекст ролей с обработанной доской
-            roleContext.setCurrentBoard(processedBoard);
-            if ((processedBoard as any).currentUser) {
-                roleContext.setCurrentUserId((processedBoard as any).currentUser.id);
-            }
             
             toast.success('Колонка успешно добавлена');
         } catch (error) {
@@ -649,23 +691,52 @@ export const BoardPage: React.FC = () => {
             return;
         }
 
+        const taskId = parseInt(draggableId.replace('task-', ''));
+        const sourceColumnId = parseInt(source.droppableId.replace('column-', ''));
+        const destinationColumnId = parseInt(destination.droppableId.replace('column-', ''));
+
+        // Находим задачу в исходной колонке
+        const sourceColumn = board?.columns.find(col => Number(col.id) === sourceColumnId);
+        if (!sourceColumn) {
+            console.error('Исходная колонка не найдена');
+            return;
+        }
+
+        const task = sourceColumn.tasks[source.index];
+        if (!task) {
+            console.error('Задача не найдена');
+            return;
+        }
+
         try {
-            const taskId = parseInt(draggableId.replace('task-', ''));
-            const sourceColumnId = parseInt(source.droppableId.replace('column-', ''));
-            const destinationColumnId = parseInt(destination.droppableId.replace('column-', ''));
+            // Оптимистично обновляем UI сначала
+            setBoard(prevBoard => {
+                if (!prevBoard) return prevBoard;
+                
+                const newColumns = [...prevBoard.columns];
+                const sourceCol = newColumns.find(col => Number(col.id) === sourceColumnId);
+                const destinationCol = newColumns.find(col => Number(col.id) === destinationColumnId);
 
-            // Находим задачу в исходной колонке
-            const sourceColumn = board?.columns.find(col => Number(col.id) === sourceColumnId);
-            if (!sourceColumn) {
-                console.error('Исходная колонка не найдена');
-                return;
-            }
+                if (!sourceCol || !destinationCol) {
+                    return prevBoard;
+                }
 
-            const task = sourceColumn.tasks[source.index];
-            if (!task) {
-                console.error('Задача не найдена');
-                return;
-            }
+                // Удаляем задачу из исходной колонки
+                const [movedTask] = sourceCol.tasks.splice(source.index, 1);
+                
+                // Добавляем задачу в целевую колонку
+                destinationCol.tasks.splice(destination.index, 0, movedTask);
+
+                const updatedBoard = {
+                    ...prevBoard,
+                    columns: newColumns
+                };
+                
+                // Обновляем filteredColumns синхронно
+                setFilteredColumns([...newColumns]);
+                
+                return updatedBoard;
+            });
 
             console.log('Moving task:', {
                 taskId,
@@ -676,6 +747,7 @@ export const BoardPage: React.FC = () => {
                 statusId: task.customStatus?.id
             });
 
+            // Выполняем API запрос после обновления UI
             const movedTask = await taskService.moveTask({
                 taskId,
                 sourceColumnId,
@@ -687,46 +759,43 @@ export const BoardPage: React.FC = () => {
 
             console.log('Task moved successfully:', movedTask);
 
-            // Обновляем состояние доски с новой задачей
-            setBoard(prevBoard => {
-                if (!prevBoard) return prevBoard;
-                
-                const newColumns = [...prevBoard.columns];
-                const sourceColumn = newColumns.find(col => Number(col.id) === sourceColumnId);
-                const destinationColumn = newColumns.find(col => Number(col.id) === destinationColumnId);
-
-                if (!sourceColumn || !destinationColumn) {
-                    return prevBoard;
-                }
-
-                // Удаляем задачу из исходной колонки
-                const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
-
-                // Обновляем тип задачи (на случай, если он изменился при перемещении)
-                if (movedTask.type && movedTask.type.id && prevBoard.taskTypes) {
-                    const fullType = prevBoard.taskTypes.find(t => t.id === movedTask.type?.id);
-                    if (fullType) {
-                        movedTask.type = fullType;
+            // Синхронизируем с сервером только если есть изменения
+            if (movedTask && movedTask.assignee) {
+                setBoard(prevBoard => {
+                    if (!prevBoard) return prevBoard;
+                    
+                    const newColumns = [...prevBoard.columns];
+                    const targetColumn = newColumns.find(col => Number(col.id) === destinationColumnId);
+                    
+                    if (targetColumn) {
+                        const taskIndex = targetColumn.tasks.findIndex(t => t.id === taskId);
+                        if (taskIndex !== -1) {
+                            // Обновляем задачу данными с сервера, сохраняя аватарку
+                            targetColumn.tasks[taskIndex] = {
+                                ...movedTask,
+                                assignee: movedTask.assignee ? {
+                                    ...movedTask.assignee,
+                                    avatarUrl: movedTask.assignee.avatarUrl || targetColumn.tasks[taskIndex].assignee?.avatarUrl
+                                } : targetColumn.tasks[taskIndex].assignee
+                            };
+                        }
                     }
-                }
-
-                // Добавляем задачу в целевую колонку
-                destinationColumn.tasks.splice(destination.index, 0, movedTask);
-
-                const updatedBoard = {
-                    ...prevBoard,
-                    columns: newColumns
-                };
-                
-                // Также обновляем filteredColumns для немедленного отображения
-                setFilteredColumns([...newColumns]);
-                
-                return updatedBoard;
-            });
+                    
+                    return {
+                        ...prevBoard,
+                        columns: newColumns
+                    };
+                });
+            }
         } catch (error) {
             console.error('Error moving task:', error);
-            // Показываем уведомление об ошибке
             toast.error('Ошибка при перемещении задачи');
+            
+            // Откатываем изменения в случае ошибки
+            if (board) {
+                setBoard({ ...board });
+                setFilteredColumns([...board.columns]);
+            }
         }
     };
 
@@ -952,12 +1021,6 @@ export const BoardPage: React.FC = () => {
             setFilteredColumns([...processedBoard.columns]);
             setTaskTypes(processedBoard.taskTypes || []);
             
-            // Обновляем контекст ролей с обработанной доской
-            roleContext.setCurrentBoard(processedBoard);
-            if ((processedBoard as any).currentUser) {
-                roleContext.setCurrentUserId((processedBoard as any).currentUser.id);
-            }
-            
             toast.success('Доска обновлена');
         } catch (error) {
             console.error('Ошибка при обновлении доски:', error);
@@ -966,108 +1029,6 @@ export const BoardPage: React.FC = () => {
             setIsRefreshing(false);
         }
     };
-
-    // Оптимизируем механизм обработки событий для предотвращения лишних запросов
-    useEffect(() => {
-        // Переменная для отслеживания времени последнего обновления
-        let lastUpdateTime = Date.now();
-        // Минимальный интервал между обновлениями в мс
-        const updateThrottle = 1000;
-        
-        // Обработчик события обновления доски с защитой от частых повторений
-        const handleBoardUpdate = (event: CustomEvent) => {
-            console.log('Получено событие board:update:', event.detail);
-            
-            // Проверяем, что событие касается текущей доски
-            if (event.detail.boardId && event.detail.boardId.toString() === boardId) {
-                // Проверяем, прошло ли достаточно времени с последнего обновления
-                const currentTime = Date.now();
-                if (currentTime - lastUpdateTime < updateThrottle) {
-                    console.log('Пропускаем обновление - слишком частые запросы');
-                    return;
-                }
-                
-                lastUpdateTime = currentTime;
-                console.log('Обновляем текущую доску из-за события');
-                
-                // Если требуется принудительное обновление
-                if (event.detail.forceRefresh) {
-                    handleRefreshBoard();
-                } else {
-                    // Иначе просто загружаем доску
-                    loadBoard();
-                }
-            }
-        };
-
-        // Обработчик события удаления задачи с защитой от частых повторений
-        const handleTaskDelete = (event: CustomEvent) => {
-            console.log('Получено событие task:delete:', event.detail);
-            
-            // Проверяем, что событие касается текущей доски
-            if (event.detail.boardId && event.detail.boardId.toString() === boardId) {
-                // Проверяем, прошло ли достаточно времени с последнего обновления
-                const currentTime = Date.now();
-                if (currentTime - lastUpdateTime < updateThrottle) {
-                    console.log('Пропускаем обновление - слишком частые запросы');
-                    return;
-                }
-                
-                lastUpdateTime = currentTime;
-                console.log('Обновляем текущую доску из-за удаления задачи');
-                handleRefreshBoard();
-            }
-        };
-        
-        // Обработчик события удаления задачи с защитой от частых повторений
-        const handleTaskDeleted = (event: Event) => {
-            console.log('Получено событие task-deleted');
-            const customEvent = event as CustomEvent;
-            const taskId = customEvent.detail?.taskId;
-            
-            // Проверяем, прошло ли достаточно времени с последнего обновления
-            const currentTime = Date.now();
-            if (currentTime - lastUpdateTime < updateThrottle) {
-                console.log('Пропускаем обновление - слишком частые запросы');
-                return;
-            }
-            
-            lastUpdateTime = currentTime;
-            
-            // Если есть ID задачи, удаляем задачу из локального состояния доски
-            if (taskId && board) {
-                console.log('Удаляем задачу из состояния:', taskId);
-                const updatedBoard = { ...board };
-                
-                // Удаляем задачу из всех колонок
-                updatedBoard.columns = updatedBoard.columns.map(column => ({
-                    ...column,
-                    tasks: column.tasks.filter(task => task.id !== taskId)
-                }));
-                
-                // Обновляем состояние без запроса к серверу
-                setBoard(updatedBoard);
-                
-                // Также обновляем filteredColumns для немедленного отображения
-                setFilteredColumns([...updatedBoard.columns]);
-            } else {
-                // Если нет ID задачи или доски, обновляем через API
-                handleRefreshBoard();
-            }
-        };
-
-        // Добавляем обработчики событий
-        window.addEventListener('board:update', handleBoardUpdate as EventListener);
-        window.addEventListener('task:delete', handleTaskDelete as EventListener);
-        window.addEventListener('task-deleted', handleTaskDeleted as EventListener);
-        
-        // Удаляем обработчики при размонтировании
-        return () => {
-            window.removeEventListener('board:update', handleBoardUpdate as EventListener);
-            window.removeEventListener('task:delete', handleTaskDelete as EventListener);
-            window.removeEventListener('task-deleted', handleTaskDeleted as EventListener);
-        };
-    }, [boardId]);
 
     if (loading) {
         return (
@@ -1360,13 +1321,15 @@ export const BoardPage: React.FC = () => {
                         display: 'flex',
                         flexDirection: isMobile ? 'column' : 'row',
                         gap: 2,
-                        overflow: 'auto',
+                        height: 'calc(100vh - 200px)', // Фиксированная высота с учетом заголовка
+                        overflow: 'hidden', // Предотвращаем прокрутку основного контейнера
                         pb: 2,
-                        // Для мобильных, задаем максимальную высоту колонок
-                        '& > div': isMobile ? {
-                            maxHeight: 'none',
-                            width: '100%'
-                        } : {}
+                        // Для мобильных, убираем ограничения по высоте
+                        ...(isMobile && {
+                            height: 'auto',
+                            overflow: 'visible',
+                            flexDirection: 'column'
+                        })
                     }}
                 >
                     {board.columns && board.columns.length > 0 ? (
@@ -1385,6 +1348,8 @@ export const BoardPage: React.FC = () => {
                                             pt: 1,
                                             pl: 1,
                                             width: '100%',
+                                            height: '100%', // Занимаем всю доступную высоту
+                                            minHeight: isMobile ? 'auto' : 'calc(100vh - 200px)', // Минимальная высота для десктопа
                                             '&::-webkit-scrollbar': {
                                                 height: '8px',
                                             },

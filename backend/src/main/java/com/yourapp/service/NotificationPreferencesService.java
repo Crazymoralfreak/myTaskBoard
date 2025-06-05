@@ -49,8 +49,14 @@ public class NotificationPreferencesService {
         NotificationPreferences preferences = preferencesRepository.findByUser(user)
                 .orElseGet(() -> createDefaultPreferences(user));
         
-        // Обновляем настройки
+        // Сохраняем исходного пользователя для защиты связи
+        User originalUser = preferences.getUser();
+        
+        // Обновляем настройки только если новые значения не null
         updatePreferencesFromDTO(preferences, preferencesDTO);
+        
+        // Гарантируем, что связь с пользователем не потеряна
+        preferences.setUser(originalUser);
         
         NotificationPreferences savedPreferences = preferencesRepository.save(preferences);
         return mapToDTO(savedPreferences);

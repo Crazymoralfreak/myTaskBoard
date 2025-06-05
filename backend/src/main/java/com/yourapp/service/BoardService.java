@@ -204,10 +204,11 @@ public class BoardService {
         
         // Логируем информацию о типах задач
         tasks.forEach(task -> {
-            logger.debug("Задача ID:{} - тип:{}, статус:{}", 
+            logger.debug("Задача ID:{} - тип:{}, статус:{}, назначенный:{}", 
                 task.getId(),
                 task.getType() != null ? task.getType().getId() + ":" + task.getType().getName() : "null",
-                task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null");
+                task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null",
+                task.getAssignee() != null ? task.getAssignee().getId() + ":" + task.getAssignee().getUsername() : "null");
         });
         
         // Обновляем задачи в колонках

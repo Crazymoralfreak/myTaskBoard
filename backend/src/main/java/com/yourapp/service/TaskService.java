@@ -355,16 +355,18 @@ public class TaskService {
         BoardColumn targetColumn = columnRepository.findById(targetColumnId)
                 .orElseThrow(() -> new RuntimeException("Target column not found"));
         
-        // Сохраняем текущие значения типа и статуса
+        // Сохраняем текущие значения типа, статуса и назначенного пользователя
         TaskType currentType = task.getType();
         TaskStatus currentStatus = task.getCustomStatus();
+        User currentAssignee = task.getAssignee();
         
         // Перемещаем задачу
         task.setColumn(targetColumn);
         
-        // Восстанавливаем тип и статус
+        // Восстанавливаем тип, статус и назначенного пользователя
         task.setType(currentType);
         task.setCustomStatus(currentStatus);
+        task.setAssignee(currentAssignee);
         
         // Обновляем время изменения
         task.setUpdatedAt(LocalDateTime.now());

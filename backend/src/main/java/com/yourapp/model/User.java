@@ -102,15 +102,15 @@ public class User implements UserDetails {
     @JsonIgnore
     private UserSettings userSettings;
 
-    @JsonManagedReference
+    @JsonIgnore
     @OneToMany(mappedBy = "owner")
     private List<Board> boards;
     
-    @JsonManagedReference("task-assignee")
+    @JsonIgnore
     @OneToMany(mappedBy = "assignee")
     private List<Task> assignedTasks;
     
-    @JsonManagedReference
+    @JsonIgnore
     @OneToMany(mappedBy = "author")
     private List<Comment> comments;
 
@@ -131,7 +131,7 @@ public class User implements UserDetails {
     private Set<Attachment> uploads = new HashSet<>();
 
     @ManyToMany(mappedBy = "watchers")
-    @JsonManagedReference("task-watchers")
+    @JsonIgnore
     private Set<Task> watchedTasks = new HashSet<>();
 
     @PrePersist

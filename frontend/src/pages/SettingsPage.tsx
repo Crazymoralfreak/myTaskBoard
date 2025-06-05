@@ -45,7 +45,6 @@ export const SettingsPage: React.FC = () => {
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingNotifications, setSavingNotifications] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
   const { mode, toggleTheme } = useThemeContext();
   const muiTheme = useTheme();
@@ -74,33 +73,35 @@ export const SettingsPage: React.FC = () => {
     setTabValue(newValue);
   };
 
-  const handleBooleanSettingChange = (setting: keyof UserSettings) => async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBooleanSettingChange = (setting: keyof UserSettings) => (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!settings) return;
     
+    // Только обновляем локальное состояние без сохранения
     const newSettings = {
       ...settings,
       [setting]: event.target.checked
     };
     
     setSettings(newSettings);
+  };
+
+  const handleSaveInterfaceSettings = async () => {
+    if (!settings) return;
     
     try {
       setSaving(true);
-      const updatedSettings = await userService.updateUserSettings(newSettings);
+      const updatedSettings = await userService.updateUserSettings(settings);
       setSettings(updatedSettings);
-      enqueueSnackbar('Настройки сохранены', { variant: 'success' });
+      enqueueSnackbar('Настройки интерфейса сохранены', { variant: 'success' });
       
-      if (setting === 'darkMode') {
-        localStorage.setItem('darkMode', event.target.checked ? 'true' : 'false');
-      }
-      
-      if (setting === 'compactMode') {
-        localStorage.setItem('compactMode', event.target.checked ? 'true' : 'false');
-      }
+      // Обновляем localStorage для настроек темы и компактного режима
+      localStorage.setItem('darkMode', settings.darkMode ? 'true' : 'false');
+      localStorage.setItem('compactMode', settings.compactMode ? 'true' : 'false');
     } catch (error) {
       console.error('Ошибка при сохранении настроек:', error);
       enqueueSnackbar('Не удалось сохранить настройки', { variant: 'error' });
-      setSettings(settings);
+      // Перезагружаем настройки при ошибке
+      loadSettings();
     } finally {
       setSaving(false);
     }
@@ -131,30 +132,68 @@ export const SettingsPage: React.FC = () => {
   };
 
   // Обработчик изменения настроек уведомлений
-  const handleNotificationPreferenceChange = (key: keyof NotificationPreferences) => (
+  const handleNotificationPreferenceChange = (key: keyof NotificationPreferences) => async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     if (!notificationPreferences) return;
-    setNotificationPreferences(prev => ({
-      ...prev!,
-      [key]: event.target.checked
-    }));
-  };
-
-  // Сохранение настроек уведомлений
-  const handleSaveNotificationSettings = async () => {
-    if (!notificationPreferences) return;
     
     try {
-      setSavingNotifications(true);
-      await NotificationsService.updateNotificationPreferences(notificationPreferences);
-      enqueueSnackbar('Настройки уведомлений сохранены', { variant: 'success' });
+      // Обновляем локальное состояние
+      const newValue = event.target.checked;
+      setNotificationPreferences(prev => ({
+        ...prev!,
+        [key]: newValue
+      }));
+
+      // Сразу сохраняем изменение на сервере
+      const updatedPreferences = {
+        ...notificationPreferences,
+        [key]: newValue
+      };
+      
+      await NotificationsService.updateNotificationPreferences(updatedPreferences);
+      enqueueSnackbar(`Настройка "${getSettingDisplayName(key)}" обновлена`, { variant: 'success' });
     } catch (error) {
-      console.error('Ошибка при сохранении настроек уведомлений:', error);
-      enqueueSnackbar('Не удалось сохранить настройки уведомлений', { variant: 'error' });
-    } finally {
-      setSavingNotifications(false);
+      console.error('Ошибка при сохранении настройки:', error);
+      enqueueSnackbar('Не удалось сохранить настройку', { variant: 'error' });
+      
+      // Откатываем изменение в UI при ошибке
+      setNotificationPreferences(prev => ({
+        ...prev!,
+        [key]: !event.target.checked
+      }));
     }
+  };
+
+  // Функция для получения читаемого названия настройки
+  const getSettingDisplayName = (key: keyof NotificationPreferences): string => {
+    const displayNames: Record<keyof NotificationPreferences, string> = {
+      globalNotificationsEnabled: 'Глобальные уведомления',
+      emailNotificationsEnabled: 'Email уведомления',
+      telegramNotificationsEnabled: 'Telegram уведомления',
+      browserNotificationsEnabled: 'Браузер уведомления',
+      boardInviteNotifications: 'Приглашения на доску',
+      taskAssignedNotifications: 'Назначение задач',
+      taskStatusChangedNotifications: 'Изменение статуса задач',
+      taskCreatedNotifications: 'Создание задач',
+      taskUpdatedNotifications: 'Обновление задач',
+      taskDeletedNotifications: 'Удаление задач',
+      taskCommentAddedNotifications: 'Комментарии к задачам',
+      mentionNotifications: 'Упоминания',
+      subtaskCreatedNotifications: 'Создание подзадач',
+      subtaskCompletedNotifications: 'Завершение подзадач',
+      boardMemberAddedNotifications: 'Добавление участников',
+      boardMemberRemovedNotifications: 'Удаление участников',
+      attachmentAddedNotifications: 'Прикрепление файлов',
+      deadlineReminderNotifications: 'Напоминания о дедлайнах',
+      roleChangedNotifications: 'Изменение ролей',
+      taskDueSoonNotifications: 'Скорые дедлайны',
+      taskOverdueNotifications: 'Просроченные задачи',
+      onlyHighPriorityNotifications: 'Только высокий приоритет',
+      groupSimilarNotifications: 'Группировка уведомлений',
+      id: 'ID'
+    };
+    return displayNames[key] || key as string;
   };
 
   if (loading) {
@@ -229,6 +268,19 @@ export const SettingsPage: React.FC = () => {
                     label="Анимации интерфейса"
                   />
                 </Box>
+                
+                <Divider sx={{ my: 3 }} />
+                
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveInterfaceSettings}
+                    disabled={saving}
+                    startIcon={saving ? <CircularProgress size={20} /> : undefined}
+                  >
+                    {saving ? 'Сохранение...' : 'Сохранить настройки'}
+                  </Button>
+                </Box>
               </Box>
             )}
             
@@ -250,7 +302,6 @@ export const SettingsPage: React.FC = () => {
                             <Switch 
                               checked={notificationPreferences.globalNotificationsEnabled}
                               onChange={handleNotificationPreferenceChange('globalNotificationsEnabled')}
-                              disabled={savingNotifications}
                             />
                           }
                           label="Включить уведомления"
@@ -261,7 +312,7 @@ export const SettingsPage: React.FC = () => {
                             <Switch 
                               checked={notificationPreferences.onlyHighPriorityNotifications}
                               onChange={handleNotificationPreferenceChange('onlyHighPriorityNotifications')}
-                              disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                              disabled={!notificationPreferences.globalNotificationsEnabled}
                             />
                           }
                           label="Только высокоприоритетные уведомления"
@@ -278,7 +329,7 @@ export const SettingsPage: React.FC = () => {
                             <Switch 
                               checked={notificationPreferences.browserNotificationsEnabled}
                               onChange={handleNotificationPreferenceChange('browserNotificationsEnabled')}
-                              disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                              disabled={!notificationPreferences.globalNotificationsEnabled}
                             />
                           }
                           label="Уведомления в браузере"
@@ -290,7 +341,7 @@ export const SettingsPage: React.FC = () => {
                               <Switch 
                                 checked={notificationPreferences.emailNotificationsEnabled}
                                 onChange={handleNotificationPreferenceChange('emailNotificationsEnabled')}
-                                disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                                disabled={!notificationPreferences.globalNotificationsEnabled}
                               />
                             }
                             label="Уведомления по Email"
@@ -303,7 +354,7 @@ export const SettingsPage: React.FC = () => {
                               <Switch 
                                 checked={notificationPreferences.telegramNotificationsEnabled}
                                 onChange={handleNotificationPreferenceChange('telegramNotificationsEnabled')}
-                                disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                                disabled={!notificationPreferences.globalNotificationsEnabled}
                               />
                             }
                             label="Уведомления в Telegram"
@@ -311,20 +362,6 @@ export const SettingsPage: React.FC = () => {
                         </Box>
                       </CardContent>
                     </Card>
-
-                    {/* Кнопка сохранения */}
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-                      <Button
-                        variant="contained"
-                        size="large"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSaveNotificationSettings}
-                        disabled={savingNotifications}
-                      >
-                        {savingNotifications ? <CircularProgress size={24} sx={{ mr: 1 }} /> : null}
-                        Сохранить настройки уведомлений
-                      </Button>
-                    </Box>
                   </>
                 ) : (
                   <Box display="flex" justifyContent="center" py={4}>

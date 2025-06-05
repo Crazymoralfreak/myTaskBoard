@@ -336,7 +336,6 @@ export const taskService = {
             let sourcePreviousColumnId: string | number | undefined;
             let typeId: number | null | undefined;
             let statusId: number | null | undefined;
-            let boardId: string | number | null = null;
             
             // Проверяем, передан ли объект или отдельные параметры
             if (typeof taskIdOrRequest === 'object') {
@@ -360,24 +359,15 @@ export const taskService = {
                 console.log(`Перемещение задачи ${taskId} в колонку ${targetColumnId}, позиция ${targetPosition}`);
             }
             
-            const moveData = {
+            console.log('Отправка данных для перемещения задачи:', {
                 taskId,
-                columnId: targetColumnId,
-                position: targetPosition
-            };
-            
-            // Добавляем typeId и statusId в запрос
-            if (typeId !== undefined) {
-                // @ts-ignore
-                moveData.typeId = typeId;
-            }
-            
-            if (statusId !== undefined) {
-                // @ts-ignore
-                moveData.statusId = statusId;
-            }
-            
-            console.log('Отправка данных для перемещения задачи:', moveData);
+                sourceColumnId: sourcePreviousColumnId,
+                destinationColumnId: targetColumnId,
+                newPosition: targetPosition,
+                typeId: typeId !== undefined ? typeId : null,
+                statusId: statusId !== undefined ? statusId : null
+            });
+
             const response = await axiosInstance.post('/api/tasks/move', {
                 taskId,
                 sourceColumnId: sourcePreviousColumnId,
@@ -386,52 +376,11 @@ export const taskService = {
                 typeId: typeId !== undefined ? typeId : null,
                 statusId: statusId !== undefined ? statusId : null
             });
+            
             console.log('Задача успешно перемещена:', response.data);
             
-            // Создаем безопасную копию данных для возврата, чтобы избежать проблем с рекурсивными ссылками
+            // Создаем безопасную копию данных для возврата
             const safeTaskData = this.sanitizeTaskData(response.data);
-            
-            // Если передан параметр previousColumnId, значит задача переместилась между колонками
-            if (sourcePreviousColumnId && sourcePreviousColumnId !== targetColumnId) {
-                try {
-                    // Попробуем получить ID доски
-                    const rawBoardId = safeTaskData.boardId || this.getBoardIdFromUrl();
-                    boardId = rawBoardId ? String(rawBoardId) : null;
-                    
-                    // Находим имена колонок для логирования
-                    let sourceColumnName = `Колонка ID: ${sourcePreviousColumnId}`;
-                    let targetColumnName = `Колонка ID: ${targetColumnId}`;
-                    
-                    // Получаем информацию о колонках через API
-                    if (boardId) {
-                        try {
-                            const sourceColumn = await boardService.getColumnById(boardId, sourcePreviousColumnId);
-                            const targetColumn = await boardService.getColumnById(boardId, targetColumnId);
-                            
-                            if (sourceColumn) {
-                                sourceColumnName = sourceColumn.name;
-                            }
-                            
-                            if (targetColumn) {
-                                targetColumnName = targetColumn.name;
-                            }
-                        } catch (colErr) {
-                            console.warn('Не удалось получить информацию о колонках:', colErr);
-                        }
-                    }
-                    
-                    // Добавляем запись в историю о перемещении между колонками
-                    await this.addHistoryEntry(taskId, {
-                        action: 'moved_between_columns',
-                        oldValue: sourceColumnName,
-                        newValue: targetColumnName
-                    });
-                    console.log('Добавлена запись в историю о перемещении задачи между колонками');
-                } catch (historyError) {
-                    console.error('Ошибка при добавлении записи в историю:', historyError);
-                    // Не выбрасываем ошибку, так как перемещение задачи уже выполнено
-                }
-            }
             
             return safeTaskData;
         } catch (error) {

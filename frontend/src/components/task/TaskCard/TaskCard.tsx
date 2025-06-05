@@ -120,27 +120,78 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     isCompact = false,
     onTasksChange
 }) => {
-    // Отладочный вывод для диагностики проблем с отображением типа задачи
-    if (task.type) {
-        console.log(`TaskCard: Задача ${task.id} (${task.title}) имеет тип:`, 
-            JSON.stringify(task.type, null, 2));
-    } else {
-        console.log(`TaskCard: Задача ${task.id} (${task.title}) НЕ имеет типа`);
-    }
-    
     const theme = useTheme();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const [isRemoving, setIsRemoving] = useState(false);
-    const [avatarError, setAvatarError] = useState(false);
     
     const { deleteTask, isDeleting } = useTaskDelete();
     
     // Получаем информацию о правах пользователя
     const userRoles = useUserRole(null, Number(task.boardId));
     
+    // Компонент аватара - УПРОЩЕННЫЙ
+    const AssigneeAvatar: React.FC<{ 
+        assignee: NonNullable<Task['assignee']>, 
+        size: number,
+        compactMode?: boolean 
+    }> = ({ assignee, size, compactMode = false }) => {
+        return (
+            <Tooltip title={`Назначена на: ${assignee.displayName || assignee.username}`}>
+                <Box
+                    sx={{
+                        width: `${size}px`,
+                        height: `${size}px`,
+                        minWidth: `${size}px`,
+                        minHeight: `${size}px`,
+                        borderRadius: '50%',
+                        border: `2px solid ${theme.palette.divider}`,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: theme.palette.background.paper,
+                        boxShadow: theme.shadows[1],
+                        flexShrink: 0,
+                        position: 'relative'
+                    }}
+                >
+                    {assignee.avatarUrl ? (
+                        <img 
+                            src={getAvatarUrl(assignee.avatarUrl)} 
+                            alt={assignee.username}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                display: 'block'
+                            }}
+                            onError={(e) => {
+                                console.error('Ошибка загрузки аватара:', assignee.avatarUrl);
+                                // При ошибке показываем инициалы
+                                e.currentTarget.style.display = 'none';
+                            }}
+                        />
+                    ) : (
+                        <Typography
+                            sx={{
+                                fontSize: compactMode ? '10px' : size > 24 ? '14px' : '11px',
+                                fontWeight: 600,
+                                color: theme.palette.text.secondary,
+                                lineHeight: 1,
+                                userSelect: 'none'
+                            }}
+                        >
+                            {assignee.username.charAt(0).toUpperCase()}
+                        </Typography>
+                    )}
+                </Box>
+            </Tooltip>
+        );
+    };
+
     // Проверяем права на редактирование задачи
     const canEditTask = (): boolean => {
         if (task.boardId) {
@@ -315,11 +366,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         }
     };
     
-    // Сброс ошибок при смене задачи
-    useEffect(() => {
-        setAvatarError(false);
-    }, [task.assignee?.avatarUrl]);
-    
     // Ультра-компактный режим
     if (isCompact) {
         // Проверяем длину названия задачи
@@ -349,23 +395,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         }} 
                     />
                     
-                    {/* Название задачи с ограничением */}
-                    <Typography 
-                        sx={{ 
-                            fontWeight: 500,
-                            color: theme.palette.text.primary,
-                            fontSize: '0.75rem',
-                            lineHeight: '24px',
-                            flexGrow: 1,
-                            ml: 0.5,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 'calc(100% - 80px)' // Оставляем место для иконок
-                        }}
-                    >
-                        {displayTitle}
-                    </Typography>
+                    {/* Аватар и название задачи */}
+                    <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5,
+                        flexGrow: 1,
+                        ml: 0.5,
+                        overflow: 'hidden'
+                    }}>
+                        {/* Аватар назначенного пользователя перед названием */}
+                        {task.assignee && (
+                            <AssigneeAvatar 
+                                assignee={task.assignee} 
+                                size={16} 
+                                compactMode={true}
+                            />
+                        )}
+                        
+                        <Typography 
+                            sx={{ 
+                                fontWeight: 500,
+                                color: theme.palette.text.primary,
+                                fontSize: '0.75rem',
+                                lineHeight: '24px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1
+                            }}
+                        >
+                            {displayTitle}
+                        </Typography>
+                    </Box>
                     
                     {/* Иконки атрибутов в правой части */}
                     <Box sx={{ 
@@ -436,51 +498,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                 <LocalOfferIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
                             </Tooltip>
                         )}
-                        
-                        {/* Аватар ответственного */}
-                        {task.assignee && (
-                            <Tooltip title={`Ответственный: ${task.assignee.username}`}>
-                                <Box
-                                    sx={{
-                                        width: '20px',
-                                        height: '20px',
-                                        borderRadius: '50%',
-                                        border: `1px solid ${theme.palette.divider}`,
-                                        overflow: 'hidden',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        bgcolor: theme.palette.background.paper
-                                    }}
-                                >
-                                    {task.assignee.avatarUrl && !avatarError ? (
-                                        <img 
-                                            src={getAvatarUrl(task.assignee.avatarUrl)} 
-                                            alt={task.assignee.username}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover'
-                                            }}
-                                            onError={() => {
-                                                console.error('Ошибка загрузки аватара:', task.assignee?.avatarUrl);
-                                                setAvatarError(true);
-                                            }}
-                                        />
-                                    ) : (
-                                        <Typography
-                                            sx={{
-                                                fontSize: '10px',
-                                                fontWeight: 600,
-                                                color: theme.palette.text.secondary
-                                            }}
-                                        >
-                                            {task.assignee.username.charAt(0).toUpperCase()}
-                                        </Typography>
-                                    )}
-                                </Box>
-                            </Tooltip>
-                        )}
                     </Box>
                 </Card>
 
@@ -507,7 +524,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </>
         );
     }
-    
+
     // Стандартный режим отображения
     return (
         <>
@@ -540,18 +557,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     zIndex: 1 
                 }}>
                     <Box>
-                        {/* Заголовок и кнопка действий */}
+                        {/* Заголовок с аватаром */}
                         <Box sx={{ 
                             display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'flex-start',
+                            alignItems: 'center',
+                            gap: 1,
                             mb: 1
                         }}>
+                            {/* Аватар назначенного пользователя перед названием */}
+                            {task.assignee && (
+                                <AssigneeAvatar 
+                                    assignee={task.assignee} 
+                                    size={32} 
+                                    compactMode={false}
+                                />
+                            )}
+                            
                             <Typography 
                                 variant="subtitle1"
                                 sx={{ 
                                     fontWeight: 500,
                                     color: theme.palette.text.primary,
+                                    flex: 1
                                 }}
                             >
                                 {task.title}
@@ -697,51 +724,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                             >
                                                 {task.commentCount}
                                             </Typography>
-                                        </Box>
-                                    </Tooltip>
-                                )}
-                                
-                                {/* Аватар ответственного */}
-                                {task.assignee && (
-                                    <Tooltip title={`Ответственный: ${task.assignee.username}`}>
-                                        <Box
-                                            sx={{
-                                                width: '24px',
-                                                height: '24px',
-                                                borderRadius: '50%',
-                                                border: `1px solid ${theme.palette.divider}`,
-                                                overflow: 'hidden',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                bgcolor: theme.palette.background.paper
-                                            }}
-                                        >
-                                            {task.assignee.avatarUrl && !avatarError ? (
-                                                <img 
-                                                    src={getAvatarUrl(task.assignee.avatarUrl)} 
-                                                    alt={task.assignee.username}
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover'
-                                                    }}
-                                                    onError={() => {
-                                                        console.error('Ошибка загрузки аватара:', task.assignee?.avatarUrl);
-                                                        setAvatarError(true);
-                                                    }}
-                                                />
-                                            ) : (
-                                                <Typography
-                                                    sx={{
-                                                        fontSize: '11px',
-                                                        fontWeight: 600,
-                                                        color: theme.palette.text.secondary
-                                                    }}
-                                                >
-                                                    {task.assignee.username.charAt(0).toUpperCase()}
-                                                </Typography>
-                                            )}
                                         </Box>
                                     </Tooltip>
                                 )}

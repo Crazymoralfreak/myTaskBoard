@@ -98,17 +98,33 @@ const NotificationsPage: React.FC = () => {
   // Обработчик отметки уведомления как прочитанного
   const handleMarkAsRead = async (id: number) => {
     try {
+      console.log('Attempting to mark notification as read:', id);
       const updatedNotification = await NotificationsService.markAsRead(id);
+      console.log('Received updated notification from server:', updatedNotification);
       
-      // Обновляем уведомление в списке
-      setNotifications(prevNotifications => 
-        prevNotifications.map(notification => 
-          notification.id === id ? updatedNotification : notification
-        )
-      );
+      // Проверяем, что сервер вернул правильные данные
+      if (!updatedNotification || updatedNotification.id !== id) {
+        console.error('Invalid response from server for markAsRead:', updatedNotification);
+        return;
+      }
+      
+      // Обновляем уведомление в списке с принудительным обновлением isRead
+      setNotifications(prevNotifications => {
+        const updatedList = prevNotifications.map(notification => 
+          notification.id === id ? {
+            ...notification,
+            ...updatedNotification,
+            isRead: true, // Принудительно устанавливаем как прочитанное
+            readAt: updatedNotification.readAt || new Date().toISOString()
+          } : notification
+        );
+        console.log('Updated notifications list:', updatedList.find(n => n.id === id));
+        return updatedList;
+      });
       
       // Принудительно обновляем счетчик непрочитанных уведомлений
       const newCount = await NotificationsService.getUnreadCount();
+      console.log('Updated unread count:', newCount);
       
       // Отправляем событие для обновления счетчика в NotificationBell
       const countUpdateEvent = new CustomEvent('notification-count-update', {
