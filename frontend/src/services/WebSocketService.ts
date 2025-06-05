@@ -1,6 +1,6 @@
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { Notification } from '../types/notification';
+import { Notification } from '../types/Notification';
 
 /**
  * Тип обработчика событий сокета
@@ -13,11 +13,17 @@ type WebSocketEventHandler = () => void;
 type MessageHandler = (notification: Notification) => void;
 
 /**
+ * Тип обработчика обновлений счетчика
+ */
+type CountUpdateHandler = (count: number) => void;
+
+/**
  * Сервис для работы с WebSocket
  */
 class WebSocketService {
   private client: Client | null = null;
   private messageHandlers: MessageHandler[] = [];
+  private countUpdateHandlers: CountUpdateHandler[] = [];
   private connectHandlers: WebSocketEventHandler[] = [];
   private disconnectHandlers: WebSocketEventHandler[] = [];
   private errorHandlers: ((error: any) => void)[] = [];
@@ -84,6 +90,22 @@ class WebSocketService {
   }
   
   /**
+   * Добавляет обработчик обновлений счетчика
+   * @param handler функция-обработчик обновлений счетчика
+   */
+  public addCountUpdateHandler(handler: CountUpdateHandler): void {
+    this.countUpdateHandlers.push(handler);
+  }
+  
+  /**
+   * Удаляет обработчик обновлений счетчика
+   * @param handler функция-обработчик обновлений счетчика
+   */
+  public removeCountUpdateHandler(handler: CountUpdateHandler): void {
+    this.countUpdateHandlers = this.countUpdateHandlers.filter(h => h !== handler);
+  }
+  
+  /**
    * Добавляет обработчик подключения
    * @param handler функция-обработчик подключения
    */
@@ -141,6 +163,9 @@ class WebSocketService {
     if (this.client) {
       // Подписываемся на получение уведомлений
       this.client.subscribe('/user/queue/notifications', this.onMessage.bind(this));
+      
+      // Подписываемся на обновления счетчика
+      this.client.subscribe('/user/queue/unread-count', this.onCountUpdate.bind(this));
     }
     
     // Вызываем все обработчики подключения
@@ -181,6 +206,21 @@ class WebSocketService {
       this.messageHandlers.forEach(handler => handler(notification));
     } catch (error) {
       console.error('Error parsing notification message:', error);
+    }
+  }
+  
+  /**
+   * Обработчик обновлений счетчика
+   * @param message сообщение с обновлением счетчика
+   */
+  private onCountUpdate(message: IMessage): void {
+    try {
+      const count = parseInt(message.body);
+      
+      // Вызываем все обработчики обновлений счетчика
+      this.countUpdateHandlers.forEach(handler => handler(count));
+    } catch (error) {
+      console.error('Error parsing count update message:', error);
     }
   }
 }

@@ -13,12 +13,12 @@ import com.yourapp.model.BoardInviteLink;
 import com.yourapp.model.BoardInviteUse;
 import com.yourapp.model.Role;
 import com.yourapp.model.User;
-import com.yourapp.model.NotificationType;
 import com.yourapp.repository.BoardInviteLinkRepository;
 import com.yourapp.repository.BoardInviteUseRepository;
 import com.yourapp.repository.BoardRepository;
 import com.yourapp.repository.RoleRepository;
 import com.yourapp.repository.UserRepository;
+import com.yourapp.util.NotificationUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +42,7 @@ public class InviteLinkService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final BoardMemberService boardMemberService;
-    private final NotificationService notificationService;
+    private final NotificationUtil notificationUtil;
     
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -173,15 +173,7 @@ public class InviteLinkService {
             inviteLinkRepository.save(inviteLink);
             
             // Отправляем уведомление создателю ссылки
-            notificationService.createNotification(
-                    inviteLink.getCreatedBy().getId(),
-                    NotificationType.BOARD_INVITE,
-                    "Новый участник доски",
-                    String.format("Пользователь %s присоединился к доске '%s' по вашей ссылке-приглашению",
-                            currentUser.getUsername(), board.getName()),
-                    board.getId(),
-                    "BOARD"
-            );
+            notificationUtil.notifyBoardInvite(currentUser, board);
         }
         
         return JoinBoardByInviteResponse.builder()

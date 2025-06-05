@@ -39,14 +39,24 @@ public class Notification {
     @Column(name = "type", nullable = false)
     private String type;
     
+    @Column(name = "priority")
+    @Enumerated(EnumType.STRING)
+    private NotificationPriority priority;
+    
     @Column(name = "related_entity_id")
     private String relatedEntityId;
     
     @Column(name = "related_entity_type")
     private String relatedEntityType;
     
+    @Column(name = "group_key")
+    private String groupKey;
+    
     @Column(name = "is_read")
     private boolean isRead;
+    
+    @Column(name = "is_archived")
+    private boolean isArchived;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -54,16 +64,29 @@ public class Notification {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+    
     @PrePersist
     public void beforeSave() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
         updatedAt = LocalDateTime.now();
+        
+        // Устанавливаем приоритет по умолчанию
+        if (priority == null) {
+            priority = NotificationPriority.NORMAL;
+        }
     }
     
     @PreUpdate
     public void beforeUpdate() {
         updatedAt = LocalDateTime.now();
+        
+        // Устанавливаем время прочтения при отметке как прочитанное
+        if (isRead && readAt == null) {
+            readAt = LocalDateTime.now();
+        }
     }
 } 

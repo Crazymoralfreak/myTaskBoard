@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Drawer, 
   Box, 
@@ -18,7 +18,8 @@ import {
   DialogContentText,
   DialogActions,
   Button,
-  Container
+  Container,
+  Badge
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -26,8 +27,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import LogoutIcon from '@mui/icons-material/Logout';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services/authService';
+import NotificationBell from '../notifications/NotificationBell';
+import { NotificationsService } from '../../services/NotificationsService';
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -40,8 +44,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [isOpen, setIsOpen] = useState(!isMobile);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Загружаем счетчик уведомлений
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const count = await NotificationsService.getUnreadCount();
+        setUnreadCount(count);
+      } catch (err) {
+        console.error('Error fetching unread count:', err);
+      }
+    };
+
+    // Обработчик событий обновления счетчика
+    const handleCountUpdateEvent = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      setUnreadCount(customEvent.detail.count);
+    };
+
+    fetchUnreadCount();
+    
+    // Добавляем обработчик для событий обновления счетчика
+    window.addEventListener('notification-count-update', handleCountUpdateEvent);
+
+    return () => {
+      window.removeEventListener('notification-count-update', handleCountUpdateEvent);
+    };
+  }, []);
 
   const handleToggleDrawer = () => {
     setIsOpen(!isOpen);
@@ -74,6 +106,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
 
   const menuItems = [
     { text: 'Доски', icon: <DashboardIcon />, path: '/' },
+    { 
+      text: 'Уведомления', 
+      icon: (
+        <Badge badgeContent={unreadCount} color="error">
+          <NotificationsIcon />
+        </Badge>
+      ), 
+      path: '/notifications' 
+    },
     { text: 'Настройки', icon: <SettingsIcon />, path: '/settings' },
     { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
   ];
@@ -83,6 +124,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
     if (path !== '/' && location.pathname.startsWith(path)) return true;
     return false;
   };
+
+  // Получаем токен для NotificationBell
+  const token = authService.getToken();
 
   const drawer = (
     <Box sx={{ 
@@ -178,9 +222,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             MyTaskBoard
           </Typography>
+          {/* Колокольчик уведомлений в мобильной шапке */}
+          {token && <NotificationBell token={token} />}
         </Toolbar>
       </AppBar>
 

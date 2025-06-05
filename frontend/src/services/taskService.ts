@@ -695,6 +695,11 @@ export const taskService = {
         return response.data;
     },
 
+    async unassignTask(taskId: string): Promise<Task> {
+        const response = await api.patch(`/api/tasks/${taskId}/unassign`);
+        return response.data;
+    },
+
     // Методы для работы с подзадачами
     async createSubtask(taskId: number, subtask: CreateSubtaskRequest): Promise<Task> {
         try {

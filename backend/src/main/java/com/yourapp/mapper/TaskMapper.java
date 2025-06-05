@@ -30,10 +30,21 @@ public class TaskMapper {
         if (task.getColumn() != null) {
             response.setColumnId(task.getColumn().getId());
             response.setColumnColor(task.getColumn().getColor());
+            if (task.getColumn().getBoard() != null) {
+                response.setBoardId(task.getColumn().getBoard().getId());
+            }
         }
         
         if (task.getAssignee() != null) {
             response.setAssigneeId(task.getAssignee().getId());
+            
+            TaskResponse.UserResponse assignee = new TaskResponse.UserResponse();
+            assignee.setId(task.getAssignee().getId());
+            assignee.setUsername(task.getAssignee().getUsername());
+            assignee.setAvatarUrl(task.getAssignee().getAvatarUrl());
+            assignee.setEmail(task.getAssignee().getEmail());
+            assignee.setDisplayName(task.getAssignee().getDisplayName());
+            response.setAssignee(assignee);
         }
         
         if (task.getType() != null) {

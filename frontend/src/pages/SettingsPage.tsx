@@ -13,10 +13,17 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
-  useTheme
+  useTheme,
+  Grid,
+  Card,
+  CardContent,
+  CardHeader
 } from '@mui/material';
+import SaveIcon from '@mui/icons-material/Save';
 import { useSnackbar } from 'notistack';
 import { userService } from '../services/userService';
+import { NotificationsService } from '../services/NotificationsService';
+import { NotificationPreferences } from '../types/Notification';
 import { useThemeContext } from '../context/ThemeContext';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -35,8 +42,10 @@ interface UserSettings {
 export const SettingsPage: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
   const { mode, toggleTheme } = useThemeContext();
   const muiTheme = useTheme();
@@ -47,8 +56,12 @@ export const SettingsPage: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await userService.getUserSettings();
-      setSettings(response);
+      const [userSettingsResponse, notificationPrefsResponse] = await Promise.all([
+        userService.getUserSettings(),
+        NotificationsService.getNotificationPreferences()
+      ]);
+      setSettings(userSettingsResponse);
+      setNotificationPreferences(notificationPrefsResponse);
     } catch (error) {
       console.error('Ошибка при загрузке настроек:', error);
       enqueueSnackbar('Не удалось загрузить настройки', { variant: 'error' });
@@ -114,6 +127,33 @@ export const SettingsPage: React.FC = () => {
     } catch (error) {
       console.error('Ошибка при удалении данных:', error);
       enqueueSnackbar('Не удалось удалить данные', { variant: 'error' });
+    }
+  };
+
+  // Обработчик изменения настроек уведомлений
+  const handleNotificationPreferenceChange = (key: keyof NotificationPreferences) => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!notificationPreferences) return;
+    setNotificationPreferences(prev => ({
+      ...prev!,
+      [key]: event.target.checked
+    }));
+  };
+
+  // Сохранение настроек уведомлений
+  const handleSaveNotificationSettings = async () => {
+    if (!notificationPreferences) return;
+    
+    try {
+      setSavingNotifications(true);
+      await NotificationsService.updateNotificationPreferences(notificationPreferences);
+      enqueueSnackbar('Настройки уведомлений сохранены', { variant: 'success' });
+    } catch (error) {
+      console.error('Ошибка при сохранении настроек уведомлений:', error);
+      enqueueSnackbar('Не удалось сохранить настройки уведомлений', { variant: 'error' });
+    } finally {
+      setSavingNotifications(false);
     }
   };
 
@@ -199,42 +239,98 @@ export const SettingsPage: React.FC = () => {
                 </Typography>
                 <Divider sx={{ my: 2 }} />
                 
-                <FormControlLabel
-                  control={
-                    <Switch 
-                      checked={settings.browserNotifications}
-                      onChange={handleBooleanSettingChange('browserNotifications')}
-                      disabled={saving}
-                    />
-                  }
-                  label="Уведомления в браузере"
-                />
-                
-                <Box sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch 
-                        checked={settings.emailNotifications}
-                        onChange={handleBooleanSettingChange('emailNotifications')}
-                        disabled={saving}
-                      />
-                    }
-                    label="Уведомления по Email"
-                  />
-                </Box>
-                
-                <Box sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch 
-                        checked={settings.telegramNotifications}
-                        onChange={handleBooleanSettingChange('telegramNotifications')}
-                        disabled={saving}
-                      />
-                    }
-                    label="Уведомления в Telegram"
-                  />
-                </Box>
+                {notificationPreferences ? (
+                  <>
+                    {/* Глобальные настройки */}
+                    <Card sx={{ mb: 2 }}>
+                      <CardHeader title="Общие настройки" />
+                      <CardContent>
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              checked={notificationPreferences.globalNotificationsEnabled}
+                              onChange={handleNotificationPreferenceChange('globalNotificationsEnabled')}
+                              disabled={savingNotifications}
+                            />
+                          }
+                          label="Включить уведомления"
+                        />
+                        
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              checked={notificationPreferences.onlyHighPriorityNotifications}
+                              onChange={handleNotificationPreferenceChange('onlyHighPriorityNotifications')}
+                              disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                            />
+                          }
+                          label="Только высокоприоритетные уведомления"
+                        />
+                      </CardContent>
+                    </Card>
+
+                    {/* Каналы доставки */}
+                    <Card sx={{ mb: 2 }}>
+                      <CardHeader title="Каналы доставки" />
+                      <CardContent>
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              checked={notificationPreferences.browserNotificationsEnabled}
+                              onChange={handleNotificationPreferenceChange('browserNotificationsEnabled')}
+                              disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                            />
+                          }
+                          label="Уведомления в браузере"
+                        />
+                        
+                        <Box sx={{ mt: 2 }}>
+                          <FormControlLabel
+                            control={
+                              <Switch 
+                                checked={notificationPreferences.emailNotificationsEnabled}
+                                onChange={handleNotificationPreferenceChange('emailNotificationsEnabled')}
+                                disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                              />
+                            }
+                            label="Уведомления по Email"
+                          />
+                        </Box>
+                        
+                        <Box sx={{ mt: 2 }}>
+                          <FormControlLabel
+                            control={
+                              <Switch 
+                                checked={notificationPreferences.telegramNotificationsEnabled}
+                                onChange={handleNotificationPreferenceChange('telegramNotificationsEnabled')}
+                                disabled={!notificationPreferences.globalNotificationsEnabled || savingNotifications}
+                              />
+                            }
+                            label="Уведомления в Telegram"
+                          />
+                        </Box>
+                      </CardContent>
+                    </Card>
+
+                    {/* Кнопка сохранения */}
+                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+                      <Button
+                        variant="contained"
+                        size="large"
+                        startIcon={<SaveIcon />}
+                        onClick={handleSaveNotificationSettings}
+                        disabled={savingNotifications}
+                      >
+                        {savingNotifications ? <CircularProgress size={24} sx={{ mr: 1 }} /> : null}
+                        Сохранить настройки уведомлений
+                      </Button>
+                    </Box>
+                  </>
+                ) : (
+                  <Box display="flex" justifyContent="center" py={4}>
+                    <CircularProgress />
+                  </Box>
+                )}
               </Box>
             )}
             

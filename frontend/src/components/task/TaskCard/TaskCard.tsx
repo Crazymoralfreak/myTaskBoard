@@ -31,6 +31,7 @@ import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
 import { toast } from 'react-hot-toast';
 import { useTaskDelete } from '../../../hooks/useTaskDelete';
 import { useUserRole, Permission } from '../../../hooks/useUserRole';
+import { getAvatarUrl } from '../../../utils/avatarUtils';
 
 interface TaskCardProps {
     task: Task;
@@ -133,6 +134,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     const [isHovered, setIsHovered] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const [isRemoving, setIsRemoving] = useState(false);
+    const [avatarError, setAvatarError] = useState(false);
     
     const { deleteTask, isDeleting } = useTaskDelete();
     
@@ -313,6 +315,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         }
     };
     
+    // Сброс ошибок при смене задачи
+    useEffect(() => {
+        setAvatarError(false);
+    }, [task.assignee?.avatarUrl]);
+    
     // Ультра-компактный режим
     if (isCompact) {
         // Проверяем длину названия задачи
@@ -427,6 +434,51 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         {task.tags && task.tags.length > 0 && (
                             <Tooltip title={`Теги: ${task.tags.join(', ')}`}>
                                 <LocalOfferIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
+                            </Tooltip>
+                        )}
+                        
+                        {/* Аватар ответственного */}
+                        {task.assignee && (
+                            <Tooltip title={`Ответственный: ${task.assignee.username}`}>
+                                <Box
+                                    sx={{
+                                        width: '20px',
+                                        height: '20px',
+                                        borderRadius: '50%',
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        overflow: 'hidden',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: theme.palette.background.paper
+                                    }}
+                                >
+                                    {task.assignee.avatarUrl && !avatarError ? (
+                                        <img 
+                                            src={getAvatarUrl(task.assignee.avatarUrl)} 
+                                            alt={task.assignee.username}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                            onError={() => {
+                                                console.error('Ошибка загрузки аватара:', task.assignee?.avatarUrl);
+                                                setAvatarError(true);
+                                            }}
+                                        />
+                                    ) : (
+                                        <Typography
+                                            sx={{
+                                                fontSize: '10px',
+                                                fontWeight: 600,
+                                                color: theme.palette.text.secondary
+                                            }}
+                                        >
+                                            {task.assignee.username.charAt(0).toUpperCase()}
+                                        </Typography>
+                                    )}
+                                </Box>
                             </Tooltip>
                         )}
                     </Box>
@@ -645,6 +697,51 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                             >
                                                 {task.commentCount}
                                             </Typography>
+                                        </Box>
+                                    </Tooltip>
+                                )}
+                                
+                                {/* Аватар ответственного */}
+                                {task.assignee && (
+                                    <Tooltip title={`Ответственный: ${task.assignee.username}`}>
+                                        <Box
+                                            sx={{
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
+                                                border: `1px solid ${theme.palette.divider}`,
+                                                overflow: 'hidden',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                bgcolor: theme.palette.background.paper
+                                            }}
+                                        >
+                                            {task.assignee.avatarUrl && !avatarError ? (
+                                                <img 
+                                                    src={getAvatarUrl(task.assignee.avatarUrl)} 
+                                                    alt={task.assignee.username}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover'
+                                                    }}
+                                                    onError={() => {
+                                                        console.error('Ошибка загрузки аватара:', task.assignee?.avatarUrl);
+                                                        setAvatarError(true);
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Typography
+                                                    sx={{
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        color: theme.palette.text.secondary
+                                                    }}
+                                                >
+                                                    {task.assignee.username.charAt(0).toUpperCase()}
+                                                </Typography>
+                                            )}
                                         </Box>
                                     </Tooltip>
                                 )}

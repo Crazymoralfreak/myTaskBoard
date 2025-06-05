@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashSet;
 import com.yourapp.service.FileStorageService;
+import com.yourapp.util.NotificationUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +44,7 @@ public class TaskService {
     private final CommentRepository commentRepository;
     private final TaskHistoryRepository taskHistoryRepository;
     private final FileStorageService fileStorageService;
+    private final NotificationUtil notificationUtil;
     private static final Logger logger = LoggerFactory.getLogger(TaskService.class);
     
     @Value("${app.upload.max-file-size}")
@@ -105,9 +107,13 @@ public class TaskService {
             logger.debug("Тип задачи не установлен");
         }
         
-        // Устанавливаем пользователя, создавшего задачу
-        task.setAssignee(user);
-        logger.debug("Назначен исполнитель задачи: {}", user.getUsername());
+        // НЕ устанавливаем автоматически создателя как назначенного - это поле опциональное
+        // Назначенный пользователь должен быть установлен только если это явно указано в запросе
+        if (task.getAssignee() != null) {
+            logger.debug("Назначен исполнитель задачи: {}", task.getAssignee().getUsername());
+        } else {
+            logger.debug("Задача создана без назначенного исполнителя");
+        }
         
         // Устанавливаем дефолтный приоритет, если не указан
         if (task.getPriority() == null) {
@@ -151,6 +157,10 @@ public class TaskService {
         try {
             Task savedTask = taskRepository.save(task);
             logger.debug("Задача успешно сохранена с id: {}", savedTask.getId());
+            
+            // Создаем уведомление о создании задачи
+            notificationUtil.notifyTaskCreated(savedTask);
+            
             return savedTask;
         } catch (Exception e) {
             logger.error("Ошибка при сохранении задачи: {}", e.getMessage(), e);
@@ -241,6 +251,14 @@ public class TaskService {
             task.setPriority(TaskPriority.valueOf((String) updates.get("priority")));
         }
         
+        // Обновление назначенного пользователя
+        if (updates.containsKey("assignee")) {
+            User assigneeUser = (User) updates.get("assignee");
+            task.setAssignee(assigneeUser);
+            logger.debug("Обновлен назначенный пользователь задачи: {}", 
+                assigneeUser != null ? assigneeUser.getUsername() : "null");
+        }
+        
         // Обновление дат
         if (updates.containsKey("startDate")) {
             String startDateStr = (String) updates.get("startDate");
@@ -299,11 +317,24 @@ public class TaskService {
         task.setUpdatedAt(LocalDateTime.now());
         
         logger.debug("Сохранение обновленной задачи");
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        
+        // Создаем уведомление о обновлении задачи для назначенного пользователя если есть изменения
+        if (!updates.isEmpty()) {
+            notificationUtil.notifyTaskUpdated(savedTask);
+        }
+        
+        return savedTask;
     }
     
     @Transactional
     public void deleteTask(Long taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+        
+        // Создаем уведомление об удалении задачи для назначенного пользователя
+        notificationUtil.notifyTaskDeleted(task);
+        
         taskRepository.deleteById(taskId);
     }
     
@@ -313,7 +344,7 @@ public class TaskService {
     }
     
     public List<Task> getTasksByColumn(Long columnId) {
-        return taskRepository.findByColumnId(columnId);
+        return taskRepository.findByColumnIdOrderByPositionAsc(columnId);
     }
     
     @Transactional
@@ -341,16 +372,27 @@ public class TaskService {
         return taskRepository.save(task);
     }
     
-    @Transactional
+        @Transactional
     public Task assignTask(Long taskId, Long userId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
-        
-        User assignee = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        task.setAssignee(assignee);
-        return taskRepository.save(task);
+
+        if (userId != null) {
+            User assignee = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            task.setAssignee(assignee);
+            Task savedTask = taskRepository.save(task);
+            
+            // Создаем уведомление о назначении задачи
+            notificationUtil.notifyTaskAssigned(savedTask, assignee);
+            
+            return savedTask;
+        } else {
+            // Снимаем назначение
+            task.setAssignee(null);
+            return taskRepository.save(task);
+        }
     }
 
     /**
@@ -382,12 +424,20 @@ public class TaskService {
                 // Если дата окончания уже прошла, устанавливаем -1
                 task.setDaysRemaining(-1L);
                 logger.debug("Задача {} просрочена", task.getId());
+                
+                // Отправляем уведомление о просроченной задаче
+                notificationUtil.notifyTaskOverdue(task);
             } else {
                 // Рассчитываем оставшееся количество дней
                 long daysRemaining = ChronoUnit.DAYS.between(now, endDate);
                 task.setDaysRemaining(daysRemaining);
                 logger.debug("Для задачи {} установлено оставшееся время: {} дней", 
                     task.getId(), daysRemaining);
+                
+                // Отправляем уведомление о приближающемся дедлайне (за 3 дня)
+                if (daysRemaining <= 3 && daysRemaining > 0) {
+                    notificationUtil.notifyTaskDueSoon(task, daysRemaining);
+                }
             }
             
             taskRepository.save(task);
@@ -446,7 +496,38 @@ public class TaskService {
         task.getHistory().add(history);
 
         // Сохраняем обновленную задачу (дочерние сущности уже сохранены)
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        
+        // Создаем уведомление о новом комментарии для назначенного пользователя
+        notificationUtil.notifyCommentAdded(savedTask, author);
+        
+        // Обрабатываем упоминания в комментарии
+        processMentionsInComment(content, savedTask, author);
+        
+        return savedTask;
+    }
+
+    /**
+     * Обрабатывает упоминания пользователей в комментарии
+     */
+    private void processMentionsInComment(String content, Task task, User author) {
+        // Находим все упоминания в формате @username
+        String mentionPattern = "@([a-zA-Z0-9_]+)";
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(mentionPattern);
+        java.util.regex.Matcher matcher = pattern.matcher(content);
+        
+        Set<String> mentionedUsernames = new HashSet<>();
+        while (matcher.find()) {
+            mentionedUsernames.add(matcher.group(1));
+        }
+        
+        // Отправляем уведомления упомянутым пользователям
+        for (String username : mentionedUsernames) {
+            User mentionedUser = userRepository.findByUsername(username).orElse(null);
+            if (mentionedUser != null) {
+                notificationUtil.notifyUserMentioned(mentionedUser, task, author);
+            }
+        }
     }
 
     @Transactional
@@ -544,6 +625,9 @@ public class TaskService {
             }
             task.getHistory().add(history);
             
+            // Создаем уведомление о добавлении вложения для назначенного пользователя
+            notificationUtil.notifyAttachmentAdded(task, uploader, fileName);
+            
             return taskRepository.save(task);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save attachment: " + e.getMessage());
@@ -626,10 +710,19 @@ public class TaskService {
     @Transactional
     public Task updateStatus(Long taskId, Long statusId) {
         Task task = getTask(taskId);
-        TaskStatus status = taskStatusRepository.findById(statusId)
+        TaskStatus oldStatus = task.getCustomStatus();
+        TaskStatus newStatus = taskStatusRepository.findById(statusId)
             .orElseThrow(() -> new RuntimeException("Status not found"));
-        task.setCustomStatus(status);
-        return taskRepository.save(task);
+        
+        task.setCustomStatus(newStatus);
+        Task savedTask = taskRepository.save(task);
+        
+        // Создаем уведомление об изменении статуса
+        if (oldStatus != null && !oldStatus.getId().equals(newStatus.getId())) {
+            notificationUtil.notifyTaskStatusChanged(savedTask, oldStatus.getName(), newStatus.getName());
+        }
+        
+        return savedTask;
     }
 
     @Transactional
@@ -803,5 +896,30 @@ public class TaskService {
         historyEntry.setTimestamp(LocalDateTime.now());
         
         return taskHistoryRepository.save(historyEntry);
+    }
+
+    /**
+     * Отправляет напоминания о дедлайнах
+     * Запускается ежедневно в 9:00
+     */
+    @Scheduled(cron = "0 0 9 * * ?")
+    @Transactional
+    public void sendDeadlineReminders() {
+        logger.info("Начало отправки напоминаний о дедлайнах");
+        
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime tomorrow = now.plusDays(1);
+        
+        // Находим задачи с дедлайном завтра
+        List<Task> tasksDueTomorrow = taskRepository.findTasksByEndDateBetween(
+            tomorrow.toLocalDate().atStartOfDay(),
+            tomorrow.toLocalDate().atTime(23, 59, 59)
+        );
+        
+        for (Task task : tasksDueTomorrow) {
+            notificationUtil.notifyDeadlineReminder(task);
+        }
+        
+        logger.info("Отправлено {} напоминаний о дедлайнах", tasksDueTomorrow.size());
     }
 }

@@ -64,7 +64,7 @@ public class AuthService {
                     .user(user)
                     .globalNotificationsEnabled(true)
                     .taskAssignedNotifications(true)
-                    .taskMovedNotifications(true)
+                    .taskStatusChangedNotifications(true)
                     .taskUpdatedNotifications(true)
                     .mentionNotifications(true)
                     .build();
@@ -179,7 +179,7 @@ public class AuthService {
                     .user(user)
                     .globalNotificationsEnabled(true)
                     .taskAssignedNotifications(true)
-                    .taskMovedNotifications(true)
+                    .taskStatusChangedNotifications(true)
                     .taskUpdatedNotifications(true)
                     .mentionNotifications(true)
                     .build();

@@ -268,6 +268,22 @@ public class User implements UserDetails {
         return true;
     }
 
+    public NotificationPreferences getNotificationPreferences() {
+        return this.notificationPreferences;
+    }
+    
+    public void setNotificationPreferences(NotificationPreferences notificationPreferences) {
+        this.notificationPreferences = notificationPreferences;
+    }
+    
+    public UserSettings getUserSettings() {
+        return this.userSettings;
+    }
+    
+    public void setUserSettings(UserSettings userSettings) {
+        this.userSettings = userSettings;
+    }
+
     public UserDTO toDto() {
         return UserDTO.builder()
                 .id(this.id)

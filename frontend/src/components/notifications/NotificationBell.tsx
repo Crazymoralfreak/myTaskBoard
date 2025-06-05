@@ -14,7 +14,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationItem from './NotificationItem';
 import { NotificationsService } from '../../services/NotificationsService';
 import WebSocketService from '../../services/WebSocketService';
-import { Notification } from '../../types/notification';
+import { Notification, NotificationType } from '../../types/Notification';
 import { useNavigate } from 'react-router-dom';
 
 interface NotificationBellProps {
@@ -39,15 +39,29 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
     
     // Обработчик новых уведомлений
     const handleNewNotification = (notification: Notification) => {
-      // Обновляем счетчик непрочитанных уведомлений
-      setUnreadCount(prevCount => prevCount + 1);
-      
       // Добавляем уведомление в начало списка
       setNotifications(prevNotifications => [notification, ...prevNotifications]);
+      
+      // Счетчик будет автоматически обновлен через WebSocket от сервера
     };
     
-    // Регистрируем обработчик
+    // Обработчик обновлений счетчика
+    const handleCountUpdate = (count: number) => {
+      setUnreadCount(count);
+    };
+    
+    // Обработчик событий обновления счетчика из других компонентов
+    const handleCountUpdateEvent = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      setUnreadCount(customEvent.detail.count);
+    };
+    
+    // Регистрируем обработчики
     WebSocketService.addMessageHandler(handleNewNotification);
+    WebSocketService.addCountUpdateHandler(handleCountUpdate);
+    
+    // Добавляем обработчик для событий обновления счетчика
+    window.addEventListener('notification-count-update', handleCountUpdateEvent);
     
     // Получаем количество непрочитанных уведомлений
     fetchUnreadCount();
@@ -55,6 +69,8 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
     // Отписываемся при размонтировании
     return () => {
       WebSocketService.removeMessageHandler(handleNewNotification);
+      WebSocketService.removeCountUpdateHandler(handleCountUpdate);
+      window.removeEventListener('notification-count-update', handleCountUpdateEvent);
       WebSocketService.disconnect();
     };
   }, [token]);
@@ -110,24 +126,65 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
         )
       );
       
-      // Уменьшаем счетчик непрочитанных уведомлений
-      setUnreadCount(prevCount => Math.max(0, prevCount - 1));
+      // Принудительно обновляем счетчик непрочитанных уведомлений
+      const newCount = await NotificationsService.getUnreadCount();
+      setUnreadCount(newCount);
+      
     } catch (err) {
       console.error('Error marking notification as read:', err);
     }
   };
   
-  // Обработчик нажатия на уведомление
-  const handleNotificationClick = (notification: Notification) => {
+  // Обработчик навигации по уведомлению
+  const handleNotificationNavigate = (notification: Notification) => {
     handleClose();
     
-    // Отмечаем уведомление как прочитанное
+    // Отмечаем уведомление как прочитанное если оно не прочитано
     if (!notification.isRead) {
       handleMarkAsRead(notification.id);
     }
     
-    // Логика перенаправления в зависимости от типа уведомления
-    // реализуется в основной странице уведомлений
+    // Перенаправляем пользователя в зависимости от типа уведомления
+    switch (notification.type) {
+      case NotificationType.BOARD_INVITE:
+        if (notification.relatedEntityId) {
+          navigate(`/boards/${notification.relatedEntityId}`);
+        }
+        break;
+      case NotificationType.TASK_ASSIGNED:
+      case NotificationType.TASK_DUE_SOON:
+      case NotificationType.TASK_OVERDUE:
+      case NotificationType.TASK_STATUS_CHANGED:
+      case NotificationType.TASK_CREATED:
+      case NotificationType.TASK_UPDATED:
+      case NotificationType.TASK_DELETED:
+      case NotificationType.TASK_COMMENT_ADDED:
+      case NotificationType.SUBTASK_CREATED:
+      case NotificationType.SUBTASK_COMPLETED:
+      case NotificationType.ATTACHMENT_ADDED:
+      case NotificationType.DEADLINE_REMINDER:
+        if (notification.relatedEntityId) {
+          const [boardId, taskId] = notification.relatedEntityId.split(':');
+          navigate(`/boards/${boardId}?task=${taskId}`);
+        }
+        break;
+      case NotificationType.NEW_COMMENT_MENTION:
+        if (notification.relatedEntityId) {
+          const [boardId, taskId, commentId] = notification.relatedEntityId.split(':');
+          navigate(`/boards/${boardId}?task=${taskId}&comment=${commentId}`);
+        }
+        break;
+      case NotificationType.BOARD_MEMBER_ADDED:
+      case NotificationType.BOARD_MEMBER_REMOVED:
+      case NotificationType.ROLE_CHANGED:
+        if (notification.relatedEntityId) {
+          navigate(`/boards/${notification.relatedEntityId}`);
+        }
+        break;
+      default:
+        // По умолчанию никуда не перенаправляем
+        break;
+    }
   };
   
   // Обработчик перехода на страницу уведомлений
@@ -190,7 +247,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
                 key={notification.id}
                 notification={notification}
                 onMarkAsRead={handleMarkAsRead}
-                onClick={handleNotificationClick}
+                onNavigate={handleNotificationNavigate}
               />
             ))}
           </List>

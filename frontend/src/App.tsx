@@ -9,6 +9,8 @@ import { PrivateRoute } from './components/auth';
 import { BoardPage } from './pages/BoardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import NotificationsPage from './pages/Notifications';
+
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ru } from 'date-fns/locale';
@@ -47,6 +49,16 @@ function App() {
                                             <PrivateRoute>
                                                 <Layout>
                                                     <HomePage />
+                                                </Layout>
+                                            </PrivateRoute>
+                                        }
+                                    />
+                                    <Route
+                                        path="/notifications"
+                                        element={
+                                            <PrivateRoute>
+                                                <Layout>
+                                                    <NotificationsPage />
                                                 </Layout>
                                             </PrivateRoute>
                                         }

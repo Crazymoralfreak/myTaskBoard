@@ -70,6 +70,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useUserRole, Permission } from '../../../hooks/useUserRole';
 import { boardService } from '../../../services/boardService';
 import { useRoleContext } from '../../../contexts/RoleContext';
+import { BoardMembersService } from '../../../services/BoardMembersService';
+import { getAvatarUrl } from '../../../utils/avatarUtils';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -175,6 +177,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [newTag, setNewTag] = useState('');
     const [userSettings, setUserSettings] = useState<{compactMode?: boolean}>({});
+    const [assignedUserId, setAssignedUserId] = useState<number | null>(null);
+    const [boardMembers, setBoardMembers] = useState<any[]>([]);
 
     // Состояние для данных доски и проверки ролей
     const [boardData, setBoardData] = useState<any>(null);
@@ -293,6 +297,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     setSelectedTypeId(initialTask.type?.id || null);
                     setSelectedStatusId(initialTask.customStatus?.id || null);
                     setTags(initialTask.tags || []);
+                    setAssignedUserId(initialTask.assignee?.id || null);
                     
                     // Если в режиме просмотра, загружаем задачу по её ID для получения свежих данных
                     if (initialMode === 'view' && initialTask.id) {
@@ -309,6 +314,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     setSelectedTypeId(loadedTask.type?.id || null);
                                     setSelectedStatusId(loadedTask.customStatus?.id || null);
                                     setTags(loadedTask.tags || []);
+                                    setAssignedUserId(loadedTask.assignee?.id || null);
                                 }
                             } catch (error: any) {
                                 console.error('Ошибка при загрузке задачи:', error);
@@ -345,8 +351,37 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             }
         };
         
-        loadTags();
-    }, []);
+        const loadBoardMembers = async () => {
+            // Определяем boardId: либо из пропса, либо из задачи
+            const currentBoardId = boardId || task?.boardId || initialTask?.boardId;
+            
+            if (currentBoardId && open) {
+                try {
+                    console.log('Загружаем участников доски:', currentBoardId, 'режим:', mode);
+                    // Сначала очищаем список
+                    setBoardMembers([]);
+                    const members = await BoardMembersService.getBoardMembers(currentBoardId);
+                    console.log('Загружены участники доски:', members);
+                    setBoardMembers(members);
+                } catch (error) {
+                    console.error('Error loading board members:', error);
+                    setBoardMembers([]); // Очищаем список при ошибке
+                }
+            } else if (!open) {
+                // Очищаем участников при закрытии модального окна
+                setBoardMembers([]);
+            }
+        };
+        
+        // Загружаем данные только если модальное окно открыто
+        if (open) {
+            loadTags();
+            loadBoardMembers();
+        } else {
+            // Очищаем состояние при закрытии
+            setBoardMembers([]);
+        }
+    }, [boardId, open, task, initialTask]);
 
     useEffect(() => {
         if (task && mode !== 'create') {
@@ -412,7 +447,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             priority,
             typeId: selectedTypeId,
             statusId: selectedStatusId,
-            tags
+            tags,
+            assigneeId: assignedUserId || undefined
         };
 
         try {
@@ -474,6 +510,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             updatedTaskData.tags = tags;
         }
         
+        // Проверяем изменение ответственного
+        const currentAssigneeId = task.assignee?.id || null;
+        if (assignedUserId !== currentAssigneeId) {
+            // Сохраняем информацию о назначении для последующей обработки
+            (updatedTaskData as any).assigneeChanged = {
+                oldAssigneeId: currentAssigneeId,
+                newAssigneeId: assignedUserId
+            };
+        }
+        
         // Проверяем, есть ли вообще изменения
         if (Object.keys(updatedTaskData).length === 0) {
             setError('Нет изменений для сохранения');
@@ -485,12 +531,33 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         }
 
         try {
-            const updatedTask = await taskService.updateTask(task.id, updatedTaskData);
-            if (onTaskUpdate) {
-                onTaskUpdate(updatedTask);
+            // Сначала обновляем основные поля задачи
+            let finalUpdatedTask;
+            
+            // Убираем assigneeChanged перед отправкой основного обновления
+            const assigneeChange = (updatedTaskData as any).assigneeChanged;
+            delete (updatedTaskData as any).assigneeChanged;
+            
+            if (Object.keys(updatedTaskData).length > 0) {
+                finalUpdatedTask = await taskService.updateTask(task.id, updatedTaskData);
+            } else {
+                finalUpdatedTask = task;
             }
-            // setMode('view'); // Больше не нужно переключать режим здесь
-            // setTask(updatedTask as ExtendedTaskWithTypes); // Обновлять локальное состояние не обязательно, т.к. окно закроется
+            
+            // Затем обрабатываем изменение ответственного, если оно есть
+            if (assigneeChange) {
+                if (assigneeChange.newAssigneeId) {
+                    // Назначаем нового ответственного
+                    finalUpdatedTask = await taskService.assignTask(String(task.id), String(assigneeChange.newAssigneeId));
+                } else {
+                    // Снимаем назначение
+                    finalUpdatedTask = await taskService.unassignTask(String(task.id));
+                }
+            }
+            
+            if (onTaskUpdate) {
+                onTaskUpdate(finalUpdatedTask);
+            }
             
             // ИСПРАВЛЕНИЕ: Вызываем onClose после успешного обновления
             onClose();
@@ -902,6 +969,32 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     variant="outlined"
                     onClick={isEditable ? undefined : () => {}}
                 />
+                {task.assignee && (
+                    <Chip
+                        avatar={
+                            task.assignee.avatarUrl ? (
+                                <img 
+                                    src={getAvatarUrl(task.assignee.avatarUrl)} 
+                                    alt={task.assignee.username}
+                                    style={{
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: '50%'
+                                    }}
+                                    onError={(e) => {
+                                        console.error('Ошибка загрузки аватара в TaskModal:', task.assignee?.avatarUrl);
+                                        e.currentTarget.style.display = 'none';
+                                    }}
+                                />
+                            ) : undefined
+                        }
+                        label={`Назначена на: ${task.assignee.username}`}
+                        size="medium"
+                        variant="outlined"
+                        color="primary"
+                        onClick={isEditable ? undefined : () => {}}
+                    />
+                )}
             </Box>
         );
     };
@@ -1229,35 +1322,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Box sx={{ flex: 1 }}>
-                                                    <FormControl fullWidth disabled={!isEditable}>
+                                                    <FormControl fullWidth disabled>
                                                         <InputLabel>Тип задачи</InputLabel>
                                                         <Select
                                                             value={selectedTypeId || ''}
                                                             label="Тип задачи"
-                                                            onChange={(e) => {
-                                                                const value = e.target.value;
-                                                                setSelectedTypeId(value === '' ? null : Number(value));
-                                                            }}
-                                                            renderValue={(selected) => {
-                                                                if (!selected) return <em>Не выбран</em>;
-                                                                const selectedType = taskTypes.find(t => t.id === selected);
-                                                                if (!selectedType) return <em>Не выбран</em>;
-                                                                
-                                                                return (
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                        {selectedType.icon && iconNameToComponent[selectedType.icon] 
-                                                                            ? React.cloneElement(iconNameToComponent[selectedType.icon], { 
-                                                                                style: { color: selectedType.color || 'inherit' } 
-                                                                            }) 
-                                                                            : <CategoryIcon style={{ color: selectedType.color || 'inherit' }} />
-                                                                        }
-                                                                        <Typography>{selectedType.name}</Typography>
-                                                                    </Box>
-                                                                );
-                                                            }}
-                                                            inputProps={{
-                                                                readOnly: !isEditable
-                                                            }}
+                                                            readOnly
                                                             sx={{
                                                                 '.MuiSelect-select.Mui-disabled': {
                                                                     WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
@@ -1285,37 +1355,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                 </Box>
                                                 
                                                 <Box sx={{ flex: 1 }}>
-                                                    <FormControl fullWidth disabled={!isEditable}>
+                                                    <FormControl fullWidth disabled>
                                                         <InputLabel>Статус</InputLabel>
                                                         <Select
                                                             value={selectedStatusId || ''}
                                                             label="Статус"
-                                                            onChange={(e) => {
-                                                                const value = e.target.value;
-                                                                setSelectedStatusId(value === '' ? null : Number(value));
-                                                            }}
-                                                            renderValue={(selected) => {
-                                                                if (!selected) return <em>Не выбран</em>;
-                                                                const selectedStatus = boardStatuses.find(s => s.id === selected);
-                                                                if (!selectedStatus) return <em>Не выбран</em>;
-                                                                
-                                                                return (
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                        <Box
-                                                                            sx={{
-                                                                                width: 16,
-                                                                                height: 16,
-                                                                                borderRadius: '50%',
-                                                                                bgcolor: selectedStatus.color,
-                                                                            }}
-                                                                        />
-                                                                        <Typography>{selectedStatus.name}</Typography>
-                                                                    </Box>
-                                                                );
-                                                            }}
-                                                            inputProps={{
-                                                                readOnly: !isEditable
-                                                            }}
+                                                            readOnly
                                                             sx={{
                                                                 '.MuiSelect-select.Mui-disabled': {
                                                                     WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
@@ -1399,6 +1444,55 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     <MenuItem value="LOW">Низкий</MenuItem>
                                                     <MenuItem value="MEDIUM">Средний</MenuItem>
                                                     <MenuItem value="HIGH">Высокий</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                            
+                                            {/* Поле "Назначена на" в режиме просмотра */}
+                                            <FormControl fullWidth disabled>
+                                                <InputLabel>Назначена на</InputLabel>
+                                                <Select
+                                                    value={assignedUserId || ''}
+                                                    label="Назначена на"
+                                                    readOnly
+                                                    renderValue={(selected) => {
+                                                        if (!selected) {
+                                                            return <em>Не назначена</em>;
+                                                        }
+                                                        // Ищем участника в списке boardMembers
+                                                        const selectedMember = boardMembers.find(member => member.userId === Number(selected));
+                                                        if (selectedMember) {
+                                                            return (
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                    {(selectedMember.avatarUrl || selectedMember.user?.avatarUrl) && (
+                                                                        <img 
+                                                                            src={getAvatarUrl(selectedMember.avatarUrl || selectedMember.user?.avatarUrl)} 
+                                                                            alt={selectedMember.username}
+                                                                            style={{
+                                                                                width: 20,
+                                                                                height: 20,
+                                                                                borderRadius: '50%',
+                                                                                objectFit: 'cover'
+                                                                            }}
+                                                                            onError={(e) => {
+                                                                                e.currentTarget.style.display = 'none';
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                    <Typography>{selectedMember.username}</Typography>
+                                                                </Box>
+                                                            );
+                                                        }
+                                                        return `Пользователь ${selected}`;
+                                                    }}
+                                                    sx={{
+                                                        '.MuiSelect-select.Mui-disabled': {
+                                                            WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                                                        }
+                                                    }}
+                                                >
+                                                    <MenuItem value="">
+                                                        <em>Не назначена</em>
+                                                    </MenuItem>
                                                 </Select>
                                             </FormControl>
                                         </>
@@ -1624,19 +1718,111 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     <FormHelperText error>{errors.dates}</FormHelperText>
                                                 )}
                                             </Box>
-                                            <FormControl fullWidth disabled={!isEditable}>
-                                                <InputLabel>Приоритет</InputLabel>
-                                                <Select
-                                                    value={priority}
-                                                    label="Приоритет"
-                                                    onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                                                >
-                                                    <MenuItem value="NONE">Без приоритета</MenuItem>
-                                                    <MenuItem value="LOW">Низкий</MenuItem>
-                                                    <MenuItem value="MEDIUM">Средний</MenuItem>
-                                                    <MenuItem value="HIGH">Высокий</MenuItem>
-                                                </Select>
-                                            </FormControl>
+                                            
+                                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                                <FormControl fullWidth disabled={!isEditable}>
+                                                    <InputLabel>Приоритет</InputLabel>
+                                                    <Select
+                                                        value={priority}
+                                                        label="Приоритет"
+                                                        onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                                                    >
+                                                        <MenuItem value="NONE">Без приоритета</MenuItem>
+                                                        <MenuItem value="LOW">Низкий</MenuItem>
+                                                        <MenuItem value="MEDIUM">Средний</MenuItem>
+                                                        <MenuItem value="HIGH">Высокий</MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                                
+                                                <FormControl fullWidth disabled={!isEditable}>
+                                                    <InputLabel>Назначена на</InputLabel>
+                                                    <Select
+                                                        value={assignedUserId || ''}
+                                                        label="Назначена на"
+                                                        onChange={(e) => {
+                                                            const value = e.target.value;
+                                                            setAssignedUserId(value === '' ? null : Number(value));
+                                                        }}
+                                                        renderValue={(selected) => {
+                                                            if (!selected) {
+                                                                return <em>Не назначена</em>;
+                                                            }
+                                                            // Ищем участника в списке boardMembers
+                                                            const selectedMember = boardMembers.find(member => member.userId === Number(selected));
+                                                            if (selectedMember) {
+                                                                return (
+                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        {(selectedMember.avatarUrl || selectedMember.user?.avatarUrl) && (
+                                                                            <img 
+                                                                                src={getAvatarUrl(selectedMember.avatarUrl || selectedMember.user?.avatarUrl)} 
+                                                                                alt={selectedMember.username}
+                                                                                style={{
+                                                                                    width: 20,
+                                                                                    height: 20,
+                                                                                    borderRadius: '50%',
+                                                                                    objectFit: 'cover'
+                                                                                }}
+                                                                                onError={(e) => {
+                                                                                    e.currentTarget.style.display = 'none';
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                        <Typography>{selectedMember.username}</Typography>
+                                                                    </Box>
+                                                                );
+                                                            }
+                                                            return `Пользователь ${selected}`;
+                                                        }}
+                                                    >
+                                                        <MenuItem value="">
+                                                            <em>Не назначена</em>
+                                                        </MenuItem>
+                                                        {boardMembers.length > 0 ? boardMembers.map((member) => (
+                                                            <MenuItem key={member.userId} value={member.userId}>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                    {(member.avatarUrl || member.user?.avatarUrl) ? (
+                                                                        <img 
+                                                                            src={getAvatarUrl(member.avatarUrl || member.user?.avatarUrl)} 
+                                                                            alt={member.username}
+                                                                            style={{
+                                                                                width: 24,
+                                                                                height: 24,
+                                                                                borderRadius: '50%',
+                                                                                objectFit: 'cover'
+                                                                            }}
+                                                                            onError={(e) => {
+                                                                                console.error('Ошибка загрузки аватара участника:', member.avatarUrl || member.user?.avatarUrl);
+                                                                                e.currentTarget.style.display = 'none';
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <Box 
+                                                                            sx={{
+                                                                                width: 24,
+                                                                                height: 24,
+                                                                                borderRadius: '50%',
+                                                                                bgcolor: 'grey.300',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                fontSize: '12px',
+                                                                                fontWeight: 'bold'
+                                                                            }}
+                                                                        >
+                                                                            {member.username.charAt(0).toUpperCase()}
+                                                                        </Box>
+                                                                    )}
+                                                                    <Typography>{member.username}</Typography>
+                                                                </Box>
+                                                            </MenuItem>
+                                                        )) : (
+                                                            <MenuItem disabled>
+                                                                <Typography color="text.secondary">Нет участников доски</Typography>
+                                                            </MenuItem>
+                                                        )}
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
                                         </>
                                     )}
                                     
