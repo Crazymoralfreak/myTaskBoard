@@ -32,6 +32,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import NotificationBell from '../notifications/NotificationBell';
 import { NotificationsService } from '../../services/NotificationsService';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -44,35 +45,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [isOpen, setIsOpen] = useState(!isMobile);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Загружаем счетчик уведомлений
+  // Используем глобальный WebSocket контекст
+  const { unreadCount } = useWebSocket();
+
+  // Загружаем начальный счетчик уведомлений
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
         const count = await NotificationsService.getUnreadCount();
-        setUnreadCount(count);
+        // Обновляем через событие для синхронизации
+        const countUpdateEvent = new CustomEvent('notification-count-update', {
+          detail: { count }
+        });
+        window.dispatchEvent(countUpdateEvent);
       } catch (err) {
         console.error('Error fetching unread count:', err);
       }
     };
 
-    // Обработчик событий обновления счетчика
-    const handleCountUpdateEvent = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      setUnreadCount(customEvent.detail.count);
-    };
-
-    fetchUnreadCount();
-    
-    // Добавляем обработчик для событий обновления счетчика
-    window.addEventListener('notification-count-update', handleCountUpdateEvent);
-
-    return () => {
-      window.removeEventListener('notification-count-update', handleCountUpdateEvent);
-    };
+    if (authService.isAuthenticated()) {
+      fetchUnreadCount();
+    }
   }, []);
 
   const handleToggleDrawer = () => {
@@ -109,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
     { 
       text: 'Уведомления', 
       icon: (
-        <Badge badgeContent={unreadCount} color="error">
+        <Badge badgeContent={unreadCount || 0} color="error">
           <NotificationsIcon />
         </Badge>
       ), 

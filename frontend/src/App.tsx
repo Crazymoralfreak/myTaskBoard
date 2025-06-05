@@ -20,6 +20,7 @@ import { authService } from './services/authService';
 import { Layout } from './components/layout/Layout';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { RoleProvider } from './contexts/RoleContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 
 function App() {
     // Запуск миграции данных при инициализации приложения
@@ -40,72 +41,74 @@ function App() {
                 <SnackbarProvider maxSnack={3}>
                     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
                         <ConfirmDialogProvider>
-                            <Router>
-                                <Routes>
-                                    <Route path="/auth" element={<AuthPage />} />
-                                    <Route
-                                        path="/"
-                                        element={
-                                            <PrivateRoute>
-                                                <Layout>
-                                                    <HomePage />
-                                                </Layout>
-                                            </PrivateRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/notifications"
-                                        element={
-                                            <PrivateRoute>
-                                                <Layout>
-                                                    <NotificationsPage />
-                                                </Layout>
-                                            </PrivateRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/boards/new"
-                                        element={
-                                            <PrivateRoute>
-                                                <Layout>
-                                                    <CreateBoardPage />
-                                                </Layout>
-                                            </PrivateRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/boards/:boardId"
-                                        element={
-                                            <PrivateRoute>
-                                                <Layout>
-                                                    <BoardPage />
-                                                </Layout>
-                                            </PrivateRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/settings"
-                                        element={
-                                            <PrivateRoute>
-                                                <Layout>
-                                                    <SettingsPage />
-                                                </Layout>
-                                            </PrivateRoute>
-                                        }
-                                    />
-                                    <Route
-                                        path="/profile"
-                                        element={
-                                            <PrivateRoute>
-                                                <Layout>
-                                                    <ProfilePage />
-                                                </Layout>
-                                            </PrivateRoute>
-                                        }
-                                    />
-                                    <Route path="*" element={<Navigate to="/" replace />} />
-                                </Routes>
-                            </Router>
+                            <WebSocketProvider>
+                                <Router>
+                                    <Routes>
+                                        <Route path="/auth" element={<AuthPage />} />
+                                        <Route
+                                            path="/"
+                                            element={
+                                                <PrivateRoute>
+                                                    <Layout>
+                                                        <HomePage />
+                                                    </Layout>
+                                                </PrivateRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/notifications"
+                                            element={
+                                                <PrivateRoute>
+                                                    <Layout>
+                                                        <NotificationsPage />
+                                                    </Layout>
+                                                </PrivateRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/boards/new"
+                                            element={
+                                                <PrivateRoute>
+                                                    <Layout>
+                                                        <CreateBoardPage />
+                                                    </Layout>
+                                                </PrivateRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/boards/:boardId"
+                                            element={
+                                                <PrivateRoute>
+                                                    <Layout>
+                                                        <BoardPage />
+                                                    </Layout>
+                                                </PrivateRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/settings"
+                                            element={
+                                                <PrivateRoute>
+                                                    <Layout>
+                                                        <SettingsPage />
+                                                    </Layout>
+                                                </PrivateRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/profile"
+                                            element={
+                                                <PrivateRoute>
+                                                    <Layout>
+                                                        <ProfilePage />
+                                                    </Layout>
+                                                </PrivateRoute>
+                                            }
+                                        />
+                                        <Route path="*" element={<Navigate to="/" replace />} />
+                                    </Routes>
+                                </Router>
+                            </WebSocketProvider>
                         </ConfirmDialogProvider>
                     </LocalizationProvider>
                 </SnackbarProvider>

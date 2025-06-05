@@ -241,6 +241,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   // Строгая проверка статуса "Новое" - должен показываться только если isRead === false
   const shouldShowNewStatus = notification.isRead === false;
   
+  // Проверяем, нужно ли показывать описание отдельно от заголовка
+  const hasDescription = notification.message && notification.message !== notification.title;
+  
   return (
     <ListItem 
       alignItems="flex-start"
@@ -256,7 +259,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         transition: 'all 0.2s ease-in-out',
         '&:hover .notification-actions': {
           opacity: 1
-        }
+        },
+        pl: 1,
+        pr: 1
       }}
       secondaryAction={
         <Box 
@@ -303,21 +308,34 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         </Box>
       }
     >
-      {showCheckbox && onSelect && (
-        <ListItemIcon sx={{ minWidth: 40 }}>
+      {/* Левая часть - чекбокс и иконка на одном уровне */}
+      <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 'auto', flexShrink: 0 }}>
+        {showCheckbox && onSelect && (
           <Checkbox
             checked={isSelected || false}
             onChange={handleSelect}
             size="small"
+            sx={{ p: 0.5 }}
           />
-        </ListItemIcon>
-      )}
+        )}
+        
+        <Box 
+          sx={{ 
+            color: getPriorityColor(notification.priority),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24
+          }}
+        >
+          {getNotificationIcon(notification.type)}
+        </Box>
+      </Box>
       
-      <ListItemIcon sx={{ color: getPriorityColor(notification.priority) }}>
-        {getNotificationIcon(notification.type)}
-      </ListItemIcon>
-      
+      {/* Основной контент */}
       <ListItemText
+        sx={{ ml: 1 }}
         primary={
           <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
             <Typography 
@@ -325,48 +343,51 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               component="div"
               sx={{ 
                 fontWeight: notification.isRead ? 400 : 600,
-                color: notification.isRead ? 'text.secondary' : 'text.primary'
+                color: notification.isRead ? 'text.secondary' : 'text.primary',
+                flexGrow: 1
               }}
             >
               {notification.title}
             </Typography>
-            <Chip 
-              label={getPriorityLabel(notification.priority)} 
-              size="small" 
-              sx={{ 
-                height: 18, 
-                fontSize: '0.65rem',
-                backgroundColor: getPriorityColor(notification.priority),
-                color: 'white',
-                opacity: notification.isRead ? 0.7 : 1
-              }}
-            />
-            {shouldShowNewStatus && (
+            <Box display="flex" alignItems="center" gap={0.5}>
               <Chip 
-                label="Новое" 
+                label={getPriorityLabel(notification.priority)} 
                 size="small" 
-                color="error"
-                variant="filled"
                 sx={{ 
                   height: 18, 
                   fontSize: '0.65rem',
-                  animation: 'pulse 2s infinite'
+                  backgroundColor: getPriorityColor(notification.priority),
+                  color: 'white',
+                  opacity: notification.isRead ? 0.7 : 1
                 }}
               />
-            )}
+              {shouldShowNewStatus && (
+                <Chip 
+                  label="Новое" 
+                  size="small" 
+                  color="error"
+                  variant="filled"
+                  sx={{ 
+                    height: 18, 
+                    fontSize: '0.65rem',
+                    animation: 'pulse 2s infinite'
+                  }}
+                />
+              )}
+            </Box>
           </Box>
         }
         secondary={
           <Box component="span">
-            {/* Показываем message только если он отличается от title */}
-            {notification.message !== notification.title && (
+            {/* Показываем description только если он отличается от title */}
+            {hasDescription && (
               <Typography
                 variant="body2"
                 color={notification.isRead ? 'text.secondary' : 'text.primary'}
                 component="span"
                 sx={{ 
                   display: 'block', 
-                  mb: 1,
+                  mb: 0.5,
                   fontWeight: notification.isRead ? 400 : 500
                 }}
               >

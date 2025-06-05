@@ -13,9 +13,9 @@ import {
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationItem from './NotificationItem';
 import { NotificationsService } from '../../services/NotificationsService';
-import WebSocketService from '../../services/WebSocketService';
 import { Notification, NotificationType } from '../../types/Notification';
 import { useNavigate } from 'react-router-dom';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 interface NotificationBellProps {
   token: string;
@@ -25,65 +25,14 @@ interface NotificationBellProps {
  * Компонент "колокольчик" для отображения уведомлений
  */
 const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
-  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
   
-  // Инициализация WebSocket при монтировании компонента
-  useEffect(() => {
-    // Подключаемся к WebSocket
-    WebSocketService.initialize(token);
-    
-    // Обработчик новых уведомлений
-    const handleNewNotification = (notification: Notification) => {
-      // Добавляем уведомление в начало списка
-      setNotifications(prevNotifications => [notification, ...prevNotifications]);
-      
-      // Счетчик будет автоматически обновлен через WebSocket от сервера
-    };
-    
-    // Обработчик обновлений счетчика
-    const handleCountUpdate = (count: number) => {
-      setUnreadCount(count);
-    };
-    
-    // Обработчик событий обновления счетчика из других компонентов
-    const handleCountUpdateEvent = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      setUnreadCount(customEvent.detail.count);
-    };
-    
-    // Регистрируем обработчики
-    WebSocketService.addMessageHandler(handleNewNotification);
-    WebSocketService.addCountUpdateHandler(handleCountUpdate);
-    
-    // Добавляем обработчик для событий обновления счетчика
-    window.addEventListener('notification-count-update', handleCountUpdateEvent);
-    
-    // Получаем количество непрочитанных уведомлений
-    fetchUnreadCount();
-    
-    // Отписываемся при размонтировании
-    return () => {
-      WebSocketService.removeMessageHandler(handleNewNotification);
-      WebSocketService.removeCountUpdateHandler(handleCountUpdate);
-      window.removeEventListener('notification-count-update', handleCountUpdateEvent);
-      WebSocketService.disconnect();
-    };
-  }, [token]);
-  
-  // Загрузка количества непрочитанных уведомлений
-  const fetchUnreadCount = async () => {
-    try {
-      const count = await NotificationsService.getUnreadCount();
-      setUnreadCount(count);
-    } catch (err) {
-      console.error('Error fetching unread count:', err);
-    }
-  };
+  // Используем глобальный WebSocket контекст
+  const { unreadCount } = useWebSocket();
   
   // Загрузка непрочитанных уведомлений при открытии popover
   const fetchUnreadNotifications = async () => {
@@ -126,56 +75,51 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
         )
       );
       
-      // Принудительно обновляем счетчик непрочитанных уведомлений
+      // Отправляем событие для обновления глобального счетчика
       const newCount = await NotificationsService.getUnreadCount();
-      setUnreadCount(newCount);
+      const countUpdateEvent = new CustomEvent('notification-count-update', {
+        detail: { count: newCount }
+      });
+      window.dispatchEvent(countUpdateEvent);
       
     } catch (err) {
       console.error('Error marking notification as read:', err);
     }
   };
-  
-  // Обработчик навигации по уведомлению
+
+  // Обработчик навигации к связанной сущности
   const handleNotificationNavigate = (notification: Notification) => {
     handleClose();
     
-    // Отмечаем уведомление как прочитанное если оно не прочитано
-    if (!notification.isRead) {
-      handleMarkAsRead(notification.id);
-    }
-    
-    // Перенаправляем пользователя в зависимости от типа уведомления
+    // Логика навигации в зависимости от типа уведомления
     switch (notification.type) {
       case NotificationType.BOARD_INVITE:
+      case NotificationType.BOARD_MEMBER_ADDED:
+      case NotificationType.BOARD_MEMBER_REMOVED:
         if (notification.relatedEntityId) {
           navigate(`/boards/${notification.relatedEntityId}`);
         }
         break;
       case NotificationType.TASK_ASSIGNED:
-      case NotificationType.TASK_DUE_SOON:
-      case NotificationType.TASK_OVERDUE:
-      case NotificationType.TASK_STATUS_CHANGED:
       case NotificationType.TASK_CREATED:
       case NotificationType.TASK_UPDATED:
       case NotificationType.TASK_DELETED:
+      case NotificationType.TASK_STATUS_CHANGED:
+      case NotificationType.TASK_DUE_SOON:
+      case NotificationType.TASK_OVERDUE:
       case NotificationType.TASK_COMMENT_ADDED:
+      case NotificationType.NEW_COMMENT_MENTION:
       case NotificationType.SUBTASK_CREATED:
       case NotificationType.SUBTASK_COMPLETED:
       case NotificationType.ATTACHMENT_ADDED:
       case NotificationType.DEADLINE_REMINDER:
+        // Для задач нужно получить ID доски из relatedEntityType или использовать API
         if (notification.relatedEntityId) {
-          const [boardId, taskId] = notification.relatedEntityId.split(':');
-          navigate(`/boards/${boardId}?task=${taskId}`);
+          // Предполагаем, что это ID задачи, нужно получить ID доски
+          // Пока просто переходим на главную страницу
+          navigate('/');
         }
         break;
-      case NotificationType.NEW_COMMENT_MENTION:
-        if (notification.relatedEntityId) {
-          const [boardId, taskId, commentId] = notification.relatedEntityId.split(':');
-          navigate(`/boards/${boardId}?task=${taskId}&comment=${commentId}`);
-        }
-        break;
-      case NotificationType.BOARD_MEMBER_ADDED:
-      case NotificationType.BOARD_MEMBER_REMOVED:
       case NotificationType.ROLE_CHANGED:
         if (notification.relatedEntityId) {
           navigate(`/boards/${notification.relatedEntityId}`);
@@ -204,7 +148,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
         onClick={handleClick}
         aria-describedby={id}
       >
-        <Badge badgeContent={unreadCount} color="error">
+        <Badge badgeContent={unreadCount || 0} color="error">
           <NotificationsIcon />
         </Badge>
       </IconButton>
@@ -223,52 +167,66 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
           horizontal: 'right',
         }}
         PaperProps={{
-          sx: { width: '350px', maxHeight: '400px' }
+          sx: { 
+            width: 400, 
+            maxHeight: 500,
+            '& .MuiList-root': {
+              p: 0
+            }
+          }
         }}
       >
-        <Box p={2}>
-          <Typography variant="h6">Уведомления</Typography>
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="h6" component="div">
+            Уведомления
+          </Typography>
+          {unreadCount > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              {unreadCount} непрочитанных
+            </Typography>
+          )}
         </Box>
         
-        <Divider />
-        
         {loading ? (
-          <Box display="flex" justifyContent="center" py={3}>
-            <CircularProgress size={30} />
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress size={24} />
           </Box>
         ) : error ? (
           <Box p={2}>
-            <Typography color="error">{error}</Typography>
+            <Typography color="error" variant="body2">
+              {error}
+            </Typography>
           </Box>
-        ) : notifications.length > 0 ? (
-          <List sx={{ p: 0 }}>
-            {notifications.map(notification => (
+        ) : notifications.length === 0 ? (
+          <Box p={2}>
+            <Typography variant="body2" color="text.secondary" align="center">
+              Нет новых уведомлений
+            </Typography>
+          </Box>
+        ) : (
+          <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+            {notifications.slice(0, 5).map((notification) => (
               <NotificationItem
                 key={notification.id}
                 notification={notification}
                 onMarkAsRead={handleMarkAsRead}
                 onNavigate={handleNotificationNavigate}
+                showCheckbox={false}
+                showActions={false}
               />
             ))}
           </List>
-        ) : (
-          <Box p={3} textAlign="center">
-            <Typography color="textSecondary">
-              У вас нет новых уведомлений
-            </Typography>
-          </Box>
         )}
         
         <Divider />
-        
-        <Box p={1.5} display="flex" justifyContent="center">
-          <Button 
-            variant="text" 
-            color="primary" 
-            onClick={handleViewAll}
+        <Box sx={{ p: 1 }}>
+          <Button
             fullWidth
+            variant="text"
+            onClick={handleViewAll}
+            size="small"
           >
-            Просмотреть все
+            Все уведомления
           </Button>
         </Box>
       </Popover>
