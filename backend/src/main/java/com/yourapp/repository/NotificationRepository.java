@@ -101,4 +101,22 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * @return список уведомлений
      */
     List<Notification> findByIdInAndUserAndIsReadFalse(List<Long> ids, User user);
+    
+    /**
+     * Удаляет уведомления по связанной сущности
+     * @param relatedEntityId ID связанной сущности
+     * @param relatedEntityType тип связанной сущности
+     */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.relatedEntityId = :relatedEntityId AND n.relatedEntityType = :relatedEntityType")
+    void deleteByRelatedEntity(String relatedEntityId, String relatedEntityType);
+    
+    /**
+     * Удаляет уведомления по паттерну связанной сущности
+     * @param relatedEntityIdPattern паттерн ID связанной сущности
+     * @param relatedEntityType тип связанной сущности
+     */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.relatedEntityId LIKE :relatedEntityIdPattern AND n.relatedEntityType = :relatedEntityType")
+    void deleteByRelatedEntityPattern(String relatedEntityIdPattern, String relatedEntityType);
 } 

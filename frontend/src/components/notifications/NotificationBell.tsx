@@ -31,8 +31,23 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
   
-  // Используем глобальный WebSocket контекст
-  const { unreadCount } = useWebSocket();
+  // Используем WebSocket для real-time обновления счетчика
+  const { unreadCount, newNotifications, clearNewNotifications } = useWebSocket();
+  
+  // Обработка новых уведомлений из WebSocket
+  useEffect(() => {
+    if (newNotifications.length > 0) {
+      // Добавляем новые уведомления в начало списка
+      setNotifications(prev => {
+        const existingIds = new Set(prev.map(n => n.id));
+        const uniqueNewNotifications = newNotifications.filter(n => !existingIds.has(n.id));
+        return [...uniqueNewNotifications, ...prev];
+      });
+      
+      // Очищаем новые уведомления после обработки
+      clearNewNotifications();
+    }
+  }, [newNotifications, clearNewNotifications]);
   
   // Загрузка непрочитанных уведомлений при открытии popover
   const fetchUnreadNotifications = async () => {
@@ -140,7 +155,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
   const open = Boolean(anchorEl);
   const id = open ? 'notifications-popover' : undefined;
   
-  return (
+    return (
     <>
       <IconButton
         color="inherit"

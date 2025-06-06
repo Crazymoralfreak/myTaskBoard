@@ -31,7 +31,6 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import NotificationBell from '../notifications/NotificationBell';
-import { NotificationsService } from '../../services/NotificationsService';
 import { useWebSocket } from '../../context/WebSocketContext';
 
 interface SidebarProps {
@@ -48,28 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Используем глобальный WebSocket контекст
-  const { unreadCount } = useWebSocket();
-
-  // Загружаем начальный счетчик уведомлений
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const count = await NotificationsService.getUnreadCount();
-        // Обновляем через событие для синхронизации
-        const countUpdateEvent = new CustomEvent('notification-count-update', {
-          detail: { count }
-        });
-        window.dispatchEvent(countUpdateEvent);
-      } catch (err) {
-        console.error('Error fetching unread count:', err);
-      }
-    };
-
-    if (authService.isAuthenticated()) {
-      fetchUnreadCount();
-    }
-  }, []);
+  // Используем WebSocket для real-time обновления счетчика
+  const { unreadCount, isConnected } = useWebSocket();
 
   const handleToggleDrawer = () => {
     setIsOpen(!isOpen);

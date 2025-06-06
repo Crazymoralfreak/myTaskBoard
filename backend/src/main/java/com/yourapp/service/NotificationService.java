@@ -33,6 +33,8 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationPreferencesService preferencesService;
+    private final TelegramNotificationService telegramNotificationService;
     
     /**
      * Создает уведомление и отправляет его пользователю
@@ -42,7 +44,7 @@ public class NotificationService {
      * @param message сообщение
      * @param relatedEntityId ID связанной сущности
      * @param relatedEntityType тип связанной сущности
-     * @return созданное уведомление
+     * @return созданное уведомление или null, если уведомление не должно быть отправлено
      */
     @Transactional
     public NotificationDTO createNotification(
@@ -67,7 +69,7 @@ public class NotificationService {
      * @param relatedEntityType тип связанной сущности
      * @param groupKey ключ группировки
      * @param priority приоритет
-     * @return созданное уведомление
+     * @return созданное уведомление или null, если уведомление не должно быть отправлено
      */
     @Transactional
     public NotificationDTO createNotification(
@@ -83,6 +85,13 @@ public class NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Пользователь с ID " + userId + " не найден"));
         
+        // Проверяем настройки пользователя перед созданием уведомления
+        if (!shouldCreateNotification(user, type, priority)) {
+            logger.debug("Уведомление типа {} не будет создано для пользователя {} из-за настроек", 
+                    type, user.getUsername());
+            return null;
+        }
+        
         Notification notification = Notification.builder()
                 .user(user)
                 .type(type.name())
@@ -97,18 +106,154 @@ public class NotificationService {
                 .build();
         
         Notification savedNotification = notificationRepository.save(notification);
+        logger.info("Создано уведомление {} для пользователя {}", savedNotification.getId(), user.getUsername());
         
         // Преобразуем в DTO
         NotificationDTO notificationDTO = mapToDTO(savedNotification);
         
-        // Отправляем уведомление через WebSocket
+        // Отправляем уведомление через WebSocket (только браузерные уведомления)
+        if (shouldSendBrowserNotification(user, type, priority)) {
+            messagingTemplate.convertAndSendToUser(
+                    user.getUsername(),
+                    "/queue/notifications",
+                    notificationDTO
+            );
+            logger.debug("Отправлено браузерное уведомление для пользователя {}", user.getUsername());
+        }
+        
+        // Отправляем Telegram уведомления если нужно
+        sendTelegramNotificationIfEnabled(user, type, title, message);
+        
+        // Отправляем обновление счетчика через WebSocket
+        long newUnreadCount = getUnreadCount(userId);
         messagingTemplate.convertAndSendToUser(
                 user.getUsername(),
-                "/queue/notifications",
-                notificationDTO
+                "/queue/unread-count",
+                Map.of("count", newUnreadCount)
         );
+        logger.info("Отправлен счетчик {} через WebSocket пользователю {}", newUnreadCount, user.getUsername());
         
         return notificationDTO;
+    }
+    
+    /**
+     * Отправляет Telegram уведомление если это разрешено настройками пользователя
+     * @param user пользователь
+     * @param type тип уведомления
+     * @param title заголовок уведомления
+     * @param message сообщение уведомления
+     */
+    private void sendTelegramNotificationIfEnabled(User user, NotificationType type, String title, String message) {
+        try {
+            var preferences = preferencesService.getUserPreferences(user.getId());
+            
+            // Проверяем общие настройки Telegram
+            if (!preferences.isGlobalNotificationsEnabled() || !preferences.isTelegramNotificationsEnabled()) {
+                return;
+            }
+            
+            // Проверяем настройки конкретного типа
+            boolean typeEnabled = switch (type) {
+                case TASK_ASSIGNED -> preferences.isTaskAssignedNotifications();
+                case TASK_UPDATED -> preferences.isTaskUpdatedNotifications();
+                case TASK_STATUS_CHANGED -> preferences.isTaskStatusChangedNotifications();
+                case NEW_COMMENT_MENTION -> preferences.isMentionNotifications();
+                case TASK_CREATED -> preferences.isTaskCreatedNotifications();
+                case TASK_DELETED -> preferences.isTaskDeletedNotifications();
+                case TASK_COMMENT_ADDED -> preferences.isTaskCommentAddedNotifications();
+                case SUBTASK_CREATED -> preferences.isSubtaskCreatedNotifications();
+                case SUBTASK_COMPLETED -> preferences.isSubtaskCompletedNotifications();
+                case BOARD_INVITE -> preferences.isBoardInviteNotifications();
+                case BOARD_MEMBER_ADDED -> preferences.isBoardMemberAddedNotifications();
+                case BOARD_MEMBER_REMOVED -> preferences.isBoardMemberRemovedNotifications();
+                case ATTACHMENT_ADDED -> preferences.isAttachmentAddedNotifications();
+                case DEADLINE_REMINDER -> preferences.isDeadlineReminderNotifications();
+                case ROLE_CHANGED -> preferences.isRoleChangedNotifications();
+                case TASK_DUE_SOON -> preferences.isTaskDueSoonNotifications();
+                case TASK_OVERDUE -> preferences.isTaskOverdueNotifications();
+                default -> false;
+            };
+            
+            if (!typeEnabled) {
+                return;
+            }
+            
+            // Отправляем через TelegramNotificationService
+            String telegramMessage = String.format("📢 %s\n\n%s", title, message);
+            telegramNotificationService.sendNotification(user, telegramMessage);
+            
+        } catch (Exception e) {
+            logger.error("Ошибка отправки Telegram уведомления пользователю {}: {}", user.getUsername(), e.getMessage());
+        }
+    }
+    
+    /**
+     * Проверяет, должно ли быть создано уведомление для пользователя
+     * @param user пользователь
+     * @param type тип уведомления
+     * @param priority приоритет уведомления
+     * @return true, если уведомление должно быть создано
+     */
+    private boolean shouldCreateNotification(User user, NotificationType type, NotificationPriority priority) {
+        var preferences = preferencesService.getUserPreferences(user.getId());
+        
+        // Проверяем глобальные настройки
+        if (!preferences.isGlobalNotificationsEnabled()) {
+            return false;
+        }
+        
+        // Проверяем настройки приоритета
+        if (preferences.isOnlyHighPriorityNotifications() && 
+            (priority == null || priority != NotificationPriority.HIGH)) {
+            return false;
+        }
+        
+        // Проверяем настройки по типам уведомлений
+        return switch (type) {
+            case TASK_ASSIGNED -> preferences.isTaskAssignedNotifications();
+            case TASK_UPDATED -> preferences.isTaskUpdatedNotifications();
+            case TASK_STATUS_CHANGED -> preferences.isTaskStatusChangedNotifications();
+            case NEW_COMMENT_MENTION -> preferences.isMentionNotifications();
+            case TASK_CREATED -> preferences.isTaskCreatedNotifications();
+            case TASK_DELETED -> preferences.isTaskDeletedNotifications();
+            case TASK_COMMENT_ADDED -> preferences.isTaskCommentAddedNotifications();
+            case SUBTASK_CREATED -> preferences.isSubtaskCreatedNotifications();
+            case SUBTASK_COMPLETED -> preferences.isSubtaskCompletedNotifications();
+            case BOARD_INVITE -> preferences.isBoardInviteNotifications();
+            case BOARD_MEMBER_ADDED -> preferences.isBoardMemberAddedNotifications();
+            case BOARD_MEMBER_REMOVED -> preferences.isBoardMemberRemovedNotifications();
+            case ATTACHMENT_ADDED -> preferences.isAttachmentAddedNotifications();
+            case DEADLINE_REMINDER -> preferences.isDeadlineReminderNotifications();
+            case ROLE_CHANGED -> preferences.isRoleChangedNotifications();
+            case TASK_DUE_SOON -> preferences.isTaskDueSoonNotifications();
+            case TASK_OVERDUE -> preferences.isTaskOverdueNotifications();
+            default -> true; // По умолчанию разрешаем неизвестные типы
+        };
+    }
+    
+    /**
+     * Проверяет, должно ли быть отправлено браузерное уведомление пользователю
+     * @param user пользователь
+     * @param type тип уведомления
+     * @param priority приоритет уведомления
+     * @return true, если браузерное уведомление должно быть отправлено
+     */
+    private boolean shouldSendBrowserNotification(User user, NotificationType type, NotificationPriority priority) {
+        var preferences = preferencesService.getUserPreferences(user.getId());
+        
+        // Проверяем глобальные настройки и настройки браузерных уведомлений
+        if (!preferences.isGlobalNotificationsEnabled() || !preferences.isBrowserNotificationsEnabled()) {
+            return false;
+        }
+        
+        // Проверяем настройки приоритета
+        if (preferences.isOnlyHighPriorityNotifications() && 
+            (priority == null || priority != NotificationPriority.HIGH)) {
+            return false;
+        }
+        
+        // Браузерные уведомления отправляются для тех же типов, что и создаются
+        return shouldCreateNotification(user, type, priority);
     }
     
     /**

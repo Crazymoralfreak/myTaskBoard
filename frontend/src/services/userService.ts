@@ -28,6 +28,17 @@ export const userService = {
         return response.data;
     },
 
+    /**
+     * Обновляет отдельную настройку пользователя
+     * @param key ключ настройки
+     * @param value значение настройки
+     * @returns обновленные настройки
+     */
+    updateUserSetting: async (key: keyof UserSettings, value: any): Promise<UserSettings> => {
+        const response = await api.patch(`/api/users/settings/${key}`, { value });
+        return response.data;
+    },
+
     clearCache: async (): Promise<void> => {
         await api.post('/api/users/clear-cache');
     },

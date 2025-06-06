@@ -7,6 +7,7 @@ import com.yourapp.repository.NotificationPreferencesRepository;
 import com.yourapp.repository.UserRepository;
 import com.yourapp.exception.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationPreferencesService {
     private final NotificationPreferencesRepository preferencesRepository;
     private final UserRepository userRepository;
@@ -26,12 +28,28 @@ public class NotificationPreferencesService {
      */
     @Transactional(readOnly = true)
     public NotificationPreferencesDTO getUserPreferences(Long userId) {
+        log.debug("Получение настроек уведомлений для пользователя: {}", userId);
+        
+        if (userId == null) {
+            log.error("ID пользователя равен null");
+            throw new IllegalArgumentException("ID пользователя не может быть null");
+        }
+        
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Пользователь с ID " + userId + " не найден"));
+                .orElseThrow(() -> {
+                    log.error("Пользователь с ID {} не найден", userId);
+                    return new EntityNotFoundException("Пользователь с ID " + userId + " не найден");
+                });
+        
+        log.debug("Пользователь найден: {} ({})", user.getUsername(), user.getEmail());
         
         NotificationPreferences preferences = preferencesRepository.findByUser(user)
-                .orElseGet(() -> createDefaultPreferences(user));
+                .orElseGet(() -> {
+                    log.info("Создание настроек уведомлений по умолчанию для пользователя: {}", userId);
+                    return createDefaultPreferences(user);
+                });
         
+        log.debug("Настройки уведомлений получены: globalEnabled={}", preferences.isGlobalNotificationsEnabled());
         return mapToDTO(preferences);
     }
     
@@ -63,6 +81,137 @@ public class NotificationPreferencesService {
     }
     
     /**
+     * Обновляет отдельную настройку уведомлений пользователя
+     * @param userId ID пользователя
+     * @param settingKey ключ настройки
+     * @param value новое значение
+     * @return обновленные настройки
+     */
+    @Transactional
+    public NotificationPreferencesDTO updateUserPreferenceSetting(Long userId, String settingKey, Boolean value) {
+        log.debug("Обновление настройки {} = {} для пользователя: {}", settingKey, value, userId);
+        
+        if (userId == null) {
+            log.error("ID пользователя равен null при обновлении настройки");
+            throw new IllegalArgumentException("ID пользователя не может быть null");
+        }
+        
+        if (settingKey == null || settingKey.trim().isEmpty()) {
+            log.error("Ключ настройки пуст или равен null");
+            throw new IllegalArgumentException("Ключ настройки не может быть пустым");
+        }
+        
+        if (value == null) {
+            log.error("Значение настройки равно null");
+            throw new IllegalArgumentException("Значение настройки не может быть null");
+        }
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.error("Пользователь с ID {} не найден при обновлении настройки", userId);
+                    return new EntityNotFoundException("Пользователь с ID " + userId + " не найден");
+                });
+        
+        log.debug("Пользователь найден: {} ({})", user.getUsername(), user.getEmail());
+        
+        NotificationPreferences preferences = preferencesRepository.findByUser(user)
+                .orElseGet(() -> {
+                    log.info("Создание настроек уведомлений по умолчанию для пользователя: {}", userId);
+                    return createDefaultPreferences(user);
+                });
+        
+        // Обновляем только указанную настройку
+        updateSinglePreference(preferences, settingKey, value);
+        
+        NotificationPreferences savedPreferences = preferencesRepository.save(preferences);
+        log.info("Настройка {} успешно обновлена для пользователя {}", settingKey, userId);
+        
+        return mapToDTO(savedPreferences);
+    }
+    
+    /**
+     * Обновляет одну конкретную настройку
+     * @param preferences объект настроек
+     * @param settingKey ключ настройки
+     * @param value новое значение
+     */
+    private void updateSinglePreference(NotificationPreferences preferences, String settingKey, Boolean value) {
+        switch (settingKey) {
+            case "globalNotificationsEnabled":
+                preferences.setGlobalNotificationsEnabled(value);
+                break;
+            case "emailNotificationsEnabled":
+                preferences.setEmailNotificationsEnabled(value);
+                break;
+            case "telegramNotificationsEnabled":
+                preferences.setTelegramNotificationsEnabled(value);
+                break;
+            case "browserNotificationsEnabled":
+                preferences.setBrowserNotificationsEnabled(value);
+                break;
+            case "boardInviteNotifications":
+                preferences.setBoardInviteNotifications(value);
+                break;
+            case "taskAssignedNotifications":
+                preferences.setTaskAssignedNotifications(value);
+                break;
+            case "taskStatusChangedNotifications":
+                preferences.setTaskStatusChangedNotifications(value);
+                break;
+            case "taskCreatedNotifications":
+                preferences.setTaskCreatedNotifications(value);
+                break;
+            case "taskUpdatedNotifications":
+                preferences.setTaskUpdatedNotifications(value);
+                break;
+            case "taskDeletedNotifications":
+                preferences.setTaskDeletedNotifications(value);
+                break;
+            case "taskCommentAddedNotifications":
+                preferences.setTaskCommentAddedNotifications(value);
+                break;
+            case "mentionNotifications":
+                preferences.setMentionNotifications(value);
+                break;
+            case "subtaskCreatedNotifications":
+                preferences.setSubtaskCreatedNotifications(value);
+                break;
+            case "subtaskCompletedNotifications":
+                preferences.setSubtaskCompletedNotifications(value);
+                break;
+            case "boardMemberAddedNotifications":
+                preferences.setBoardMemberAddedNotifications(value);
+                break;
+            case "boardMemberRemovedNotifications":
+                preferences.setBoardMemberRemovedNotifications(value);
+                break;
+            case "attachmentAddedNotifications":
+                preferences.setAttachmentAddedNotifications(value);
+                break;
+            case "deadlineReminderNotifications":
+                preferences.setDeadlineReminderNotifications(value);
+                break;
+            case "roleChangedNotifications":
+                preferences.setRoleChangedNotifications(value);
+                break;
+            case "taskDueSoonNotifications":
+                preferences.setTaskDueSoonNotifications(value);
+                break;
+            case "taskOverdueNotifications":
+                preferences.setTaskOverdueNotifications(value);
+                break;
+            case "onlyHighPriorityNotifications":
+                preferences.setOnlyHighPriorityNotifications(value);
+                break;
+            case "groupSimilarNotifications":
+                preferences.setGroupSimilarNotifications(value);
+                break;
+            default:
+                throw new IllegalArgumentException("Неизвестная настройка: " + settingKey);
+        }
+    }
+    
+    /**
      * Создает настройки по умолчанию для пользователя
      * @param user пользователь
      * @return настройки по умолчанию
@@ -71,7 +220,7 @@ public class NotificationPreferencesService {
         return NotificationPreferences.builder()
                 .user(user)
                 .globalNotificationsEnabled(true)
-                .emailNotificationsEnabled(true)
+                .emailNotificationsEnabled(false)
                 .telegramNotificationsEnabled(false)
                 .browserNotificationsEnabled(true)
                 .boardInviteNotifications(true)

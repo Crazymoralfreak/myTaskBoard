@@ -14,6 +14,7 @@ import java.util.HashMap;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import lombok.ToString;
 import lombok.EqualsAndHashCode;
@@ -64,16 +65,28 @@ public class Board {
     private List<BoardColumn> columns = new ArrayList<>();
     
     @JsonManagedReference("board-statuses")
-    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TaskStatus> taskStatuses = new ArrayList<>();
     
     @JsonManagedReference("board-types")
-    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<TaskType> taskTypes = new ArrayList<>();
+    
+    @JsonIgnore
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<BoardMember> members = new ArrayList<>();
+    
+    @JsonIgnore
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<TaskTemplate> taskTemplates = new ArrayList<>();
     
     // Дополнительные свойства, не хранящиеся в БД
     @Transient

@@ -84,7 +84,7 @@ public class BoardController {
         return ResponseEntity.ok(boardService.addColumnToBoard(boardId, column));
     }
 
-    @DeleteMapping(value = "/{boardId}/columns/{columnId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping("/{boardId}/columns/{columnId}")
     public Board removeColumn(@PathVariable String boardId, @PathVariable Long columnId) {
         return boardService.removeColumnFromBoard(boardId, columnId);
     }
@@ -162,7 +162,7 @@ public class BoardController {
         return ResponseEntity.ok(boardService.unarchiveBoard(id));
     }
 
-    @DeleteMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping("/{id}")
     public void deleteBoard(@PathVariable String id) {
         boardService.deleteBoard(id);
     }

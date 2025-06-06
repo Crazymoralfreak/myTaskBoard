@@ -55,6 +55,9 @@ public class Task {
     @Column(name = "comment_count")
     private Integer commentCount = 0;
     
+    @Column(name = "attachment_count")
+    private Integer attachmentCount = 0;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "status_id")
     @JsonBackReference("task-status")

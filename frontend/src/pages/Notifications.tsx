@@ -22,6 +22,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import InboxIcon from '@mui/icons-material/Inbox';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import NotificationItem from '../components/notifications/NotificationItem';
 import { NotificationsService } from '../services/NotificationsService';
 import { Notification, NotificationType, NotificationPriority } from '../types/Notification';
@@ -43,6 +44,7 @@ const NotificationsPage: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [selectedNotifications, setSelectedNotifications] = useState<Set<number>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const navigate = useNavigate();
   
   // Загрузка уведомлений
@@ -94,6 +96,55 @@ const NotificationsPage: React.FC = () => {
     
     fetchNotifications();
   }, [page, currentTab, priorityFilter, searchTerm]);
+
+  // Функция принудительного обновления уведомлений
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setError(null);
+      
+      let response;
+      if (currentTab === 'archived') {
+        response = await NotificationsService.getArchivedNotifications(page - 1);
+      } else {
+        response = await NotificationsService.getNotifications(page - 1);
+      }
+      
+      let filteredNotifications = response.content;
+      
+      // Фильтрация по приоритету
+      if (priorityFilter !== 'all') {
+        filteredNotifications = filteredNotifications.filter(
+          n => n.priority === priorityFilter
+        );
+      }
+      
+      // Поиск по тексту
+      if (searchTerm) {
+        filteredNotifications = filteredNotifications.filter(
+          n => n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               n.message.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
+      setNotifications(filteredNotifications);
+      setTotalPages(response.totalPages);
+      setTotalElements(response.totalElements);
+      
+      // Обновляем счетчик уведомлений
+      const newCount = await NotificationsService.getUnreadCount();
+      const countUpdateEvent = new CustomEvent('notification-count-update', {
+        detail: { count: newCount }
+      });
+      window.dispatchEvent(countUpdateEvent);
+      
+    } catch (err) {
+      console.error('Error refreshing notifications:', err);
+      setError('Не удалось обновить уведомления. Попробуйте позже.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
   
   // Обработчик отметки уведомления как прочитанного
   const handleMarkAsRead = async (id: number) => {
@@ -375,18 +426,29 @@ const NotificationsPage: React.FC = () => {
             Уведомления
           </Typography>
           
-          {currentTab === 'active' && (
+          <Box display="flex" gap={1}>
             <Button
               variant="outlined"
-              onClick={handleMarkAllAsRead}
-              disabled={loading || markingAsRead || notifications.every(n => n.isRead)}
+              onClick={handleRefresh}
+              disabled={loading || refreshing}
+              startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
             >
-              {markingAsRead ? (
-                <CircularProgress size={24} sx={{ mr: 1 }} />
-              ) : null}
-              Прочитать все
+              {refreshing ? 'Обновление...' : 'Обновить'}
             </Button>
-          )}
+            
+            {currentTab === 'active' && (
+              <Button
+                variant="outlined"
+                onClick={handleMarkAllAsRead}
+                disabled={loading || markingAsRead || notifications.every(n => n.isRead)}
+              >
+                {markingAsRead ? (
+                  <CircularProgress size={24} sx={{ mr: 1 }} />
+                ) : null}
+                Прочитать все
+              </Button>
+            )}
+          </Box>
         </Box>
         
         {/* Вкладки */}

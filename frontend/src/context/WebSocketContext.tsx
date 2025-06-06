@@ -1,19 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import WebSocketService from '../services/WebSocketService';
 import { authService } from '../services/authService';
-import { Notification } from '../types/Notification';
+import { Notification as AppNotification } from '../types/Notification';
+import { NotificationsService } from '../services/NotificationsService';
 
 interface WebSocketContextType {
   isConnected: boolean;
   unreadCount: number;
   setUnreadCount: (count: number) => void;
+  newNotifications: AppNotification[];
+  clearNewNotifications: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
-export const useWebSocket = () => {
+export const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useWebSocket must be used within a WebSocketProvider');
   }
   return context;
@@ -26,18 +29,34 @@ interface WebSocketProviderProps {
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [newNotifications, setNewNotifications] = useState<AppNotification[]>([]);
+
+  const clearNewNotifications = () => {
+    setNewNotifications([]);
+  };
 
   useEffect(() => {
     const token = authService.getToken();
     
     if (token && authService.isAuthenticated()) {
+      console.log('Инициализация WebSocket с токеном:', token.substring(0, 10) + '...');
+      
       // Инициализируем WebSocket
       WebSocketService.initialize(token);
       
       // Обработчики подключения/отключения
-      const handleConnect = () => {
+      const handleConnect = async () => {
         console.log('WebSocket connected');
         setIsConnected(true);
+        
+        // Загружаем начальный счетчик уведомлений при подключении
+        try {
+          const count = await NotificationsService.getUnreadCount();
+          setUnreadCount(count);
+          console.log('Загружен начальный счетчик уведомлений:', count);
+        } catch (error) {
+          console.error('Ошибка загрузки счетчика уведомлений:', error);
+        }
       };
       
       const handleDisconnect = () => {
@@ -51,21 +70,26 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       };
       
       // Обработчик новых уведомлений
-      const handleNewNotification = (notification: Notification) => {
+      const handleNewNotification = (notification: AppNotification) => {
         console.log('New notification received:', notification);
-        // Обновления счетчика будет обрабатываться через handleCountUpdate
+        
+        // Добавляем новое уведомление в список
+        setNewNotifications(prev => [notification, ...prev]);
+        
+        // Показываем браузерное уведомление, если разрешены
+        if ('Notification' in window && window.Notification.permission === 'granted') {
+          new window.Notification(notification.title, {
+            body: notification.message,
+            icon: '/logo.svg',
+            badge: '/logo.svg'
+          });
+        }
       };
       
       // Обработчик обновления счетчика
       const handleCountUpdate = (count: number) => {
-        console.log('Unread count updated:', count);
+        console.log('Unread count updated via WebSocket:', count);
         setUnreadCount(count);
-        
-        // Также отправляем событие для совместимости с существующим кодом
-        const countUpdateEvent = new CustomEvent('notification-count-update', {
-          detail: { count }
-        });
-        window.dispatchEvent(countUpdateEvent);
       };
       
       // Регистрируем обработчики
@@ -87,11 +111,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
   }, []);
 
-  // Также слушаем события обновления счетчика для обратной совместимости
+  // Слушаем события обновления счетчика для обратной совместимости
   useEffect(() => {
     const handleCountUpdateEvent = (event: Event) => {
       const customEvent = event as CustomEvent;
-      setUnreadCount(customEvent.detail.count);
+      const { count } = customEvent.detail;
+      if (typeof count === 'number') {
+        setUnreadCount(count);
+        console.log('Count updated via custom event:', count);
+      }
     };
 
     window.addEventListener('notification-count-update', handleCountUpdateEvent);
@@ -104,7 +132,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const value = {
     isConnected,
     unreadCount,
-    setUnreadCount
+    setUnreadCount,
+    newNotifications,
+    clearNewNotifications
   };
 
   return (

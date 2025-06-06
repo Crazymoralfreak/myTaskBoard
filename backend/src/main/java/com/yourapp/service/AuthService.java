@@ -219,7 +219,7 @@ public class AuthService {
                 .positionVisible(true)
                 .bioVisible(true)
                 .language("ru")
-                .timezone("UTC+3")
+                .timezone("Europe/Moscow")  // Используем современный формат IANA
                 .build();
         return userSettingsRepository.save(settings);
     }

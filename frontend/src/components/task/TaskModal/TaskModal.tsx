@@ -1238,9 +1238,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             label={
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                     <span>Комментарии</span>
-                                                    {task.commentCount !== undefined && task.commentCount > 0 && (
+                                                    {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
                                                         <Chip 
-                                                            label={task.commentCount} 
+                                                            label={task.comments?.length || task.commentCount || 0} 
                                                             size="small" 
                                                             color="primary"
                                                             sx={{ 

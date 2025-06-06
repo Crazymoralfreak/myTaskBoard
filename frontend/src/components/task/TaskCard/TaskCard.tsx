@@ -20,6 +20,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import CommentIcon from '@mui/icons-material/Comment';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { Task } from '../../../types/task';
 import { format, formatDistance, differenceInDays, differenceInHours, isPast, addDays } from 'date-fns';
@@ -451,11 +452,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         )}
                         
                         {/* Иконка комментариев */}
-                        {task.commentCount > 0 && (
-                            <Tooltip title={`Комментариев: ${task.commentCount}`}>
+                        {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
+                            <Tooltip title={`Комментариев: ${task.comments?.length || task.commentCount || 0}`}>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                     <CommentIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
-                                    {task.commentCount > 1 && (
+                                    {((task.comments && task.comments.length > 1) || task.commentCount > 1) && (
                                         <Typography
                                             variant="caption"
                                             sx={{
@@ -464,7 +465,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                                 ml: 0.1
                                             }}
                                         >
-                                            {task.commentCount}
+                                            {task.comments?.length || task.commentCount || 0}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Tooltip>
+                        )}
+                        
+                        {/* Иконка вложений */}
+                        {(task.attachmentCount > 0 || (task.attachments && task.attachments.length > 0)) && (
+                            <Tooltip title={`Вложений: ${task.attachmentCount || task.attachments?.length || 0}`}>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <AttachFileIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
+                                    {(task.attachmentCount > 1 || (task.attachments && task.attachments.length > 1)) && (
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                fontSize: '10px',
+                                                lineHeight: 1,
+                                                ml: 0.1
+                                            }}
+                                        >
+                                            {task.attachmentCount || task.attachments?.length || 0}
                                         </Typography>
                                     )}
                                 </Box>
@@ -700,8 +722,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                 )}
                                 
                                 {/* Индикатор комментариев */}
-                                {task.commentCount > 0 && (
-                                    <Tooltip title={`${task.commentCount} комментариев`}>
+                                {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
+                                    <Tooltip title={`${task.comments?.length || task.commentCount || 0} комментариев`}>
                                         <Box sx={{ 
                                             display: 'flex', 
                                             alignItems: 'center',
@@ -722,7 +744,36 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                                     lineHeight: 1
                                                 }}
                                             >
-                                                {task.commentCount}
+                                                {task.comments?.length || task.commentCount || 0}
+                                            </Typography>
+                                        </Box>
+                                    </Tooltip>
+                                )}
+
+                                {/* Индикатор вложений */}
+                                {(task.attachmentCount > 0 || (task.attachments && task.attachments.length > 0)) && (
+                                    <Tooltip title={`${task.attachmentCount || task.attachments?.length || 0} вложений`}>
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center',
+                                            color: theme.palette.text.secondary,
+                                            borderRadius: '12px',
+                                            px: 1,
+                                            py: 0.25
+                                        }}>
+                                            <AttachFileIcon sx={{ 
+                                                fontSize: '0.9rem', 
+                                                mr: 0.5 
+                                            }} />
+                                            <Typography
+                                                variant="caption"
+                                                sx={{ 
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 'medium',
+                                                    lineHeight: 1
+                                                }}
+                                            >
+                                                {task.attachmentCount || task.attachments?.length || 0}
                                             </Typography>
                                         </Box>
                                     </Tooltip>

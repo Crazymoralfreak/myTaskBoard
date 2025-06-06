@@ -3,6 +3,7 @@ package com.yourapp.util;
 import com.yourapp.model.*;
 import com.yourapp.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationUtil {
     
     private final NotificationService notificationService;
@@ -19,7 +21,7 @@ public class NotificationUtil {
     
     public void notifyTaskCreated(Task task) {
         if (task.getAssignee() != null) {
-            notificationService.createNotification(
+            var notification = notificationService.createNotification(
                 task.getAssignee().getId(),
                 NotificationType.TASK_CREATED,
                 "Новая задача создана",
@@ -27,11 +29,15 @@ public class NotificationUtil {
                 getBoardTaskId(task),
                 "TASK"
             );
+            if (notification != null) {
+                log.debug("Отправлено уведомление о создании задачи {} пользователю {}", 
+                        task.getTitle(), task.getAssignee().getUsername());
+            }
         }
     }
     
     public void notifyTaskAssigned(Task task, User assignee) {
-        notificationService.createNotification(
+        var notification = notificationService.createNotification(
             assignee.getId(),
             NotificationType.TASK_ASSIGNED,
             "Вам назначена задача",
@@ -39,11 +45,15 @@ public class NotificationUtil {
             getBoardTaskId(task),
             "TASK"
         );
+        if (notification != null) {
+            log.debug("Отправлено уведомление о назначении задачи {} пользователю {}", 
+                    task.getTitle(), assignee.getUsername());
+        }
     }
     
     public void notifyTaskUpdated(Task task) {
         if (task.getAssignee() != null) {
-            notificationService.createNotification(
+            var notification = notificationService.createNotification(
                 task.getAssignee().getId(),
                 NotificationType.TASK_UPDATED,
                 "Задача обновлена",
@@ -51,6 +61,10 @@ public class NotificationUtil {
                 getBoardTaskId(task),
                 "TASK"
             );
+            if (notification != null) {
+                log.debug("Отправлено уведомление об обновлении задачи {} пользователю {}", 
+                        task.getTitle(), task.getAssignee().getUsername());
+            }
         }
     }
     
@@ -169,7 +183,7 @@ public class NotificationUtil {
     public void notifySubtaskCreated(Subtask subtask) {
         Task parentTask = subtask.getParentTask();
         if (parentTask != null && parentTask.getAssignee() != null) {
-            notificationService.createNotification(
+            var notification = notificationService.createNotification(
                 parentTask.getAssignee().getId(),
                 NotificationType.SUBTASK_CREATED,
                 "Создана подзадача",
@@ -177,13 +191,17 @@ public class NotificationUtil {
                 getBoardTaskId(parentTask),
                 "TASK"
             );
+            if (notification != null) {
+                log.debug("Отправлено уведомление о создании подзадачи {} пользователю {}", 
+                        subtask.getTitle(), parentTask.getAssignee().getUsername());
+            }
         }
     }
     
     public void notifySubtaskCompleted(Subtask subtask) {
         Task parentTask = subtask.getParentTask();
         if (parentTask != null && parentTask.getAssignee() != null) {
-            notificationService.createNotification(
+            var notification = notificationService.createNotification(
                 parentTask.getAssignee().getId(),
                 NotificationType.SUBTASK_COMPLETED,
                 "Подзадача завершена",
@@ -191,13 +209,17 @@ public class NotificationUtil {
                 getBoardTaskId(parentTask),
                 "TASK"
             );
+            if (notification != null) {
+                log.debug("Отправлено уведомление о завершении подзадачи {} пользователю {}", 
+                        subtask.getTitle(), parentTask.getAssignee().getUsername());
+            }
         }
     }
     
     // ==================== BOARD NOTIFICATIONS ====================
     
     public void notifyBoardInvite(User user, Board board) {
-        notificationService.createNotification(
+        var notification = notificationService.createNotification(
             user.getId(),
             NotificationType.BOARD_INVITE,
             "Приглашение на доску",
@@ -205,6 +227,10 @@ public class NotificationUtil {
             board.getId(),
             "BOARD"
         );
+        if (notification != null) {
+            log.debug("Отправлено уведомление о приглашении на доску {} пользователю {}", 
+                    board.getName(), user.getUsername());
+        }
     }
     
     public void notifyBoardMemberAdded(User user, Board board) {

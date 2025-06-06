@@ -7,12 +7,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TelegramNotificationService {
     
     private final TelegramBotService telegramBotService;
+    private final NotificationPreferencesService preferencesService;
     
     public void sendTaskAssignedNotification(User user, String taskTitle) {
         if (!shouldSendNotification(user, NotificationType.TASK_ASSIGNED)) {
@@ -50,52 +53,81 @@ public class TelegramNotificationService {
         sendNotification(user, message);
     }
     
-    private boolean shouldSendNotification(User user, NotificationType type) {
+    /**
+     * Универсальный метод для отправки любого уведомления в Telegram
+     * @param user пользователь
+     * @param message сообщение для отправки
+     */
+    public void sendNotification(User user, String message) {
         if (user.getTelegramChatId() == null) {
-            return false;
-        }
-        
-        NotificationPreferences prefs = user.getNotificationPreferences();
-        if (prefs == null || !prefs.isGlobalNotificationsEnabled() || !prefs.isTelegramNotificationsEnabled()) {
-            return false;
-        }
-        
-        return switch (type) {
-            case TASK_ASSIGNED -> prefs.isTaskAssignedNotifications();
-            case TASK_UPDATED -> prefs.isTaskUpdatedNotifications();
-            case TASK_STATUS_CHANGED -> prefs.isTaskStatusChangedNotifications();
-            case NEW_COMMENT_MENTION -> prefs.isMentionNotifications();
-            case TASK_CREATED -> prefs.isTaskCreatedNotifications();
-            case TASK_DELETED -> prefs.isTaskDeletedNotifications();
-            case TASK_COMMENT_ADDED -> prefs.isTaskCommentAddedNotifications();
-            case SUBTASK_CREATED -> prefs.isSubtaskCreatedNotifications();
-            case SUBTASK_COMPLETED -> prefs.isSubtaskCompletedNotifications();
-            case BOARD_INVITE -> prefs.isBoardInviteNotifications();
-            case BOARD_MEMBER_ADDED -> prefs.isBoardMemberAddedNotifications();
-            case BOARD_MEMBER_REMOVED -> prefs.isBoardMemberRemovedNotifications();
-            case ATTACHMENT_ADDED -> prefs.isAttachmentAddedNotifications();
-            case DEADLINE_REMINDER -> prefs.isDeadlineReminderNotifications();
-            case ROLE_CHANGED -> prefs.isRoleChangedNotifications();
-            case TASK_DUE_SOON -> prefs.isTaskDueSoonNotifications();
-            case TASK_OVERDUE -> prefs.isTaskOverdueNotifications();
-            default -> false;
-        };
-    }
-    
-    private void sendNotification(User user, String message) {
-        if (user.getTelegramChatId() == null) {
+            log.debug("Telegram уведомление не отправлено пользователю {}: нет telegram chat ID", user.getUsername());
             return;
         }
         
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(user.getTelegramChatId());
-        sendMessage.setText(message);
+        try {
+            SendMessage sendMessage = new SendMessage();
+            sendMessage.setChatId(user.getTelegramChatId());
+            sendMessage.setText(message);
+            
+            telegramBotService.execute(sendMessage);
+            log.info("Telegram уведомление успешно отправлено пользователю {}", user.getUsername());
+        } catch (TelegramApiException e) {
+            log.error("Ошибка отправки Telegram уведомления пользователю {}: {}", user.getUsername(), e.getMessage());
+        }
+    }
+    
+    private boolean shouldSendNotification(User user, NotificationType type) {
+        if (user.getTelegramChatId() == null) {
+            log.debug("Telegram уведомление не отправлено пользователю {}: нет telegram chat ID", user.getUsername());
+            return false;
+        }
         
         try {
-            telegramBotService.execute(sendMessage);
-        } catch (TelegramApiException e) {
-            // Логирование ошибки
-            System.err.println("Error sending Telegram notification: " + e.getMessage());
+            var preferences = preferencesService.getUserPreferences(user.getId());
+            
+            if (!preferences.isGlobalNotificationsEnabled()) {
+                log.debug("Telegram уведомление не отправлено пользователю {}: глобальные уведомления отключены", user.getUsername());
+                return false;
+            }
+            
+            if (!preferences.isTelegramNotificationsEnabled()) {
+                log.debug("Telegram уведомление не отправлено пользователю {}: Telegram уведомления отключены", user.getUsername());
+                return false;
+            }
+            
+            boolean typeEnabled = switch (type) {
+                case TASK_ASSIGNED -> preferences.isTaskAssignedNotifications();
+                case TASK_UPDATED -> preferences.isTaskUpdatedNotifications();
+                case TASK_STATUS_CHANGED -> preferences.isTaskStatusChangedNotifications();
+                case NEW_COMMENT_MENTION -> preferences.isMentionNotifications();
+                case TASK_CREATED -> preferences.isTaskCreatedNotifications();
+                case TASK_DELETED -> preferences.isTaskDeletedNotifications();
+                case TASK_COMMENT_ADDED -> preferences.isTaskCommentAddedNotifications();
+                case SUBTASK_CREATED -> preferences.isSubtaskCreatedNotifications();
+                case SUBTASK_COMPLETED -> preferences.isSubtaskCompletedNotifications();
+                case BOARD_INVITE -> preferences.isBoardInviteNotifications();
+                case BOARD_MEMBER_ADDED -> preferences.isBoardMemberAddedNotifications();
+                case BOARD_MEMBER_REMOVED -> preferences.isBoardMemberRemovedNotifications();
+                case ATTACHMENT_ADDED -> preferences.isAttachmentAddedNotifications();
+                case DEADLINE_REMINDER -> preferences.isDeadlineReminderNotifications();
+                case ROLE_CHANGED -> preferences.isRoleChangedNotifications();
+                case TASK_DUE_SOON -> preferences.isTaskDueSoonNotifications();
+                case TASK_OVERDUE -> preferences.isTaskOverdueNotifications();
+                default -> false;
+            };
+            
+            if (!typeEnabled) {
+                log.debug("Telegram уведомление не отправлено пользователю {}: тип {} отключен в настройках", 
+                        user.getUsername(), type);
+                return false;
+            }
+            
+            log.debug("Telegram уведомление разрешено для пользователя {} тип {}", user.getUsername(), type);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Ошибка при проверке настроек уведомлений для пользователя {}: {}", user.getUsername(), e.getMessage());
+            return false;
         }
     }
 }
