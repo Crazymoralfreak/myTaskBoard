@@ -1,6 +1,6 @@
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { Notification } from '../types/notification';
+import { Notification } from '../types/Notification';
 
 /**
  * Тип обработчика событий сокета
@@ -13,11 +13,17 @@ type WebSocketEventHandler = () => void;
 type MessageHandler = (notification: Notification) => void;
 
 /**
+ * Тип обработчика обновлений счетчика
+ */
+type CountUpdateHandler = (count: number) => void;
+
+/**
  * Сервис для работы с WebSocket
  */
 class WebSocketService {
   private client: Client | null = null;
   private messageHandlers: MessageHandler[] = [];
+  private countUpdateHandlers: CountUpdateHandler[] = [];
   private connectHandlers: WebSocketEventHandler[] = [];
   private disconnectHandlers: WebSocketEventHandler[] = [];
   private errorHandlers: ((error: any) => void)[] = [];
@@ -31,12 +37,36 @@ class WebSocketService {
       this.disconnect();
     }
     
-    const apiUrl = import.meta.env.VITE_API_URL || '';
-    const wsUrl = apiUrl.replace(/^http/, 'ws');
-    const socketEndpoint = `${wsUrl}/ws`;
+    // SockJS требует HTTP URL, а не WebSocket URL
+    // SockJS автоматически преобразует HTTP в WebSocket
+    let socketEndpoint: string;
+    
+    if (import.meta.env.DEV) {
+      // В dev режиме используем прокси через текущий домен
+      const protocol = window.location.protocol; // http: или https:
+      const host = window.location.host;
+      socketEndpoint = `${protocol}//${host}/ws`;
+    } else {
+      // В production используем VITE_APP_API_URL или fallback
+      const apiUrl = import.meta.env.VITE_APP_API_URL || 'http://localhost:8081';
+      socketEndpoint = `${apiUrl}/ws`;
+    }
+    
+    console.log('WebSocket endpoint:', socketEndpoint);
+    console.log('Current location:', window.location.href);
+    console.log('Environment mode:', import.meta.env.MODE);
     
     this.client = new Client({
-      webSocketFactory: () => new SockJS(socketEndpoint),
+      webSocketFactory: () => {
+        console.log('Creating SockJS connection to:', socketEndpoint);
+        const sockjs = new SockJS(socketEndpoint);
+        
+        sockjs.onopen = () => console.log('SockJS connection opened');
+        sockjs.onclose = (event) => console.log('SockJS connection closed:', event);
+        sockjs.onerror = (error) => console.error('SockJS error:', error);
+        
+        return sockjs;
+      },
       connectHeaders: {
         Authorization: `Bearer ${token}`
       },
@@ -81,6 +111,22 @@ class WebSocketService {
    */
   public removeMessageHandler(handler: MessageHandler): void {
     this.messageHandlers = this.messageHandlers.filter(h => h !== handler);
+  }
+  
+  /**
+   * Добавляет обработчик обновлений счетчика
+   * @param handler функция-обработчик обновлений счетчика
+   */
+  public addCountUpdateHandler(handler: CountUpdateHandler): void {
+    this.countUpdateHandlers.push(handler);
+  }
+  
+  /**
+   * Удаляет обработчик обновлений счетчика
+   * @param handler функция-обработчик обновлений счетчика
+   */
+  public removeCountUpdateHandler(handler: CountUpdateHandler): void {
+    this.countUpdateHandlers = this.countUpdateHandlers.filter(h => h !== handler);
   }
   
   /**
@@ -141,6 +187,9 @@ class WebSocketService {
     if (this.client) {
       // Подписываемся на получение уведомлений
       this.client.subscribe('/user/queue/notifications', this.onMessage.bind(this));
+      
+      // Подписываемся на обновления счетчика
+      this.client.subscribe('/user/queue/unread-count', this.onCountUpdate.bind(this));
     }
     
     // Вызываем все обработчики подключения
@@ -181,6 +230,24 @@ class WebSocketService {
       this.messageHandlers.forEach(handler => handler(notification));
     } catch (error) {
       console.error('Error parsing notification message:', error);
+    }
+  }
+  
+  /**
+   * Обработчик обновлений счетчика
+   * @param message сообщение с обновлением счетчика
+   */
+  private onCountUpdate(message: IMessage): void {
+    try {
+      const data = JSON.parse(message.body);
+      const count = data.count || 0;
+      
+      console.log('Получено обновление счетчика уведомлений:', count);
+      
+      // Вызываем все обработчики обновлений счетчика
+      this.countUpdateHandlers.forEach(handler => handler(count));
+    } catch (error) {
+      console.error('Error parsing count update message:', error);
     }
   }
 }

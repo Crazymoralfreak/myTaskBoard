@@ -29,7 +29,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Регистрация конечной точки WebSocket
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("*") // В реальном проекте ограничьте это до ваших доменов
+                .setAllowedOriginPatterns("http://localhost:*", "https://localhost:*") // Разрешаем все порты на localhost
                 .withSockJS(); // Поддержка для старых браузеров
     }
 

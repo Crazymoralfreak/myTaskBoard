@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Drawer, 
   Box, 
@@ -18,7 +18,8 @@ import {
   DialogContentText,
   DialogActions,
   Button,
-  Container
+  Container,
+  Badge
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -26,8 +27,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import LogoutIcon from '@mui/icons-material/Logout';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services/authService';
+import NotificationBell from '../notifications/NotificationBell';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -42,6 +46,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Используем WebSocket для real-time обновления счетчика
+  const { unreadCount, isConnected } = useWebSocket();
 
   const handleToggleDrawer = () => {
     setIsOpen(!isOpen);
@@ -74,6 +81,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
 
   const menuItems = [
     { text: 'Доски', icon: <DashboardIcon />, path: '/' },
+    { 
+      text: 'Уведомления', 
+      icon: (
+        <Badge badgeContent={unreadCount || 0} color="error">
+          <NotificationsIcon />
+        </Badge>
+      ), 
+      path: '/notifications' 
+    },
     { text: 'Настройки', icon: <SettingsIcon />, path: '/settings' },
     { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
   ];
@@ -83,6 +99,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
     if (path !== '/' && location.pathname.startsWith(path)) return true;
     return false;
   };
+
+  // Получаем токен для NotificationBell
+  const token = authService.getToken();
 
   const drawer = (
     <Box sx={{ 
@@ -178,9 +197,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             MyTaskBoard
           </Typography>
+          {/* Колокольчик уведомлений в мобильной шапке */}
+          {token && <NotificationBell token={token} />}
         </Toolbar>
       </AppBar>
 

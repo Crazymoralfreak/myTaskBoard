@@ -30,10 +30,21 @@ public class TaskMapper {
         if (task.getColumn() != null) {
             response.setColumnId(task.getColumn().getId());
             response.setColumnColor(task.getColumn().getColor());
+            if (task.getColumn().getBoard() != null) {
+                response.setBoardId(task.getColumn().getBoard().getId());
+            }
         }
         
         if (task.getAssignee() != null) {
             response.setAssigneeId(task.getAssignee().getId());
+            
+            TaskResponse.UserResponse assignee = new TaskResponse.UserResponse();
+            assignee.setId(task.getAssignee().getId());
+            assignee.setUsername(task.getAssignee().getUsername());
+            assignee.setAvatarUrl(task.getAssignee().getAvatarUrl());
+            assignee.setEmail(task.getAssignee().getEmail());
+            assignee.setDisplayName(task.getAssignee().getDisplayName());
+            response.setAssignee(assignee);
         }
         
         if (task.getType() != null) {
@@ -59,6 +70,9 @@ public class TaskMapper {
             response.setCustomStatus(statusResponse);
         }
 
+        // Устанавливаем счетчик комментариев из поля модели
+        response.setCommentCount(task.getCommentCount() != null ? task.getCommentCount().longValue() : 0L);
+        
         if (task.getComments() != null && !task.getComments().isEmpty()) {
             List<TaskResponse.CommentResponse> comments = task.getComments().stream()
                 .map(comment -> {
@@ -82,10 +96,10 @@ public class TaskMapper {
                 })
                 .collect(Collectors.toList());
             response.setComments(comments);
-            response.setCommentCount((long) task.getComments().size());
-        } else {
-            response.setCommentCount(0L);
         }
+        
+        // Устанавливаем счетчик вложений из поля модели
+        response.setAttachmentCount(task.getAttachmentCount() != null ? task.getAttachmentCount().longValue() : 0L);
         
         if (task.getAttachments() != null && !task.getAttachments().isEmpty()) {
             List<TaskResponse.AttachmentResponse> attachments = task.getAttachments().stream()
@@ -112,10 +126,8 @@ public class TaskMapper {
                 })
                 .collect(Collectors.toList());
             response.setAttachments(attachments);
-            response.setAttachmentCount((long) task.getAttachments().size());
         } else {
             response.setAttachments(new ArrayList<>());
-            response.setAttachmentCount(0L);
         }
         
         return response;

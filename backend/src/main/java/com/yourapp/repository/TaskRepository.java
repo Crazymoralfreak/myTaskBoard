@@ -13,10 +13,10 @@ import java.util.Set;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus WHERE t.column.id = :columnId")
+    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus LEFT JOIN FETCH t.assignee WHERE t.column.id = :columnId")
     List<Task> findByColumnId(@Param("columnId") Long columnId);
     
-    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus WHERE t.column.id = :columnId ORDER BY t.position ASC")
+    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus LEFT JOIN FETCH t.assignee WHERE t.column.id = :columnId ORDER BY t.position ASC")
     List<Task> findByColumnIdOrderByPositionAsc(@Param("columnId") Long columnId);
     
     List<Task> findAllByEndDateIsNotNull();
@@ -32,9 +32,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
            "AND t.daysRemaining <= :days")
     List<Task> findTasksEndingSoon(@Param("days") Long days);
 
-    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus WHERE t.id = :id")
+    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.type LEFT JOIN FETCH t.customStatus LEFT JOIN FETCH t.assignee WHERE t.id = :id")
     Optional<Task> findByIdWithTypeAndStatus(@Param("id") Long id);
 
     @Query("SELECT DISTINCT t FROM Task task JOIN task.tags t")
     Set<String> findAllTags();
+    
+    @Query("SELECT t FROM Task t WHERE t.endDate BETWEEN :startDate AND :endDate")
+    List<Task> findTasksByEndDateBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

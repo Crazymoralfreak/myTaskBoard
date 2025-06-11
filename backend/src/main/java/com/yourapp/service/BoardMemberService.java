@@ -6,6 +6,7 @@ import com.yourapp.model.Role;
 import com.yourapp.model.BoardMember;
 import com.yourapp.dto.BoardMemberDTO;
 import com.yourapp.dto.RoleDTO;
+import com.yourapp.util.NotificationUtil;
 import com.yourapp.repository.BoardMemberRepository;
 import com.yourapp.repository.BoardRepository;
 import com.yourapp.repository.UserRepository;
@@ -31,6 +32,7 @@ public class BoardMemberService {
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
     private final RoleService roleService;
+    private final NotificationUtil notificationUtil;
     
     /**
      * Добавляет пользователя к доске с указанной ролью
@@ -61,6 +63,10 @@ public class BoardMemberService {
                 .build();
         
         BoardMember savedMember = boardMemberRepository.save(boardMember);
+        
+        // Создаем уведомление о добавлении участника доски
+        notificationUtil.notifyBoardMemberAdded(user, board);
+        
         return mapToDTO(savedMember);
     }
     
@@ -126,6 +132,10 @@ public class BoardMemberService {
         boardMember.setRole(role);
         
         BoardMember updatedMember = boardMemberRepository.save(boardMember);
+        
+        // Создаем уведомление об изменении роли
+        notificationUtil.notifyRoleChanged(user, board, role);
+        
         return mapToDTO(updatedMember);
     }
     
@@ -153,6 +163,9 @@ public class BoardMemberService {
         }
         
         boardMemberRepository.deleteByUserAndBoard(user, board);
+        
+        // Создаем уведомление об удалении участника доски
+        notificationUtil.notifyBoardMemberRemoved(user, board);
     }
     
     /**

@@ -45,7 +45,8 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/uploads/**",
-                    "/static/**"
+                    "/static/**",
+                    "/ws/**"  // Разрешаем WebSocket endpoints
                 ).permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()

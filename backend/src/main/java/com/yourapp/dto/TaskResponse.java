@@ -17,7 +17,9 @@ public class TaskResponse {
     private Long daysRemaining;
     private Long columnId;
     private String columnColor;
+    private String boardId;
     private Long assigneeId;
+    private UserResponse assignee;
     private TaskPriority priority;
     private Set<String> tags;
     private TaskStatusResponse customStatus;

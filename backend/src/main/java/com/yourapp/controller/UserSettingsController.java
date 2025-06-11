@@ -37,6 +37,23 @@ public class UserSettingsController {
         return ResponseEntity.ok(updatedSettings);
     }
 
+    @PatchMapping("/settings/{settingKey}")
+    public ResponseEntity<UserSettingsDTO> updateUserSetting(
+            @AuthenticationPrincipal User user,
+            @PathVariable String settingKey,
+            @RequestBody java.util.Map<String, Object> request) {
+        log.info("Получен запрос на обновление настройки '{}' пользователя: id={}, username={}", 
+                settingKey, user.getId(), user.getUsername());
+        
+        Object value = request.get("value");
+        log.debug("Значение для настройки '{}': {}", settingKey, value);
+        
+        UserSettingsDTO updatedSettings = userSettingsService.updateUserSetting(user, settingKey, value);
+        
+        log.info("Настройка '{}' пользователя успешно обновлена", settingKey);
+        return ResponseEntity.ok(updatedSettings);
+    }
+
     @PostMapping("/clear-cache")
     public ResponseEntity<Void> clearCache(@AuthenticationPrincipal User user) {
         userSettingsService.clearCache(user);

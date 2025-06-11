@@ -20,6 +20,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import CommentIcon from '@mui/icons-material/Comment';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { Task } from '../../../types/task';
 import { format, formatDistance, differenceInDays, differenceInHours, isPast, addDays } from 'date-fns';
@@ -31,6 +32,7 @@ import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
 import { toast } from 'react-hot-toast';
 import { useTaskDelete } from '../../../hooks/useTaskDelete';
 import { useUserRole, Permission } from '../../../hooks/useUserRole';
+import { getAvatarUrl } from '../../../utils/avatarUtils';
 
 interface TaskCardProps {
     task: Task;
@@ -119,14 +121,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     isCompact = false,
     onTasksChange
 }) => {
-    // Отладочный вывод для диагностики проблем с отображением типа задачи
-    if (task.type) {
-        console.log(`TaskCard: Задача ${task.id} (${task.title}) имеет тип:`, 
-            JSON.stringify(task.type, null, 2));
-    } else {
-        console.log(`TaskCard: Задача ${task.id} (${task.title}) НЕ имеет типа`);
-    }
-    
     const theme = useTheme();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -139,6 +133,66 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     // Получаем информацию о правах пользователя
     const userRoles = useUserRole(null, Number(task.boardId));
     
+    // Компонент аватара - УПРОЩЕННЫЙ
+    const AssigneeAvatar: React.FC<{ 
+        assignee: NonNullable<Task['assignee']>, 
+        size: number,
+        compactMode?: boolean 
+    }> = ({ assignee, size, compactMode = false }) => {
+        return (
+            <Tooltip title={`Назначена на: ${assignee.displayName || assignee.username}`}>
+                <Box
+                    sx={{
+                        width: `${size}px`,
+                        height: `${size}px`,
+                        minWidth: `${size}px`,
+                        minHeight: `${size}px`,
+                        borderRadius: '50%',
+                        border: `2px solid ${theme.palette.divider}`,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: theme.palette.background.paper,
+                        boxShadow: theme.shadows[1],
+                        flexShrink: 0,
+                        position: 'relative'
+                    }}
+                >
+                    {assignee.avatarUrl ? (
+                        <img 
+                            src={getAvatarUrl(assignee.avatarUrl)} 
+                            alt={assignee.username}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                display: 'block'
+                            }}
+                            onError={(e) => {
+                                console.error('Ошибка загрузки аватара:', assignee.avatarUrl);
+                                // При ошибке показываем инициалы
+                                e.currentTarget.style.display = 'none';
+                            }}
+                        />
+                    ) : (
+                        <Typography
+                            sx={{
+                                fontSize: compactMode ? '10px' : size > 24 ? '14px' : '11px',
+                                fontWeight: 600,
+                                color: theme.palette.text.secondary,
+                                lineHeight: 1,
+                                userSelect: 'none'
+                            }}
+                        >
+                            {assignee.username.charAt(0).toUpperCase()}
+                        </Typography>
+                    )}
+                </Box>
+            </Tooltip>
+        );
+    };
+
     // Проверяем права на редактирование задачи
     const canEditTask = (): boolean => {
         if (task.boardId) {
@@ -342,23 +396,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         }} 
                     />
                     
-                    {/* Название задачи с ограничением */}
-                    <Typography 
-                        sx={{ 
-                            fontWeight: 500,
-                            color: theme.palette.text.primary,
-                            fontSize: '0.75rem',
-                            lineHeight: '24px',
-                            flexGrow: 1,
-                            ml: 0.5,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 'calc(100% - 80px)' // Оставляем место для иконок
-                        }}
-                    >
-                        {displayTitle}
-                    </Typography>
+                    {/* Аватар и название задачи */}
+                    <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5,
+                        flexGrow: 1,
+                        ml: 0.5,
+                        overflow: 'hidden'
+                    }}>
+                        {/* Аватар назначенного пользователя перед названием */}
+                        {task.assignee && (
+                            <AssigneeAvatar 
+                                assignee={task.assignee} 
+                                size={16} 
+                                compactMode={true}
+                            />
+                        )}
+                        
+                        <Typography 
+                            sx={{ 
+                                fontWeight: 500,
+                                color: theme.palette.text.primary,
+                                fontSize: '0.75rem',
+                                lineHeight: '24px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1
+                            }}
+                        >
+                            {displayTitle}
+                        </Typography>
+                    </Box>
                     
                     {/* Иконки атрибутов в правой части */}
                     <Box sx={{ 
@@ -382,11 +452,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         )}
                         
                         {/* Иконка комментариев */}
-                        {task.commentCount > 0 && (
-                            <Tooltip title={`Комментариев: ${task.commentCount}`}>
+                        {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
+                            <Tooltip title={`Комментариев: ${task.comments?.length || task.commentCount || 0}`}>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                     <CommentIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
-                                    {task.commentCount > 1 && (
+                                    {((task.comments && task.comments.length > 1) || task.commentCount > 1) && (
                                         <Typography
                                             variant="caption"
                                             sx={{
@@ -395,7 +465,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                                 ml: 0.1
                                             }}
                                         >
-                                            {task.commentCount}
+                                            {task.comments?.length || task.commentCount || 0}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Tooltip>
+                        )}
+                        
+                        {/* Иконка вложений */}
+                        {(task.attachmentCount > 0 || (task.attachments && task.attachments.length > 0)) && (
+                            <Tooltip title={`Вложений: ${task.attachmentCount || task.attachments?.length || 0}`}>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <AttachFileIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
+                                    {(task.attachmentCount > 1 || (task.attachments && task.attachments.length > 1)) && (
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                fontSize: '10px',
+                                                lineHeight: 1,
+                                                ml: 0.1
+                                            }}
+                                        >
+                                            {task.attachmentCount || task.attachments?.length || 0}
                                         </Typography>
                                     )}
                                 </Box>
@@ -455,7 +546,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </>
         );
     }
-    
+
     // Стандартный режим отображения
     return (
         <>
@@ -488,18 +579,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     zIndex: 1 
                 }}>
                     <Box>
-                        {/* Заголовок и кнопка действий */}
+                        {/* Заголовок с аватаром */}
                         <Box sx={{ 
                             display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'flex-start',
+                            alignItems: 'center',
+                            gap: 1,
                             mb: 1
                         }}>
+                            {/* Аватар назначенного пользователя перед названием */}
+                            {task.assignee && (
+                                <AssigneeAvatar 
+                                    assignee={task.assignee} 
+                                    size={32} 
+                                    compactMode={false}
+                                />
+                            )}
+                            
                             <Typography 
                                 variant="subtitle1"
                                 sx={{ 
                                     fontWeight: 500,
                                     color: theme.palette.text.primary,
+                                    flex: 1
                                 }}
                             >
                                 {task.title}
@@ -621,8 +722,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                 )}
                                 
                                 {/* Индикатор комментариев */}
-                                {task.commentCount > 0 && (
-                                    <Tooltip title={`${task.commentCount} комментариев`}>
+                                {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
+                                    <Tooltip title={`${task.comments?.length || task.commentCount || 0} комментариев`}>
                                         <Box sx={{ 
                                             display: 'flex', 
                                             alignItems: 'center',
@@ -643,7 +744,36 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                                     lineHeight: 1
                                                 }}
                                             >
-                                                {task.commentCount}
+                                                {task.comments?.length || task.commentCount || 0}
+                                            </Typography>
+                                        </Box>
+                                    </Tooltip>
+                                )}
+
+                                {/* Индикатор вложений */}
+                                {(task.attachmentCount > 0 || (task.attachments && task.attachments.length > 0)) && (
+                                    <Tooltip title={`${task.attachmentCount || task.attachments?.length || 0} вложений`}>
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center',
+                                            color: theme.palette.text.secondary,
+                                            borderRadius: '12px',
+                                            px: 1,
+                                            py: 0.25
+                                        }}>
+                                            <AttachFileIcon sx={{ 
+                                                fontSize: '0.9rem', 
+                                                mr: 0.5 
+                                            }} />
+                                            <Typography
+                                                variant="caption"
+                                                sx={{ 
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 'medium',
+                                                    lineHeight: 1
+                                                }}
+                                            >
+                                                {task.attachmentCount || task.attachments?.length || 0}
                                             </Typography>
                                         </Box>
                                     </Tooltip>

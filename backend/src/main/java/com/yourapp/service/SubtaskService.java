@@ -6,6 +6,7 @@ import com.yourapp.model.User;
 import com.yourapp.repository.SubtaskRepository;
 import com.yourapp.repository.TaskRepository;
 import com.yourapp.repository.UserRepository;
+import com.yourapp.util.NotificationUtil;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public class SubtaskService {
     private final SubtaskRepository subtaskRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final NotificationUtil notificationUtil;
     
     @Transactional
     public Subtask createSubtask(Long taskId, Subtask subtask) {
@@ -50,7 +52,12 @@ public class SubtaskService {
         subtask.setUpdatedAt(now);
         
         logger.debug("Сохранение подзадачи");
-        return subtaskRepository.save(subtask);
+        Subtask savedSubtask = subtaskRepository.save(subtask);
+        
+        // Создаем уведомление о создании подзадачи для назначенного пользователя родительской задачи
+        notificationUtil.notifySubtaskCreated(savedSubtask);
+        
+        return savedSubtask;
     }
     
     @Transactional
@@ -73,7 +80,15 @@ public class SubtaskService {
         }
         
         if (updates.containsKey("completed")) {
-            subtask.setCompleted((Boolean) updates.get("completed"));
+            boolean wasCompleted = subtask.isCompleted();
+            boolean isCompleted = (Boolean) updates.get("completed");
+            subtask.setCompleted(isCompleted);
+            
+                         // Если подзадача была завершена (изменилась с false на true)
+             if (!wasCompleted && isCompleted) {
+                 // Создаем уведомление о завершении подзадачи для назначенного пользователя родительской задачи
+                 notificationUtil.notifySubtaskCompleted(subtask);
+             }
         }
         
         if (updates.containsKey("position")) {

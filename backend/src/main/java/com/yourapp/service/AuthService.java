@@ -64,7 +64,7 @@ public class AuthService {
                     .user(user)
                     .globalNotificationsEnabled(true)
                     .taskAssignedNotifications(true)
-                    .taskMovedNotifications(true)
+                    .taskStatusChangedNotifications(true)
                     .taskUpdatedNotifications(true)
                     .mentionNotifications(true)
                     .build();
@@ -179,7 +179,7 @@ public class AuthService {
                     .user(user)
                     .globalNotificationsEnabled(true)
                     .taskAssignedNotifications(true)
-                    .taskMovedNotifications(true)
+                    .taskStatusChangedNotifications(true)
                     .taskUpdatedNotifications(true)
                     .mentionNotifications(true)
                     .build();
@@ -219,7 +219,7 @@ public class AuthService {
                 .positionVisible(true)
                 .bioVisible(true)
                 .language("ru")
-                .timezone("UTC+3")
+                .timezone("Europe/Moscow")  // Используем современный формат IANA
                 .build();
         return userSettingsRepository.save(settings);
     }

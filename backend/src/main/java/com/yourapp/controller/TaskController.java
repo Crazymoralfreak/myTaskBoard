@@ -42,6 +42,7 @@ public class TaskController {
     private final TaskService taskService;
     private final ColumnRepository columnRepository;
     private final TaskStatusRepository taskStatusRepository;
+    private final UserRepository userRepository;
     private final TaskTypeRepository taskTypeRepository;
     private final TaskMapper taskMapper;
 
@@ -222,6 +223,32 @@ public class TaskController {
             }
         }
 
+        // Обработка ответственного (опционально)
+        if (request.containsKey("assigneeId")) {
+            Object assigneeIdObj = request.get("assigneeId");
+            logger.debug("Обработка assigneeId. Значение: {}, Тип: {}", assigneeIdObj,
+                assigneeIdObj != null ? assigneeIdObj.getClass().getSimpleName() : "null");
+            
+            Long assigneeId = null;
+            if (assigneeIdObj instanceof String) {
+                assigneeId = Long.valueOf((String) assigneeIdObj);
+            } else if (assigneeIdObj instanceof Number) {
+                assigneeId = ((Number) assigneeIdObj).longValue();
+            }
+            
+            if (assigneeId != null) {
+                try {
+                    User assignee = userRepository.findById(assigneeId)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+                    task.setAssignee(assignee);
+                    logger.debug("Ответственный успешно назначен: {}", assignee.getUsername());
+                } catch (Exception e) {
+                    logger.error("Ошибка при назначении ответственного {}: {}", assigneeId, e.getMessage());
+                    throw e;
+                }
+            }
+        }
+
         // Создаем задачу через сервис
         try {
             logger.debug("Отправка задачи в сервис для создания. UserId: {}", currentUser.getId());
@@ -304,6 +331,30 @@ public class TaskController {
             }
         }
         
+        // Обработка assigneeId
+        if (updates.containsKey("assigneeId")) {
+            Object assigneeIdObj = updates.get("assigneeId");
+            logger.debug("Обработка assigneeId при обновлении. Значение: {}, Тип: {}", assigneeIdObj,
+                assigneeIdObj != null ? assigneeIdObj.getClass().getSimpleName() : "null");
+            
+            if (assigneeIdObj == null) {
+                updates.put("assignee", null);
+            } else {
+                Long assigneeId = null;
+                if (assigneeIdObj instanceof String) {
+                    assigneeId = Long.valueOf((String) assigneeIdObj);
+                } else if (assigneeIdObj instanceof Number) {
+                    assigneeId = ((Number) assigneeIdObj).longValue();
+                }
+                if (assigneeId != null) {
+                    User assignee = userRepository.findById(assigneeId)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+                    updates.put("assignee", assignee);
+                    logger.debug("Ответственный при обновлении установлен: {}", assignee.getUsername());
+                }
+            }
+        }
+        
         Task updatedTask = taskService.updateTask(taskId, updates);
         return taskMapper.toResponse(updatedTask);
     }
@@ -322,6 +373,11 @@ public class TaskController {
         @PathVariable Long userId
     ) {
         return taskMapper.toResponse(taskService.assignTask(taskId, userId));
+    }
+    
+    @PatchMapping("/{taskId}/unassign")
+    public TaskResponse unassignTask(@PathVariable Long taskId) {
+        return taskMapper.toResponse(taskService.assignTask(taskId, null));
     }
 
     @DeleteMapping("/{id}")

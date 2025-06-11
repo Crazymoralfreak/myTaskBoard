@@ -25,6 +25,13 @@ export default defineConfig({
             console.log('Получен ответ от прокси:', proxyRes.statusCode, req.url);
           });
         },
+      },
+      // Проксирование WebSocket соединений
+      '/ws': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
+        ws: true, // Включаем поддержку WebSocket
       }
     }
   },

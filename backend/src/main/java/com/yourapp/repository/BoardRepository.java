@@ -31,6 +31,7 @@ public interface BoardRepository extends JpaRepository<Board, String> {
     @Query("SELECT DISTINCT t FROM Task t " +
            "LEFT JOIN FETCH t.type " +
            "LEFT JOIN FETCH t.customStatus " +
+           "LEFT JOIN FETCH t.assignee " +
            "WHERE t.column.board.id = :boardId " +
            "AND t.column.board.archived = false " +
            "AND t.column IS NOT NULL")

@@ -16,11 +16,14 @@ public interface UserSettingsRepository extends JpaRepository<UserSettings, Long
     void deleteByUser(User user);
     
     /**
-     * Безопасное обновление настроек пользователя без изменения связи с пользователем
+     * Безопасное обновление всех настроек пользователя без изменения связи с пользователем
      * @param id ID настроек
      * @param darkMode режим темной темы
      * @param compactMode компактный режим
      * @param enableAnimations включить анимации
+     * @param browserNotifications браузерные уведомления
+     * @param emailNotifications email уведомления
+     * @param telegramNotifications telegram уведомления
      * @param language язык интерфейса
      * @param timezone временная зона
      * @return количество обновленных записей
@@ -31,9 +34,14 @@ public interface UserSettingsRepository extends JpaRepository<UserSettings, Long
            "s.darkMode = :darkMode, " +
            "s.compactMode = :compactMode, " +
            "s.enableAnimations = :enableAnimations, " +
+           "s.browserNotifications = :browserNotifications, " +
+           "s.emailNotifications = :emailNotifications, " +
+           "s.telegramNotifications = :telegramNotifications, " +
            "s.language = :language, " +
            "s.timezone = :timezone " +
            "WHERE s.id = :id")
     int updateSettingsSafely(Long id, Boolean darkMode, Boolean compactMode, 
-                          Boolean enableAnimations, String language, String timezone);
+                          Boolean enableAnimations, Boolean browserNotifications,
+                          Boolean emailNotifications, Boolean telegramNotifications,
+                          String language, String timezone);
 }

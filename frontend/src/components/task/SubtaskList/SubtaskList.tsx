@@ -26,6 +26,7 @@ import { taskService } from '../../../services/taskService';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { getAvatarUrl } from '../../../utils/avatarUtils';
 
 interface SubtaskListProps {
     task: Task;
@@ -309,7 +310,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
                                                             {subtask.assignee ? (
                                                                 <Tooltip title={subtask.assignee.username}>
                                                                     <Avatar
-                                                                        src={subtask.assignee.avatarUrl}
+                                                                        src={getAvatarUrl(subtask.assignee.avatarUrl)}
                                                                         sx={{ width: 24, height: 24, cursor: 'pointer' }}
                                                                         onClick={(e) => handleAssigneeClick(e, subtask.id)}
                                                                     />
@@ -366,7 +367,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Avatar
-                                src={user.avatarUrl}
+                                src={getAvatarUrl(user.avatarUrl)}
                                 sx={{ width: 24, height: 24 }}
                             />
                             <Typography>{user.username}</Typography>

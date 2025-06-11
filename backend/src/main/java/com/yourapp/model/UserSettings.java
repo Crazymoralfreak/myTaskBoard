@@ -60,7 +60,7 @@ public class UserSettings {
     private String language = "ru";
 
     @Column(name = "timezone")
-    private String timezone = "UTC+3";
+    private String timezone = "Europe/Moscow";
     
     // Ручная реализация builder
     public static UserSettingsBuilder builder() {
@@ -189,7 +189,7 @@ public class UserSettings {
         private Boolean positionVisible = true;
         private Boolean bioVisible = true;
         private String language = "ru";
-        private String timezone = "UTC+3";
+        private String timezone = "Europe/Moscow";
         
         public UserSettingsBuilder id(Long id) {
             this.id = id;

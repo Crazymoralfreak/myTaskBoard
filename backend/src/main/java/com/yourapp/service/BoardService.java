@@ -15,6 +15,7 @@ import com.yourapp.repository.TaskTypeRepository;
 import com.yourapp.repository.BoardColumnRepository;
 import com.yourapp.repository.UserRepository;
 import com.yourapp.repository.BoardMemberRepository;
+import com.yourapp.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +41,7 @@ public class BoardService {
     private final BoardColumnRepository boardColumnRepository;
     private final UserRepository userRepository;
     private final BoardMemberRepository boardMemberRepository;
+    private final NotificationRepository notificationRepository;
     private final EntityManager entityManager;
     private final BoardMemberService boardMemberService;
     private final RoleService roleService;
@@ -173,7 +175,24 @@ public class BoardService {
     
     @Transactional
     public void deleteBoard(String id) {
+        logger.debug("Начало удаления доски с ID: {}", id);
+        
+        // Проверяем, что доска существует
+        Board board = boardRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Board not found"));
+        
+        // Удаляем связанные уведомления вручную перед удалением доски
+        notificationRepository.deleteByRelatedEntity(id, "BOARD");
+        logger.debug("Удалены уведомления для доски {}", id);
+        
+        // Удаляем уведомления связанные с задачами доски (формат "boardId:taskId")
+        notificationRepository.deleteByRelatedEntityPattern(id + ":%", "TASK");
+        logger.debug("Удалены уведомления для задач доски {}", id);
+        
+        // Каскадное удаление остального содержимого доски будет выполнено автоматически
+        // благодаря настройкам cascade = CascadeType.ALL, orphanRemoval = true
         boardRepository.deleteById(id);
+        logger.debug("Доска {} успешно удалена", id);
     }
     
     public Board getBoard(String id) {
@@ -204,10 +223,11 @@ public class BoardService {
         
         // Логируем информацию о типах задач
         tasks.forEach(task -> {
-            logger.debug("Задача ID:{} - тип:{}, статус:{}", 
+            logger.debug("Задача ID:{} - тип:{}, статус:{}, назначенный:{}", 
                 task.getId(),
                 task.getType() != null ? task.getType().getId() + ":" + task.getType().getName() : "null",
-                task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null");
+                task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null",
+                task.getAssignee() != null ? task.getAssignee().getId() + ":" + task.getAssignee().getUsername() : "null");
         });
         
         // Обновляем задачи в колонках

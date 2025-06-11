@@ -66,7 +66,6 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
     const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [commentCount, setCommentCount] = useState(0);
     
     // Упрощаем конфигурацию для ReactQuill
     const quillModules = {
@@ -106,10 +105,8 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             .then((task: Task) => {
                 if (task && task.comments) {
                     setComments(task.comments as CommentWithReplies[]);
-                    setCommentCount(task.comments.length);
                 } else {
                     setComments([]);
-                    setCommentCount(0);
                 }
                 setLoading(false);
             })
@@ -155,7 +152,6 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             
             // Добавляем временный комментарий в список
             setComments(prev => [...prev, tempComment]);
-            setCommentCount(prev => prev + 1);
             
             // Прокручиваем к новому комментарию
             setTimeout(scrollToBottom, 100);
@@ -177,12 +173,10 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                     setComments(prev => prev.map(c => c.id === realComment.id ? { ...c, isNew: false } : c));
                 }, 1500); // Длительность анимации + небольшой запас
                 
-                setCommentCount(updatedTask.comments.length);
                 console.log('Комментарий успешно добавлен, задача обновлена:', updatedTask);
             } else {
                 // Если ответ не содержит комментариев (неожиданно), удаляем временный
                 setComments(prev => prev.filter(c => c.id !== tempId));
-                setCommentCount(prev => prev - 1); // Уменьшаем счетчик обратно
             }
             
             // Обновляем только счетчик комментариев, не всю задачу
@@ -224,7 +218,6 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             // Обновляем список комментариев из полученных данных
             if (updatedTask && updatedTask.comments) {
                 setComments(updatedTask.comments as CommentWithReplies[]);
-                setCommentCount(updatedTask.comments.length);
             }
             
             // Очищаем поле ввода
@@ -557,7 +550,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
     return (
         <Box sx={{ mt: 3 }}>
             <Typography variant="h6" gutterBottom>
-                Комментарии ({commentCount})
+                Комментарии ({comments.length})
             </Typography>
             
             {/* Список комментариев */}

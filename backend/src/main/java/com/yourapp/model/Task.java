@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.ArrayList;
 import lombok.ToString;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Data
 @Builder
@@ -54,6 +55,9 @@ public class Task {
     @Column(name = "comment_count")
     private Integer commentCount = 0;
     
+    @Column(name = "attachment_count")
+    private Integer attachmentCount = 0;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "status_id")
     @JsonBackReference("task-status")
@@ -84,7 +88,6 @@ public class Task {
     @EqualsAndHashCode.Exclude
     private BoardColumn column;
     
-    @JsonBackReference("task-assignee")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
     private User assignee;
@@ -103,7 +106,7 @@ public class Task {
         joinColumns = @JoinColumn(name = "task_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    @JsonBackReference("task-watchers")
+    @JsonIgnore
     private Set<User> watchers = new HashSet<>();
     
     @OneToMany(mappedBy = "parentTask", cascade = CascadeType.ALL, orphanRemoval = true)

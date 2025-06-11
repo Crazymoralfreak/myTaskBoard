@@ -84,7 +84,7 @@ public class BoardController {
         return ResponseEntity.ok(boardService.addColumnToBoard(boardId, column));
     }
 
-    @DeleteMapping(value = "/{boardId}/columns/{columnId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping("/{boardId}/columns/{columnId}")
     public Board removeColumn(@PathVariable String boardId, @PathVariable Long columnId) {
         return boardService.removeColumnFromBoard(boardId, columnId);
     }
@@ -162,7 +162,7 @@ public class BoardController {
         return ResponseEntity.ok(boardService.unarchiveBoard(id));
     }
 
-    @DeleteMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @DeleteMapping("/{id}")
     public void deleteBoard(@PathVariable String id) {
         boardService.deleteBoard(id);
     }
@@ -172,7 +172,7 @@ public class BoardController {
         logger.info("Запрос на получение доски с ID: {}, пользователь: {}", id, user != null ? user.getUsername() : "null");
         
         try {
-            Board board = boardService.getBoardById(id);
+            Board board = boardService.getBoard(id);
             
             // В DTO добавляем флаг, является ли текущий пользователь владельцем
             boolean isOwner = user != null && board.getOwner() != null && board.getOwner().getId().equals(user.getId());

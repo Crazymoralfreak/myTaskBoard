@@ -93,6 +93,13 @@ export interface Task {
         username: string;
         avatarUrl?: string;
     }>;
+    assignee?: {
+        id: number;
+        username: string;
+        avatarUrl?: string;
+        email?: string;
+        displayName?: string;
+    };
     subtasks?: Array<Subtask>;
     commentCount: number;
     attachmentCount: number;
@@ -112,6 +119,7 @@ export interface CreateTaskRequest {
     columnColor?: string;
     columnId: string;
     boardId?: string | number;
+    assigneeId?: number;
 }
 
 export interface TaskTemplate {

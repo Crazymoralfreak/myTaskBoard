@@ -439,7 +439,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                             p: isCompactMode ? 1.5 : 2,
                             flexGrow: 1,
                             minHeight: 100,
-                            maxHeight: 'calc(100vh - 200px)',
+                            height: '100%', // Занимаем всю доступную высоту родителя
+                            maxHeight: '100%', // Не превышаем высоту родителя
                             position: 'relative',
                             bgcolor: snapshot.isDraggingOver 
                                 ? `${alpha(color, 0.15)} !important`
@@ -518,8 +519,16 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                                                     return;
                                                 }
                                                 
+                                                // Защита от потери данных assignee при обновлении
+                                                const originalTask = column.tasks.find(t => t.id === updatedTask.id);
+                                                const taskToUpdate = {
+                                                    ...updatedTask,
+                                                    // Сохраняем assignee если он был, но потерялся при обновлении
+                                                    assignee: updatedTask.assignee || originalTask?.assignee
+                                                };
+                                                
                                                 const updatedTasks = column.tasks.map(t => 
-                                                    t.id === updatedTask.id ? updatedTask : t
+                                                    t.id === updatedTask.id ? taskToUpdate : t
                                                 );
                                                 onTasksChange?.({
                                                     ...column,
