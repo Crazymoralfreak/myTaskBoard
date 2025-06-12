@@ -103,6 +103,7 @@ export interface Task {
     subtasks?: Array<Subtask>;
     commentCount: number;
     attachmentCount: number;
+    subtaskCount?: number;
 }
 
 export interface CreateTaskRequest {

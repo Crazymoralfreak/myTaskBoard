@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     List,
     ListItem,
@@ -15,11 +15,24 @@ import {
     Menu,
     MenuItem,
     CircularProgress,
-    ListItemAvatar
+    ListItemAvatar,
+    Chip,
+    Divider,
+    FormControl,
+    InputLabel,
+    Select,
+    Paper,
+    Zoom,
+    Fab,
+    LinearProgress
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import AddIcon from '@mui/icons-material/Add';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Subtask } from '../../../types/subtask';
 import { Task } from '../../../types/task';
 import { taskService } from '../../../services/taskService';
@@ -27,22 +40,137 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
+import { BoardMembersService } from '../../../services/BoardMembersService';
+import { BoardMember } from '../../../types/BoardMember';
+import { useTheme } from '@mui/material/styles';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import { TextRenderer } from '../../../utils/textUtils';
 
 interface SubtaskListProps {
     task: Task;
     onTaskUpdate: (updatedTask: Task) => void;
+    onLocalUpdate?: (subtasks: Subtask[]) => void; // Локальные обновления без закрытия модального окна
 }
 
-export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) => {
+export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, onLocalUpdate }) => {
+    const theme = useTheme();
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    const [newSubtaskDescription, setNewSubtaskDescription] = useState('');
     const [editingSubtask, setEditingSubtask] = useState<number | null>(null);
     const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
     const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedSubtask, setSelectedSubtask] = useState<number | null>(null);
+    const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+    const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
+    const [showDescriptionForm, setShowDescriptionForm] = useState(false);
+
+    // Конфигурация для ReactQuill
+    const quillModules = {
+        toolbar: [
+            ['bold', 'italic', 'underline', 'strike'],
+            ['blockquote', 'code-block'],
+            [{ 'header': [1, 2, false] }],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'script': 'sub'}, { 'script': 'super' }],
+            ['link'],
+            ['clean']
+        ]
+    };
+
+    const quillFormats = [
+        'bold', 'italic', 'underline', 'strike',
+        'blockquote', 'code-block',
+        'header',
+        'list', 'bullet',
+        'script',
+        'link'
+    ];
+
+    // Синхронизируем подзадачи с пропсами task
+    useEffect(() => {
+        if (task.subtasks) {
+            // Сортируем подзадачи по порядку (position), а затем по ID для стабильности
+            const sortedSubtasks = [...task.subtasks].sort((a, b) => {
+                if (a.position !== undefined && b.position !== undefined) {
+                    return a.position - b.position;
+                }
+                if (a.position !== undefined) return -1;
+                if (b.position !== undefined) return 1;
+                return a.id - b.id; // Fallback на ID
+            });
+            setSubtasks(sortedSubtasks);
+            console.log('SubtaskList: Обновлены подзадачи из props:', sortedSubtasks);
+        } else {
+            setSubtasks([]);
+        }
+    }, [task.subtasks]);
 
     const formatDate = (date: string) => {
         return format(new Date(date), 'dd MMM yyyy HH:mm', { locale: ru });
+    };
+
+    // Загружаем участников доски
+    useEffect(() => {
+        const loadBoardMembers = async () => {
+            // Пытаемся получить boardId из различных источников
+            const boardId = task.boardId || 
+                           (task as any).board?.id || 
+                           (typeof window !== 'undefined' && window.location.pathname.match(/\/boards\/([a-zA-Z0-9_-]+)/)?.[1]);
+            
+            console.log('SubtaskList: Попытка загрузки участников доски. boardId:', boardId, 'task:', task);
+            
+            if (!boardId) {
+                console.warn('SubtaskList: Не удалось определить boardId для загрузки участников');
+                return;
+            }
+            
+            try {
+                console.log('SubtaskList: Загружаем участников доски:', boardId);
+                const members = await BoardMembersService.getBoardMembers(boardId);
+                console.log('SubtaskList: Загружены участники доски:', members);
+                if (Array.isArray(members)) {
+                    setBoardMembers(members);
+                } else {
+                    console.warn('SubtaskList: Получены некорректные данные участников:', members);
+                    setBoardMembers([]);
+                }
+            } catch (error) {
+                console.error('SubtaskList: Не удалось загрузить участников доски:', error);
+                setBoardMembers([]);
+            }
+        };
+        
+        loadBoardMembers();
+    }, [task.boardId, task]);
+
+    const updateTaskSubtasks = (newSubtasks: Subtask[], shouldUpdateTask: boolean = false) => {
+        // Сортируем подзадачи для корректного отображения
+        const sortedSubtasks = [...newSubtasks].sort((a, b) => {
+            if (a.position !== undefined && b.position !== undefined) {
+                return a.position - b.position;
+            }
+            if (a.position !== undefined) return -1;
+            if (b.position !== undefined) return 1;
+            return a.id - b.id;
+        });
+        
+        setSubtasks(sortedSubtasks);
+        
+        // Обновляем задачу только когда явно указано (например, для особых случаев автообновления статуса)
+        if (shouldUpdateTask) {
+            const updatedTask = {
+                ...task,
+                subtasks: sortedSubtasks,
+                subtaskCount: sortedSubtasks.length
+            };
+            onTaskUpdate(updatedTask);
+        } else if (onLocalUpdate) {
+            // Используем локальное обновление для обычных операций
+            onLocalUpdate(sortedSubtasks);
+        }
     };
 
     const handleAddSubtask = async (e: React.FormEvent) => {
@@ -51,11 +179,16 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
 
         try {
             setLoading(true);
-            const updatedTask = await taskService.createSubtask(task.id, {
-                title: newSubtaskTitle.trim()
+            const newSubtask = await taskService.createSubtask(task.id, {
+                title: newSubtaskTitle.trim(),
+                description: newSubtaskDescription.trim() || undefined
             });
-            onTaskUpdate(updatedTask);
+            
+            const updatedSubtasks = [...subtasks, newSubtask];
+            updateTaskSubtasks(updatedSubtasks, false); // false - не закрываем модальное окно
             setNewSubtaskTitle('');
+            setNewSubtaskDescription('');
+            setShowDescriptionForm(false);
         } catch (error) {
             console.error('Failed to create subtask:', error);
         } finally {
@@ -68,45 +201,48 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
 
         try {
             setLoading(true);
-            const updatedTask = await taskService.updateSubtask(task.id, subtaskId, {
+            const updatedSubtask = await taskService.updateSubtask(task.id, subtaskId, {
                 completed: !completed
             });
             
-            // Проверка всех подзадач на завершенность
-            const allSubtasksCompleted = updatedTask.subtasks?.every(subtask => subtask.completed) ?? false;
+            const updatedSubtasks = subtasks.map(st => 
+                st.id === subtaskId ? updatedSubtask : st
+            );
+            updateTaskSubtasks(updatedSubtasks, false); // false - не закрываем модальное окно
+            
+            // Проверяем, завершены ли все подзадачи
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
             
             // Если все подзадачи завершены и статус задачи еще не "Завершено"
-            if (allSubtasksCompleted && updatedTask.customStatus?.name !== "Завершено") {
-                // Проверяем, есть ли статус "Завершено" среди доступных статусов
+            if (allSubtasksCompleted && task.customStatus?.name !== "Завершено") {
+                // Логика автоматического изменения статуса остается прежней
                 const completedStatusNames = ["завершено", "выполнено", "готово"];
                 
-                // Получаем текущий статус задачи
-                const currentStatus = updatedTask.customStatus;
+                const currentStatus = task.customStatus;
                 
                 if (currentStatus) {
                     try {
-                        // Находим все задачи в текущей колонке
-                        const tasksInColumn = await taskService.getTasksByColumn(Number(updatedTask.columnId));
+                        const tasksInColumn = await taskService.getTasksByColumn(Number(task.columnId));
                         
-                        // Извлекаем уникальные статусы из задач
                         const availableStatuses = tasksInColumn
                             .map(t => t.customStatus)
                             .filter((status, index, self) => 
                                 status && self.findIndex(s => s?.id === status?.id) === index
                             );
                         
-                        // Ищем статус "Завершено" среди доступных
                         const doneStatus = availableStatuses.find(status => 
                             status && completedStatusNames.includes(status.name.toLowerCase())
                         );
                         
-                        // Если нашли статус "Завершено", обновляем задачу
                         if (doneStatus) {
                             console.log('Автоматически изменяем статус на:', doneStatus.name);
                             const finalTask = await taskService.updateTask(task.id, {
-                                customStatus: doneStatus
+                                statusId: doneStatus.id
                             });
-                            onTaskUpdate(finalTask);
+                            // Используем локальное обновление вместо onTaskUpdate для предотвращения закрытия модального окна
+                            if (onLocalUpdate) {
+                                onLocalUpdate(updatedSubtasks);
+                            }
                             return;
                         }
                     } catch (error) {
@@ -114,8 +250,6 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
                     }
                 }
             }
-            
-            onTaskUpdate(updatedTask);
         } catch (error) {
             console.error('Failed to update subtask:', error);
         } finally {
@@ -128,8 +262,10 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
 
         try {
             setLoading(true);
-            const updatedTask = await taskService.deleteSubtask(task.id, subtaskId);
-            onTaskUpdate(updatedTask);
+            await taskService.deleteSubtask(task.id, subtaskId);
+            
+            const updatedSubtasks = subtasks.filter(st => st.id !== subtaskId);
+            updateTaskSubtasks(updatedSubtasks, false); // false - не закрываем модальное окно
         } catch (error) {
             console.error('Failed to delete subtask:', error);
         } finally {
@@ -140,6 +276,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
     const handleStartEdit = (subtask: Subtask) => {
         setEditingSubtask(subtask.id);
         setEditTitle(subtask.title);
+        setEditDescription(subtask.description || '');
     };
 
     const handleSaveEdit = async () => {
@@ -147,12 +284,18 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
 
         try {
             setLoading(true);
-            const updatedTask = await taskService.updateSubtask(task.id, editingSubtask, {
-                title: editTitle.trim()
+            const updatedSubtask = await taskService.updateSubtask(task.id, editingSubtask, {
+                title: editTitle.trim(),
+                description: editDescription.trim() || undefined
             });
-            onTaskUpdate(updatedTask);
+            
+            const updatedSubtasks = subtasks.map(st => 
+                st.id === editingSubtask ? updatedSubtask : st
+            );
+            updateTaskSubtasks(updatedSubtasks, false); // false - не закрываем модальное окно
             setEditingSubtask(null);
             setEditTitle('');
+            setEditDescription('');
         } catch (error) {
             console.error('Failed to update subtask:', error);
         } finally {
@@ -161,21 +304,36 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
     };
 
     const handleDragEnd = async (result: any) => {
-        if (!result.destination || loading || !task.subtasks) return;
+        if (!result.destination || loading) return;
 
-        const items = Array.from(task.subtasks);
+        const items = Array.from(subtasks);
         const [reorderedItem] = items.splice(result.source.index, 1);
         items.splice(result.destination.index, 0, reorderedItem);
 
+        // Оптимистично обновляем UI
+        setSubtasks(items);
+
         try {
             setLoading(true);
-            const updatedTask = await taskService.reorderSubtasks(
+            const reorderedSubtasks = await taskService.reorderSubtasks(
                 task.id,
                 items.map(item => item.id)
             );
-            onTaskUpdate(updatedTask);
+            
+            console.log('SubtaskList: Получен ответ от reorderSubtasks:', reorderedSubtasks);
+            
+            // Обновляем состояние с правильным порядком из API
+            if (reorderedSubtasks && Array.isArray(reorderedSubtasks)) {
+                updateTaskSubtasks(reorderedSubtasks, false); // false - используем локальное обновление
+            } else {
+                // Если API не вернул обновленные подзадачи, используем локальный порядок
+                console.warn('SubtaskList: API не вернул обновленные подзадачи, используем локальный порядок');
+                updateTaskSubtasks(items, false); // false - используем локальное обновление
+            }
         } catch (error) {
             console.error('Failed to reorder subtasks:', error);
+            // Откатываем изменения при ошибке
+            updateTaskSubtasks(subtasks, false); // false - не обновляем задачу при откате
         } finally {
             setLoading(false);
         }
@@ -196,8 +354,22 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
 
         try {
             setLoading(true);
-            const updatedTask = await taskService.assignSubtask(task.id, selectedSubtask, userId);
-            onTaskUpdate(updatedTask);
+            let updatedSubtask;
+            
+            if (userId === 0) {
+                // Снимаем назначение - передаем 0 как специальное значение
+                updatedSubtask = await taskService.updateSubtask(task.id, selectedSubtask, {
+                    assigneeId: 0
+                });
+            } else {
+                // Назначаем пользователя
+                updatedSubtask = await taskService.assignSubtask(task.id, selectedSubtask, userId);
+            }
+            
+            const updatedSubtasks = subtasks.map(st => 
+                st.id === selectedSubtask ? updatedSubtask : st
+            );
+            updateTaskSubtasks(updatedSubtasks, false); // false - не закрываем модальное окно
         } catch (error) {
             console.error('Failed to assign subtask:', error);
         } finally {
@@ -206,175 +378,563 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate }) 
         }
     };
 
-
+    // Подсчет статистики
+    const completedCount = subtasks.filter(st => st.completed).length;
+    const totalCount = subtasks.length;
+    const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
     return (
-        <Box>
-            <Box sx={{ mb: 2 }}>
+        <Box sx={{ position: 'relative' }}>
+            {/* Заголовок с статистикой */}
+            <Paper 
+                elevation={1} 
+                sx={{ 
+                    p: 2, 
+                    mb: 3,
+                    background: theme.palette.mode === 'dark' 
+                        ? 'linear-gradient(135deg, rgba(25, 118, 210, 0.1) 0%, rgba(156, 39, 176, 0.1) 100%)'
+                        : 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(156, 39, 176, 0.05) 100%)',
+                    borderRadius: 2
+                }}
+            >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Подзадачи
+                    </Typography>
+                    <Chip 
+                        icon={<CheckCircleIcon />}
+                        label={`${completedCount} / ${totalCount}`}
+                        color={completedCount === totalCount && totalCount > 0 ? 'success' : 'primary'}
+                        variant={completedCount === totalCount && totalCount > 0 ? 'filled' : 'outlined'}
+                    />
+                </Box>
+                
+                {totalCount > 0 && (
+                    <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                                Прогресс выполнения
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {Math.round(progressPercentage)}%
+                            </Typography>
+                        </Box>
+                        <LinearProgress 
+                            variant="determinate" 
+                            value={progressPercentage}
+                            sx={{ 
+                                height: 8, 
+                                borderRadius: 4,
+                                backgroundColor: theme.palette.mode === 'dark' 
+                                    ? 'rgba(255, 255, 255, 0.1)' 
+                                    : 'rgba(0, 0, 0, 0.1)',
+                                '& .MuiLinearProgress-bar': {
+                                    borderRadius: 4,
+                                    background: completedCount === totalCount && totalCount > 0
+                                        ? 'linear-gradient(90deg, #4caf50, #66bb6a)'
+                                        : 'linear-gradient(90deg, #2196f3, #21cbf3)'
+                                }
+                            }}
+                        />
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Форма добавления новой подзадачи */}
+            <Paper elevation={1} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
                 <form onSubmit={handleAddSubtask}>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                         <TextField
                             size="small"
                             fullWidth
-                            placeholder="Добавить подзадачу"
+                            placeholder="Добавить подзадачу..."
                             value={newSubtaskTitle}
                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
                             disabled={loading}
+                            autoFocus
+                            variant="outlined"
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2
+                                }
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey && newSubtaskTitle.trim() && !showDescriptionForm) {
+                                    e.preventDefault();
+                                    handleAddSubtask(e as any);
+                                }
+                            }}
                         />
+                        <Button
+                            variant="outlined"
+                            onClick={() => setShowDescriptionForm(!showDescriptionForm)}
+                            disabled={loading}
+                            sx={{ 
+                                minWidth: '100px',
+                                borderRadius: 2,
+                                textTransform: 'none'
+                            }}
+                        >
+                            {showDescriptionForm ? 'Скрыть' : 'Описание'}
+                        </Button>
                         <Button
                             variant="contained"
                             type="submit"
                             disabled={!newSubtaskTitle.trim() || loading}
+                            startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
+                            sx={{ 
+                                minWidth: '120px',
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 600
+                            }}
                         >
-                            {loading ? <CircularProgress size={24} /> : 'Добавить'}
+                            {loading ? 'Добавление...' : 'Добавить'}
                         </Button>
                     </Box>
+                    
+                    {showDescriptionForm && (
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                                Описание подзадачи
+                            </Typography>
+                            <ReactQuill
+                                value={newSubtaskDescription}
+                                onChange={setNewSubtaskDescription}
+                                modules={quillModules}
+                                formats={quillFormats}
+                                placeholder="Добавьте описание подзадачи с поддержкой markdown..."
+                                theme="snow"
+                                style={{ 
+                                    height: '150px', 
+                                    marginBottom: '50px',
+                                    borderRadius: '8px'
+                                }}
+                            />
+                        </Box>
+                    )}
                 </form>
-            </Box>
+            </Paper>
 
-            <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="subtasks">
-                    {(provided) => (
-                        <List {...provided.droppableProps} ref={provided.innerRef}>
-                            {task.subtasks?.map((subtask, index) => (
-                                <Draggable
-                                    key={subtask.id}
-                                    draggableId={String(subtask.id)}
-                                    index={index}
-                                >
-                                    {(provided) => (
-                                        <ListItem
-                                            ref={provided.innerRef}
-                                            {...provided.draggableProps}
-                                            {...provided.dragHandleProps}
-                                            sx={{
-                                                bgcolor: 'background.paper',
-                                                mb: 1,
-                                                borderRadius: 1,
-                                                border: '1px solid',
-                                                borderColor: 'divider'
-                                            }}
-                                        >
-                                            <Checkbox
-                                                checked={subtask.completed}
-                                                onChange={() => handleToggleComplete(subtask.id, subtask.completed)}
-                                                disabled={loading}
-                                            />
-                                            {editingSubtask === subtask.id ? (
-                                                <Box sx={{ display: 'flex', gap: 1, flex: 1 }}>
-                                                    <TextField
-                                                        fullWidth
-                                                        size="small"
-                                                        value={editTitle}
-                                                        onChange={(e) => setEditTitle(e.target.value)}
-                                                        disabled={loading}
-                                                    />
-                                                    <Button
-                                                        variant="contained"
-                                                        onClick={handleSaveEdit}
-                                                        disabled={!editTitle.trim() || loading}
+            {/* Список подзадач */}
+            {subtasks.length > 0 ? (
+                <DragDropContext onDragEnd={handleDragEnd}>
+                    <Droppable droppableId="subtasks">
+                        {(provided, snapshot) => (
+                            <Box 
+                                {...provided.droppableProps} 
+                                ref={provided.innerRef}
+                                sx={{
+                                    minHeight: snapshot.isDraggingOver ? 100 : 'auto',
+                                    transition: 'min-height 0.2s ease',
+                                    borderRadius: 2,
+                                    backgroundColor: snapshot.isDraggingOver 
+                                        ? theme.palette.action.hover 
+                                        : 'transparent'
+                                }}
+                            >
+                                {subtasks.map((subtask, index) => (
+                                    <Draggable
+                                        key={subtask.id}
+                                        draggableId={String(subtask.id)}
+                                        index={index}
+                                        isDragDisabled={loading}
+                                    >
+                                        {(provided, snapshot) => (
+                                            <Paper
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                elevation={snapshot.isDragging ? 4 : 1}
+                                                sx={{
+                                                    mb: 2,
+                                                    borderRadius: 2,
+                                                    border: '1px solid',
+                                                    borderColor: subtask.completed 
+                                                        ? theme.palette.success.light 
+                                                        : theme.palette.divider,
+                                                    backgroundColor: subtask.completed 
+                                                        ? theme.palette.mode === 'dark'
+                                                            ? 'rgba(76, 175, 80, 0.08)'
+                                                            : 'rgba(76, 175, 80, 0.04)'
+                                                        : theme.palette.background.paper,
+                                                    transition: 'all 0.2s ease-in-out',
+                                                    transform: snapshot.isDragging 
+                                                        ? 'rotate(3deg)' 
+                                                        : 'none',
+                                                    '&:hover': {
+                                                        boxShadow: theme.shadows[3],
+                                                        transform: snapshot.isDragging 
+                                                            ? 'rotate(3deg)' 
+                                                            : 'translateY(-2px)'
+                                                    },
+                                                    overflow: 'hidden'
+                                                }}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+                                                    {/* Drag handle */}
+                                                    <Box 
+                                                        {...provided.dragHandleProps}
+                                                        sx={{ 
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            mr: 2,
+                                                            cursor: 'grab',
+                                                            color: theme.palette.text.secondary,
+                                                            '&:active': {
+                                                                cursor: 'grabbing'
+                                                            }
+                                                        }}
                                                     >
-                                                        Сохранить
-                                                    </Button>
-                                                </Box>
-                                            ) : (
-                                                <>
-                                                    <ListItemText
-                                                        primary={
-                                                            <Typography
-                                                                sx={{
-                                                                    textDecoration: subtask.completed ? 'line-through' : 'none',
-                                                                    color: subtask.completed ? 'text.secondary' : 'text.primary'
-                                                                }}
-                                                            >
-                                                                {subtask.title}
-                                                            </Typography>
-                                                        }
-                                                        secondary={
-                                                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                                                {subtask.dueDate && (
-                                                                    <Typography variant="caption">
-                                                                        Срок: {format(new Date(subtask.dueDate), 'dd MMM yyyy', { locale: ru })}
-                                                                    </Typography>
-                                                                )}
-                                                                {subtask.estimatedHours && (
-                                                                    <Typography variant="caption">
-                                                                        Оценка: {subtask.estimatedHours}ч
-                                                                    </Typography>
-                                                                )}
-                                                            </Box>
-                                                        }
+                                                        <DragIndicatorIcon fontSize="small" />
+                                                    </Box>
+
+                                                    {/* Checkbox */}
+                                                    <Checkbox
+                                                        checked={subtask.completed}
+                                                        onChange={() => handleToggleComplete(subtask.id, subtask.completed)}
+                                                        disabled={loading}
+                                                        color="success"
+                                                        sx={{
+                                                            '&.Mui-checked': {
+                                                                color: theme.palette.success.main
+                                                            },
+                                                            mr: 2
+                                                        }}
                                                     />
-                                                    <ListItemSecondaryAction>
-                                                        <Box sx={{ display: 'flex', gap: 1 }}>
+
+                                                    {/* Content */}
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                        {editingSubtask === subtask.id ? (
+                                                            <Box sx={{ width: '100%' }}>
+                                                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
+                                                                    <TextField
+                                                                        fullWidth
+                                                                        size="small"
+                                                                        label="Название"
+                                                                        value={editTitle}
+                                                                        onChange={(e) => setEditTitle(e.target.value)}
+                                                                        disabled={loading}
+                                                                        variant="outlined"
+                                                                        sx={{
+                                                                            '& .MuiOutlinedInput-root': {
+                                                                                borderRadius: 1
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Box>
+                                                                
+                                                                <Box sx={{ mb: 2 }}>
+                                                                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                                                                        Описание
+                                                                    </Typography>
+                                                                    <ReactQuill
+                                                                        value={editDescription}
+                                                                        onChange={setEditDescription}
+                                                                        modules={quillModules}
+                                                                        formats={quillFormats}
+                                                                        placeholder="Редактировать описание..."
+                                                                        theme="snow"
+                                                                        style={{ 
+                                                                            height: '120px', 
+                                                                            marginBottom: '50px'
+                                                                        }}
+                                                                    />
+                                                                </Box>
+                                                                
+                                                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                                                    <Button
+                                                                        variant="outlined"
+                                                                        size="small"
+                                                                        onClick={() => {
+                                                                            setEditingSubtask(null);
+                                                                            setEditTitle('');
+                                                                            setEditDescription('');
+                                                                        }}
+                                                                        sx={{ 
+                                                                            minWidth: 80,
+                                                                            textTransform: 'none'
+                                                                        }}
+                                                                    >
+                                                                        Отмена
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        size="small"
+                                                                        onClick={handleSaveEdit}
+                                                                        disabled={!editTitle.trim() || loading}
+                                                                        sx={{ 
+                                                                            minWidth: 80,
+                                                                            textTransform: 'none'
+                                                                        }}
+                                                                    >
+                                                                        Сохранить
+                                                                    </Button>
+                                                                </Box>
+                                                            </Box>
+                                                        ) : (
+                                                            <>
+                                                                <Typography
+                                                                    variant="body1"
+                                                                    sx={{
+                                                                        textDecoration: subtask.completed ? 'line-through' : 'none',
+                                                                        color: subtask.completed 
+                                                                            ? theme.palette.text.secondary 
+                                                                            : theme.palette.text.primary,
+                                                                        fontWeight: 500,
+                                                                        mb: 0.5
+                                                                    }}
+                                                                >
+                                                                    {subtask.title}
+                                                                </Typography>
+                                                                
+                                                                {/* Описание подзадачи */}
+                                                                {subtask.description && (
+                                                                    <Box sx={{ mt: 1, mb: 1 }}>
+                                                                        <TextRenderer 
+                                                                            content={subtask.description}
+                                                                            variant="body2"
+                                                                            maxHeight="150px"
+                                                                            enableScroll={true}
+                                                                        />
+                                                                    </Box>
+                                                                )}
+                                                                
+                                                                {/* Metadata */}
+                                                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                    {subtask.dueDate && (
+                                                                        <Chip
+                                                                            size="small"
+                                                                            label={`Срок: ${format(new Date(subtask.dueDate), 'dd MMM yyyy', { locale: ru })}`}
+                                                                            variant="outlined"
+                                                                            sx={{ height: 24, fontSize: '0.75rem' }}
+                                                                        />
+                                                                    )}
+                                                                    {subtask.estimatedHours && (
+                                                                        <Chip
+                                                                            size="small"
+                                                                            label={`${subtask.estimatedHours}ч`}
+                                                                            variant="outlined"
+                                                                            color="info"
+                                                                            sx={{ height: 24, fontSize: '0.75rem' }}
+                                                                        />
+                                                                    )}
+                                                                </Box>
+                                                            </>
+                                                        )}
+                                                    </Box>
+
+                                                    {/* Actions */}
+                                                    {editingSubtask !== subtask.id && (
+                                                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 2 }}>
+                                                            {/* Assignee */}
                                                             {subtask.assignee ? (
-                                                                <Tooltip title={subtask.assignee.username}>
+                                                                <Tooltip title={`Назначена на: ${subtask.assignee.username}`}>
                                                                     <Avatar
                                                                         src={getAvatarUrl(subtask.assignee.avatarUrl)}
-                                                                        sx={{ width: 24, height: 24, cursor: 'pointer' }}
+                                                                        sx={{ 
+                                                                            width: 32, 
+                                                                            height: 32, 
+                                                                            cursor: 'pointer',
+                                                                            border: `2px solid ${theme.palette.divider}`,
+                                                                            '&:hover': {
+                                                                                borderColor: theme.palette.primary.main
+                                                                            }
+                                                                        }}
                                                                         onClick={(e) => handleAssigneeClick(e, subtask.id)}
-                                                                    />
+                                                                    >
+                                                                        {subtask.assignee.username?.charAt(0)?.toUpperCase()}
+                                                                    </Avatar>
                                                                 </Tooltip>
                                                             ) : (
+                                                                <Tooltip title="Назначить участника">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={(e) => handleAssigneeClick(e, subtask.id)}
+                                                                        disabled={loading}
+                                                                        sx={{
+                                                                            border: `1px dashed ${theme.palette.divider}`,
+                                                                            '&:hover': {
+                                                                                borderColor: theme.palette.primary.main,
+                                                                                backgroundColor: theme.palette.action.hover
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <PersonAddIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            )}
+                                                            
+                                                            <Tooltip title="Редактировать">
                                                                 <IconButton
                                                                     size="small"
-                                                                    onClick={(e) => handleAssigneeClick(e, subtask.id)}
+                                                                    onClick={() => handleStartEdit(subtask)}
                                                                     disabled={loading}
                                                                 >
-                                                                    <PersonAddIcon />
+                                                                    <EditIcon fontSize="small" />
                                                                 </IconButton>
-                                                            )}
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleStartEdit(subtask)}
-                                                                disabled={loading}
-                                                            >
-                                                                <EditIcon />
-                                                            </IconButton>
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleDeleteSubtask(subtask.id)}
-                                                                disabled={loading}
-                                                            >
-                                                                <DeleteIcon />
-                                                            </IconButton>
+                                                            </Tooltip>
+                                                            
+                                                            <Tooltip title="Удалить">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => handleDeleteSubtask(subtask.id)}
+                                                                    disabled={loading}
+                                                                    color="error"
+                                                                >
+                                                                    <DeleteIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
                                                         </Box>
-                                                    </ListItemSecondaryAction>
-                                                </>
-                                            )}
-                                        </ListItem>
-                                    )}
-                                </Draggable>
-                            ))}
-                            {provided.placeholder}
-                        </List>
-                    )}
-                </Droppable>
-            </DragDropContext>
+                                                    )}
+                                                </Box>
+                                            </Paper>
+                                        )}
+                                    </Draggable>
+                                ))}
+                                {provided.placeholder}
+                            </Box>
+                        )}
+                    </Droppable>
+                </DragDropContext>
+            ) : (
+                <Paper 
+                    elevation={0} 
+                    sx={{ 
+                        p: 4, 
+                        textAlign: 'center',
+                        border: `2px dashed ${theme.palette.divider}`,
+                        borderRadius: 2,
+                        backgroundColor: theme.palette.action.hover
+                    }}
+                >
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                        Нет подзадач
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Добавьте первую подзадачу, чтобы разбить работу на этапы
+                    </Typography>
+                </Paper>
+            )}
 
-
-
+            {/* Menu для назначения участников */}
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleAssigneeClose}
+                PaperProps={{
+                    sx: { 
+                        maxWidth: 320,
+                        maxHeight: 400,
+                        '& .MuiMenuItem-root': {
+                            py: 1.5,
+                            px: 2
+                        }
+                    }
+                }}
             >
-                {task.watchers?.map((user) => (
-                    <MenuItem
-                        key={user.id}
-                        onClick={() => handleAssignSubtask(user.id)}
-                        disabled={loading}
-                    >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar
-                                src={getAvatarUrl(user.avatarUrl)}
-                                sx={{ width: 24, height: 24 }}
-                            />
-                            <Typography>{user.username}</Typography>
+                <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600 }}>
+                    Назначить участника
+                </Typography>
+                <Divider />
+                
+                {/* Опция "Не назначено" */}
+                <MenuItem
+                    onClick={() => handleAssignSubtask(0)}
+                    disabled={loading}
+                    sx={{ 
+                        '&:hover': { bgcolor: 'action.hover' },
+                        transition: 'background-color 0.2s'
+                    }}
+                >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar sx={{ width: 36, height: 36, bgcolor: 'grey.400' }}>
+                            <PersonOffIcon fontSize="small" />
+                        </Avatar>
+                        <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                Не назначено
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Снять назначение
+                            </Typography>
                         </Box>
+                    </Box>
+                </MenuItem>
+                
+                <Divider sx={{ my: 1 }} />
+                
+                {/* Список участников доски */}
+                {boardMembers.length > 0 ? (
+                    boardMembers
+                        .filter(member => member && (member.user || member.userId))
+                        .map((member) => {
+                            const user = member.user || member;
+                            const userId = user.id || member.userId;
+                            const username = user.username || member.username;
+                            const avatarUrl = user.avatarUrl || member.avatarUrl;
+                            
+                            return (
+                                <MenuItem
+                                    key={userId}
+                                    onClick={() => handleAssignSubtask(userId)}
+                                    disabled={loading}
+                                    sx={{ 
+                                        '&:hover': { bgcolor: 'action.hover' },
+                                        transition: 'background-color 0.2s'
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Avatar
+                                            src={getAvatarUrl(avatarUrl)}
+                                            sx={{ width: 36, height: 36 }}
+                                        >
+                                            {username?.charAt(0)?.toUpperCase() || 'U'}
+                                        </Avatar>
+                                        <Box>
+                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                {username || user.email?.split('@')[0] || 'Пользователь'}
+                                            </Typography>
+                                            {member.role && (
+                                                <Chip 
+                                                    label={member.role.name} 
+                                                    size="small" 
+                                                    variant="outlined"
+                                                    sx={{ height: 20, fontSize: '0.75rem' }}
+                                                />
+                                            )}
+                                        </Box>
+                                    </Box>
+                                </MenuItem>
+                            );
+                        })
+                ) : (
+                    <MenuItem disabled>
+                        <Typography variant="body2" color="text.secondary">
+                            Участники не найдены
+                        </Typography>
                     </MenuItem>
-                ))}
+                )}
             </Menu>
+            
+            {/* Плавающий индикатор загрузки */}
+            {loading && (
+                <Zoom in={loading}>
+                    <Fab
+                        size="small"
+                        sx={{
+                            position: 'absolute',
+                            bottom: 16,
+                            right: 16,
+                            bgcolor: theme.palette.primary.main,
+                            '&:hover': {
+                                bgcolor: theme.palette.primary.dark
+                            }
+                        }}
+                    >
+                        <CircularProgress size={24} sx={{ color: 'white' }} />
+                    </Fab>
+                </Zoom>
+            )}
         </Box>
     );
 }; 

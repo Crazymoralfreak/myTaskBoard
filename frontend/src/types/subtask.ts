@@ -9,7 +9,9 @@ export interface Subtask {
     assignee?: {
         id: number;
         username: string;
+        email?: string;
         avatarUrl?: string;
+        displayName?: string;
     };
     createdAt: string;
     updatedAt: string;
@@ -20,6 +22,7 @@ export interface CreateSubtaskRequest {
     description?: string;
     dueDate?: string;
     estimatedHours?: number;
+    assigneeId?: number;
 }
 
 export interface UpdateSubtaskRequest {
@@ -29,4 +32,5 @@ export interface UpdateSubtaskRequest {
     position?: number;
     dueDate?: string;
     estimatedHours?: number;
+    assigneeId?: number;
 } 

@@ -38,6 +38,11 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import LabelIcon from '@mui/icons-material/Label';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 // @ts-ignore
 import * as DiffLib from 'diff';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
@@ -122,6 +127,22 @@ const getActionIcon = (action: string) => {
         case 'attachment_added':
         case 'attachment_deleted':
             return <AttachFileIcon fontSize="small" />;
+        case 'comment_added':
+        case 'comment_updated':
+        case 'comment_deleted':
+            return <InfoIcon fontSize="small" />;
+        case 'subtask_created':
+            return <AddIcon fontSize="small" />;
+        case 'subtask_updated':
+            return <EditIcon fontSize="small" />;
+        case 'subtask_completed':
+            return <CheckCircleIcon fontSize="small" />;
+        case 'subtask_deleted':
+            return <DeleteIcon fontSize="small" />;
+        case 'subtask_assigned':
+            return <PersonAddIcon fontSize="small" />;
+        case 'subtasks_reordered':
+            return <SwapVertIcon fontSize="small" />;
         default:
             return undefined;
     }
@@ -142,12 +163,32 @@ const getActionColor = (action: string): "default" | "primary" | "secondary" | "
         case 'title_changed':
             return 'primary';
         case 'tags_changed':
+        case 'tags_updated':
         case 'tag_added':
             return 'info';
         case 'attachment_added':
             return 'success';
         case 'attachment_deleted':
             return 'error';
+        case 'comment_added':
+            return 'info';
+        case 'comment_updated':
+            return 'warning';
+        case 'comment_deleted':
+            return 'error';
+        // Цвета для действий с подзадачами
+        case 'subtask_created':
+            return 'success';
+        case 'subtask_updated':
+            return 'info';
+        case 'subtask_completed':
+            return 'success';
+        case 'subtask_deleted':
+            return 'error';
+        case 'subtask_assigned':
+            return 'primary';
+        case 'subtasks_reordered':
+            return 'secondary';
         default:
             return 'default';
     }
@@ -352,6 +393,10 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                 return 'Изменение дат';
             case 'comment_added':
                 return 'Добавлен комментарий';
+            case 'comment_updated':
+                return 'Изменен комментарий';
+            case 'comment_deleted':
+                return 'Удален комментарий';
             case 'file_added':
                 return 'Добавлен файл';
             case 'attachment_added':
@@ -370,11 +415,26 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
             case 'title_changed': 
                 return 'Изменение названия';
             case 'tags_changed':
+            case 'tags_updated':
                 return 'Изменение тегов';
             case 'tag_added':
                 return 'Добавление тега';
+            // Добавляем переводы для действий с подзадачами
+            case 'subtask_created':
+                return 'Создание подзадачи';
+            case 'subtask_updated':
+                return 'Изменение подзадачи';
+            case 'subtask_completed':
+                return 'Завершение подзадачи';
+            case 'subtask_deleted':
+                return 'Удаление подзадачи';
+            case 'subtask_assigned':
+                return 'Назначение подзадачи';
+            case 'subtasks_reordered':
+                return 'Изменение порядка подзадач';
             default:
-                return action.replace(/_/g, ' ');
+                // Если это неизвестное действие, пытаемся красиво отформатировать
+                return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         }
     };
 
