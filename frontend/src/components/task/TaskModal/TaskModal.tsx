@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import {
     Dialog,
@@ -72,6 +72,7 @@ import { boardService } from '../../../services/boardService';
 import { useRoleContext } from '../../../contexts/RoleContext';
 import { BoardMembersService } from '../../../services/BoardMembersService';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
+import { TextRenderer } from '../../../utils/textUtils';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -188,7 +189,32 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     // Используем ExtendedTaskWithTypes вместо Task
     const [task, setTask] = useState<ExtendedTaskWithTypes | null>(initialTask || null);
-
+    
+    // Локальное состояние для подзадач (чтобы не закрывать модальное окно)
+    const [localSubtasks, setLocalSubtasks] = useState<any[]>([]);
+    
+    // Функция для синхронизации локальных подзадач с задачей без закрытия модального окна
+    const syncSubtasksToTask = React.useCallback(async () => {
+        if (!task || localSubtasks.length === 0) return;
+        
+        try {
+            // Обновляем только локальное состояние задачи с новыми подзадачами
+            const updatedTask = {
+                ...task,
+                subtasks: localSubtasks,
+                subtaskCount: localSubtasks.length
+            };
+            setTask(updatedTask);
+            
+            // НЕ вызываем onTaskUpdate, чтобы предотвратить закрытие модального окна
+            // Синхронизация с родительским компонентом произойдет только при закрытии модального окна
+            
+            console.log('Подзадачи синхронизированы локально');
+        } catch (error) {
+            console.error('Ошибка при синхронизации подзадач:', error);
+        }
+    }, [task, localSubtasks]);
+    
     const quillModules = {
         toolbar: [
             ['bold', 'italic', 'underline', 'strike'],
@@ -274,6 +300,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     useEffect(() => {
         if (open) {
+            // Сбрасываем локальное состояние подзадач при открытии нового модального окна
+            setLocalSubtasks([]);
+            
             if (initialMode === 'create') {
                 setMode('create');
                 setTitle('');
@@ -289,6 +318,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 if (initialTask) {
                     setMode(initialMode);
                     setTask(initialTask as ExtendedTaskWithTypes);
+                    setLocalSubtasks([...(initialTask.subtasks || [])]); // Инициализируем локальное состояние подзадач копией
                     setTitle(initialTask.title || '');
                     setDescription(initialTask.description || '');
                     setStartDate(initialTask.startDate ? new Date(initialTask.startDate) : null);
@@ -306,6 +336,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 const loadedTask = await taskService.getTask(initialTask.id);
                                 if (loadedTask) {
                                     setTask(loadedTask as ExtendedTaskWithTypes);
+                                    setLocalSubtasks([...(loadedTask.subtasks || [])]); // Обновляем локальное состояние подзадач копией
                                     setTitle(loadedTask.title || '');
                                     setDescription(loadedTask.description || '');
                                     setStartDate(loadedTask.startDate ? new Date(loadedTask.startDate) : null);
@@ -393,6 +424,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }, [task, mode]);
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+        // При переходе с таба подзадач обновляем локальное состояние задачи (но НЕ родительский компонент)
+        if (selectedTab === 1 && localSubtasks.length > 0) {
+            syncSubtasksToTask();
+        }
+        
+        // При переходе на таб подзадач обновляем локальное состояние из текущей задачи
+        if (newValue === 1 && task?.subtasks) {
+            setLocalSubtasks([...task.subtasks]); // Создаем копию для избежания мутаций
+        }
+        
         setSelectedTab(newValue);
     };
 
@@ -659,11 +700,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }, [task, onTaskDelete, onClose, setIsSubmitting, setError, boardId]);
 
     const handleClose = () => {
-        // Перед закрытием, обновляем родительский компонент с текущими данными задачи
-        // Только если задача не была удалена и мы в режиме просмотра
-        if (task && mode === 'view' && onTaskUpdate && !isSubmitting) {
-            // Создаем копию задачи для обновления
-            const updatedTask = { ...task };
+        // Синхронизируем подзадачи с родительским компонентом перед закрытием
+        if (task && localSubtasks.length > 0 && onTaskUpdate && mode !== 'create') {
+            const updatedTask = {
+                ...task,
+                subtasks: localSubtasks,
+                subtaskCount: localSubtasks.length
+            };
+            // Вызываем onTaskUpdate для синхронизации с доской
             onTaskUpdate(updatedTask);
         }
         
@@ -677,6 +721,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         setSelectedStatusId(null);
         setErrors({});
         setError(null);
+        setLocalSubtasks([]);
+        setSelectedTab(0); // Сбрасываем активный таб
         onClose();
     };
 
@@ -1134,7 +1180,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
     const hasCommentsPermission = canAddComments();
     console.log('Права на комментирование при рендеринге вкладки комментариев:', hasCommentsPermission);
-
+    
     return (
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
             <Dialog 
@@ -1233,7 +1279,29 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                                     <Tabs value={selectedTab} onChange={handleTabChange}>
                                         <Tab label="Основное" />
-                                        <Tab label="Подзадачи" />
+                                        <Tab 
+                                            label={
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span>Подзадачи</span>
+                                                    {task.subtasks && task.subtasks.length > 0 && (
+                                                        <Chip 
+                                                            label={task.subtasks.length} 
+                                                            size="small" 
+                                                            color="primary"
+                                                            sx={{ 
+                                                                ml: 1, 
+                                                                height: 20, 
+                                                                minWidth: 20, 
+                                                                fontSize: '0.75rem',
+                                                                '& .MuiChip-label': {
+                                                                    px: 1
+                                                                }
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Box>
+                                            } 
+                                        />
                                         <Tab 
                                             label={
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1308,16 +1376,28 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             />
                                             <Box sx={{ mb: 2 }}>
                                                 <Typography variant="subtitle2" gutterBottom>Описание</Typography>
-                                                <Paper 
-                                                    variant="outlined" 
-                                                    sx={{ 
-                                                        p: 2, 
-                                                        minHeight: '200px',
-                                                        '& img': { maxWidth: '100%' } 
-                                                    }}
-                                                >
-                                                    <div dangerouslySetInnerHTML={{ __html: description }} />
-                                                </Paper>
+                                                {description ? (
+                                                    <TextRenderer 
+                                                        content={description} 
+                                                        variant="body2"
+                                                        maxHeight="300px"
+                                                    />
+                                                ) : (
+                                                    <Paper 
+                                                        variant="outlined" 
+                                                        sx={{ 
+                                                            p: 2, 
+                                                            minHeight: '60px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: 'text.secondary',
+                                                            fontStyle: 'italic'
+                                                        }}
+                                                    >
+                                                        Описание отсутствует
+                                                    </Paper>
+                                                )}
                                             </Box>
                                             
                                             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -1834,8 +1914,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 <>
                                     <TabPanel value={selectedTab} index={1}>
                                         <SubtaskList 
-                                            task={task} 
-                                            onTaskUpdate={(updatedTask: Task) => onTaskUpdate && onTaskUpdate(updatedTask)}
+                                            task={{
+                                                ...task,
+                                                subtasks: localSubtasks // Используем локальное состояние подзадач
+                                            }} 
+                                            onTaskUpdate={(updatedTask: Task) => {
+                                                // Обновляем локальное состояние задачи и подзадач
+                                                setTask(updatedTask as ExtendedTaskWithTypes);
+                                                setLocalSubtasks([...updatedTask.subtasks || []]);
+                                                // НЕ вызываем onTaskUpdate чтобы не закрывать модальное окно
+                                            }}
+                                            onLocalUpdate={(subtasks) => setLocalSubtasks([...subtasks])}
                                         />
                                     </TabPanel>
                                     <TabPanel value={selectedTab} index={2}>

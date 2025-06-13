@@ -28,6 +28,8 @@ public class TaskResponse {
     private Long commentCount;
     private List<AttachmentResponse> attachments;
     private Long attachmentCount;
+    private List<SubtaskResponse> subtasks;
+    private Long subtaskCount;
 
     @Data
     public static class TaskStatusResponse {
@@ -77,5 +79,19 @@ public class TaskResponse {
         private Long size;
         private LocalDateTime createdAt;
         private UserResponse uploadedBy;
+    }
+
+    @Data
+    public static class SubtaskResponse {
+        private Long id;
+        private String title;
+        private String description;
+        private boolean completed;
+        private Integer position;
+        private LocalDateTime dueDate;
+        private Integer estimatedHours;
+        private UserResponse assignee;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
     }
 } 

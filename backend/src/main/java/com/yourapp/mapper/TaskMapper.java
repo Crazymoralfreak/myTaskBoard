@@ -130,6 +130,41 @@ public class TaskMapper {
             response.setAttachments(new ArrayList<>());
         }
         
+        // Обрабатываем подзадачи
+        if (task.getSubtasks() != null && !task.getSubtasks().isEmpty()) {
+            List<TaskResponse.SubtaskResponse> subtasks = task.getSubtasks().stream()
+                .map(subtask -> {
+                    TaskResponse.SubtaskResponse subtaskResponse = new TaskResponse.SubtaskResponse();
+                    subtaskResponse.setId(subtask.getId());
+                    subtaskResponse.setTitle(subtask.getTitle());
+                    subtaskResponse.setDescription(subtask.getDescription());
+                    subtaskResponse.setCompleted(subtask.isCompleted());
+                    subtaskResponse.setPosition(subtask.getPosition());
+                    subtaskResponse.setDueDate(subtask.getDueDate());
+                    subtaskResponse.setEstimatedHours(subtask.getEstimatedHours());
+                    subtaskResponse.setCreatedAt(subtask.getCreatedAt());
+                    subtaskResponse.setUpdatedAt(subtask.getUpdatedAt());
+                    
+                    if (subtask.getAssignee() != null) {
+                        TaskResponse.UserResponse assignee = new TaskResponse.UserResponse();
+                        assignee.setId(subtask.getAssignee().getId());
+                        assignee.setUsername(subtask.getAssignee().getUsername());
+                        assignee.setAvatarUrl(subtask.getAssignee().getAvatarUrl());
+                        assignee.setEmail(subtask.getAssignee().getEmail());
+                        assignee.setDisplayName(subtask.getAssignee().getDisplayName());
+                        subtaskResponse.setAssignee(assignee);
+                    }
+                    
+                    return subtaskResponse;
+                })
+                .collect(Collectors.toList());
+            response.setSubtasks(subtasks);
+            response.setSubtaskCount((long) subtasks.size());
+        } else {
+            response.setSubtasks(new ArrayList<>());
+            response.setSubtaskCount(0L);
+        }
+        
         return response;
     }
 } 

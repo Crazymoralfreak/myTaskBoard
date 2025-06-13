@@ -1,6 +1,6 @@
 import { api } from '../api/api';
 import { Task, TaskPriority, CreateTaskRequest, TaskComment, TaskAttachment, TaskTemplate, TaskHistory } from '../types/task';
-import { CreateSubtaskRequest, UpdateSubtaskRequest } from '../types/subtask';
+import { Subtask, CreateSubtaskRequest, UpdateSubtaskRequest } from '../types/subtask';
 import { JwtService } from './jwtService';
 import { AxiosResponse } from 'axios';
 import { Board } from '../types/board';
@@ -140,7 +140,7 @@ export const taskService = {
                     
                     await this.addHistoryEntry(response.data.id, {
                         action: 'task_created',
-                        newValue: JSON.stringify(taskDetails)
+                        newValue: `Создана задача со следующими параметрами:\n• Название: ${taskDetails.title}${taskDetails.type ? `\n• Тип: ${taskDetails.type}` : ''}${taskDetails.status ? `\n• Статус: ${taskDetails.status}` : ''}\n• Приоритет: ${taskDetails.priority}`
                     });
                     console.log('Добавлена запись в историю о создании задачи с параметрами');
                 }
@@ -650,7 +650,7 @@ export const taskService = {
     },
 
     // Методы для работы с подзадачами
-    async createSubtask(taskId: number, subtask: CreateSubtaskRequest): Promise<Task> {
+    async createSubtask(taskId: number, subtask: CreateSubtaskRequest): Promise<Subtask> {
         try {
             console.log('Создание подзадачи:', { taskId, subtask });
             const response = await axiosInstance.post(`/api/tasks/${taskId}/subtasks`, subtask, {
@@ -666,7 +666,7 @@ export const taskService = {
         }
     },
 
-    async updateSubtask(taskId: number, subtaskId: number, updates: UpdateSubtaskRequest): Promise<Task> {
+    async updateSubtask(taskId: number, subtaskId: number, updates: UpdateSubtaskRequest): Promise<Subtask> {
         try {
             console.log('Обновление подзадачи:', { taskId, subtaskId, updates });
             const response = await axiosInstance.put(`/api/tasks/${taskId}/subtasks/${subtaskId}`, updates, {
@@ -682,18 +682,17 @@ export const taskService = {
         }
     },
 
-    async deleteSubtask(taskId: number, subtaskId: number): Promise<Task> {
+    async deleteSubtask(taskId: number, subtaskId: number): Promise<void> {
         try {
-            const response = await axiosInstance.delete(`/api/tasks/${taskId}/subtasks/${subtaskId}`);
-            console.log('Подзадача успешно удалена:', response.data);
-            return response.data;
+            await axiosInstance.delete(`/api/tasks/${taskId}/subtasks/${subtaskId}`);
+            console.log('Подзадача успешно удалена');
         } catch (error) {
             console.error('Ошибка при удалении подзадачи:', error);
             throw error;
         }
     },
 
-    async assignSubtask(taskId: number, subtaskId: number, userId: number): Promise<Task> {
+    async assignSubtask(taskId: number, subtaskId: number, userId: number): Promise<Subtask> {
         try {
             const response = await axiosInstance.put(
                 `/api/tasks/${taskId}/subtasks/${subtaskId}/assign?userId=${userId}`,
@@ -712,7 +711,7 @@ export const taskService = {
         }
     },
 
-    async reorderSubtasks(taskId: number, subtaskIds: number[]): Promise<Task> {
+    async reorderSubtasks(taskId: number, subtaskIds: number[]): Promise<Subtask[]> {
         try {
             console.log('Изменение порядка подзадач:', { taskId, subtaskIds });
             const response = await axiosInstance.put(`/api/tasks/${taskId}/subtasks/reorder`, subtaskIds, {

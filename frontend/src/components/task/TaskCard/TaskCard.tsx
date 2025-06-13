@@ -10,7 +10,8 @@ import {
     useTheme,
     ListItemIcon,
     ListItemText,
-    Button
+    Button,
+    LinearProgress
 } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -22,6 +23,7 @@ import AlarmIcon from '@mui/icons-material/Alarm';
 import CommentIcon from '@mui/icons-material/Comment';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 import { Task } from '../../../types/task';
 import { format, formatDistance, differenceInDays, differenceInHours, isPast, addDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -44,6 +46,63 @@ interface TaskCardProps {
     isCompact?: boolean;
     onTasksChange?: (column: any) => void;
 }
+
+// Компонент для отображения прогресса подзадач
+const SubtaskProgress: React.FC<{ 
+    completed: number; 
+    total: number;
+    isCompact?: boolean;
+}> = ({ completed, total, isCompact = false }) => {
+    const theme = useTheme();
+    
+    if (total === 0) return null;
+    
+    const progress = (completed / total) * 100;
+    const allCompleted = completed === total;
+    
+    return (
+        <Tooltip title={`Подзадачи: ${completed} из ${total} завершено`}>
+            <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 0.5,
+                minWidth: isCompact ? '40px' : '50px'
+            }}>
+                <ChecklistIcon 
+                    sx={{ 
+                        fontSize: isCompact ? 14 : 16,
+                        color: allCompleted ? theme.palette.success.main : theme.palette.text.secondary
+                    }} 
+                />
+                <Typography 
+                    variant="caption" 
+                    sx={{ 
+                        fontSize: isCompact ? '0.65rem' : '0.7rem',
+                        color: allCompleted ? theme.palette.success.main : theme.palette.text.secondary,
+                        fontWeight: allCompleted ? 600 : 400,
+                        minWidth: isCompact ? '20px' : '24px'
+                    }}
+                >
+                    {completed}/{total}
+                </Typography>
+                <LinearProgress 
+                    variant="determinate" 
+                    value={progress}
+                    sx={{ 
+                        width: isCompact ? 20 : 30, 
+                        height: isCompact ? 2 : 3,
+                        borderRadius: 1,
+                        backgroundColor: theme.palette.action.hover,
+                        '& .MuiLinearProgress-bar': {
+                            backgroundColor: allCompleted ? theme.palette.success.main : theme.palette.primary.main,
+                            borderRadius: 1
+                        }
+                    }}
+                />
+            </Box>
+        </Tooltip>
+    );
+};
 
 // Компонент для отображения тегов задачи
 const TaskTags: React.FC<{ tags: string[], isCompact?: boolean }> = ({ tags, isCompact }) => {
@@ -493,6 +552,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                             </Tooltip>
                         )}
                         
+                        {/* Индикатор подзадач */}
+                        {((task.subtaskCount && task.subtaskCount > 0) || (task.subtasks && task.subtasks.length > 0)) && (
+                            <SubtaskProgress 
+                                completed={task.subtasks?.filter(st => st.completed).length || 0}
+                                total={(task.subtaskCount && task.subtaskCount > 0 ? task.subtaskCount : 0) || task.subtasks?.length || 0}
+                                isCompact={true}
+                            />
+                        )}
+                        
                         {/* Иконка приоритета */}
                         {task.priority && task.priority !== 'NONE' && (
                             <Tooltip title={`Приоритет: ${task.priority}`}>
@@ -777,6 +845,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                             </Typography>
                                         </Box>
                                     </Tooltip>
+                                )}
+
+                                {/* Индикатор подзадач */}
+                                {(task.subtaskCount || (task.subtasks && task.subtasks.length > 0)) && (
+                                    <SubtaskProgress 
+                                        completed={task.subtasks?.filter(st => st.completed).length || 0}
+                                        total={(task.subtaskCount && task.subtaskCount > 0 ? task.subtaskCount : 0) || task.subtasks?.length || 0}
+                                        isCompact={false}
+                                    />
                                 )}
                             </Box>
                             

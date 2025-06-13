@@ -1,8 +1,13 @@
 package com.yourapp.service;
 
+import com.yourapp.dto.SubtaskDto;
+import com.yourapp.dto.CreateSubtaskRequest;
+import com.yourapp.dto.UpdateSubtaskRequest;
+import com.yourapp.mapper.SubtaskMapper;
 import com.yourapp.model.Subtask;
 import com.yourapp.model.Task;
 import com.yourapp.model.User;
+import com.yourapp.model.TaskHistory;
 import com.yourapp.repository.SubtaskRepository;
 import com.yourapp.repository.TaskRepository;
 import com.yourapp.repository.UserRepository;
@@ -10,12 +15,14 @@ import com.yourapp.util.NotificationUtil;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,28 +32,85 @@ public class SubtaskService {
     private final SubtaskRepository subtaskRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final SubtaskMapper subtaskMapper;
     private final NotificationUtil notificationUtil;
+    private final TaskHistoryService taskHistoryService;
     
-    @Transactional
-    public Subtask createSubtask(Long taskId, Subtask subtask) {
-        logger.debug("Создание подзадачи для задачи {}", taskId);
+    /**
+     * Получает текущего пользователя из контекста безопасности
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        logger.debug("Получение текущего пользователя. Authentication: {}", authentication);
         
-        Task parentTask = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
-        
-        // Валидация
-        if (subtask.getTitle() == null || subtask.getTitle().trim().isEmpty()) {
-            throw new IllegalArgumentException("Subtask title is required");
+        if (authentication == null || authentication.getName() == null) {
+            logger.error("Пользователь не аутентифицирован. Authentication: {}", authentication);
+            throw new IllegalStateException("Пользователь не аутентифицирован");
         }
         
-        // Установка позиции
+        String username = authentication.getName();
+        logger.debug("Username из контекста: {}", username);
+        
+        // Сначала пытаемся найти по username
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            logger.debug("Найден пользователь по username: {} (ID: {})", user.getUsername(), user.getId());
+            return user;
+        }
+        
+        // Если не найдено по username, пытаемся найти по email
+        userOpt = userRepository.findByEmail(username);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            logger.debug("Найден пользователь по email: {} (ID: {})", user.getEmail(), user.getId());
+            return user;
+        }
+        
+        // В крайнем случае пытаемся парсить как ID (для совместимости)
+        try {
+            Long userId = Long.parseLong(username);
+            Optional<User> userByIdOpt = userRepository.findById(userId);
+            if (userByIdOpt.isPresent()) {
+                User user = userByIdOpt.get();
+                logger.debug("Найден пользователь по ID: {} ({})", user.getUsername(), user.getId());
+                return user;
+            }
+        } catch (NumberFormatException e) {
+            logger.debug("Username '{}' не является числовым ID", username);
+        }
+        
+        logger.error("Пользователь не найден: {}", username);
+        throw new RuntimeException("User not found: " + username);
+    }
+    
+    @Transactional
+    public SubtaskDto createSubtask(Long taskId, CreateSubtaskRequest request) {
+        logger.debug("Создание подзадачи для задачи {}. Данные: {}", taskId, request);
+        
+        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        
+        Task parentTask = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
+        
+        // Получаем текущего пользователя
+        User currentUser = getCurrentUser();
+        
+        // Определяем следующую позицию
         Integer maxPosition = subtaskRepository.findMaxPositionByTaskId(taskId);
-        subtask.setPosition(maxPosition != null ? maxPosition + 1 : 0);
+        int newPosition = (maxPosition != null) ? maxPosition + 1 : 0;
         
-        // Установка родительской задачи
+        Subtask subtask = new Subtask();
+        subtask.setTitle(request.getTitle().trim());
+        subtask.setDescription(request.getDescription());
+        subtask.setCompleted(false);
         subtask.setParentTask(parentTask);
+        subtask.setPosition(newPosition);
+        subtask.setDueDate(request.getDueDate());
+        subtask.setEstimatedHours(request.getEstimatedHours());
         
-        // Установка дат
         LocalDateTime now = LocalDateTime.now();
         subtask.setCreatedAt(now);
         subtask.setUpdatedAt(now);
@@ -54,100 +118,210 @@ public class SubtaskService {
         logger.debug("Сохранение подзадачи");
         Subtask savedSubtask = subtaskRepository.save(subtask);
         
-        // Создаем уведомление о создании подзадачи для назначенного пользователя родительской задачи
-        notificationUtil.notifySubtaskCreated(savedSubtask);
+        // Создаем запись в истории задачи
+        try {
+            logger.debug("Создание записи в истории для подзадачи");
+            TaskHistory history = new TaskHistory();
+            history.setTask(parentTask);
+            history.setChangedBy(currentUser);
+            // username будет автоматически заполнен триггером базы данных
+            history.setAction("subtask_created");
+            history.setNewValue("Создана подзадача: " + savedSubtask.getTitle());
+            history.setTimestamp(now);
+            
+            logger.debug("Сохранение истории в базу данных");
+            taskHistoryService.createHistory(history);
+            logger.debug("Добавлена запись в историю о создании подзадачи");
+        } catch (Exception e) {
+            logger.error("Ошибка при записи истории создания подзадачи", e);
+        }
         
-        return savedSubtask;
+        // Создаем уведомление
+        try {
+            notificationUtil.notifySubtaskCreated(savedSubtask);
+        } catch (Exception e) {
+            logger.error("Ошибка при отправке уведомления о создании подзадачи", e);
+        }
+        
+        return subtaskMapper.toDto(savedSubtask);
     }
     
     @Transactional
-    public Subtask updateSubtask(Long subtaskId, Map<String, Object> updates) {
-        logger.debug("Обновление подзадачи {}. Данные: {}", subtaskId, updates);
+    public SubtaskDto updateSubtask(Long subtaskId, UpdateSubtaskRequest request) {
+        logger.debug("Обновление подзадачи {}. Данные: {}", subtaskId, request);
         
         Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new RuntimeException("Subtask not found"));
+                .orElseThrow(() -> new RuntimeException("Subtask not found with id: " + subtaskId));
         
-        if (updates.containsKey("title")) {
-            String title = (String) updates.get("title");
-            if (title == null || title.trim().isEmpty()) {
+        Task parentTask = subtask.getParentTask();
+        String oldTitle = subtask.getTitle();
+        boolean wasCompleted = subtask.isCompleted();
+        
+        // Обновляем поля
+        if (request.getTitle() != null) {
+            if (request.getTitle().trim().isEmpty()) {
                 throw new IllegalArgumentException("Title cannot be empty");
             }
-            subtask.setTitle(title);
+            subtask.setTitle(request.getTitle());
         }
         
-        if (updates.containsKey("description")) {
-            subtask.setDescription((String) updates.get("description"));
+        if (request.getDescription() != null) {
+            subtask.setDescription(request.getDescription());
         }
         
-        if (updates.containsKey("completed")) {
-            boolean wasCompleted = subtask.isCompleted();
-            boolean isCompleted = (Boolean) updates.get("completed");
-            subtask.setCompleted(isCompleted);
-            
-                         // Если подзадача была завершена (изменилась с false на true)
-             if (!wasCompleted && isCompleted) {
-                 // Создаем уведомление о завершении подзадачи для назначенного пользователя родительской задачи
-                 notificationUtil.notifySubtaskCompleted(subtask);
-             }
+        if (request.getCompleted() != null) {
+            subtask.setCompleted(request.getCompleted());
         }
         
-        if (updates.containsKey("position")) {
-            subtask.setPosition((Integer) updates.get("position"));
+        if (request.getPosition() != null) {
+            subtask.setPosition(request.getPosition());
         }
         
-        if (updates.containsKey("dueDate")) {
-            subtask.setDueDate(LocalDateTime.parse((String) updates.get("dueDate")));
+        if (request.getDueDate() != null) {
+            subtask.setDueDate(request.getDueDate());
         }
         
-        if (updates.containsKey("estimatedHours")) {
-            subtask.setEstimatedHours((Integer) updates.get("estimatedHours"));
+        if (request.getEstimatedHours() != null) {
+            subtask.setEstimatedHours(request.getEstimatedHours());
         }
         
-        subtask.setUpdatedAt(LocalDateTime.now());
+        // Назначение ответственного
+        if (request.getAssigneeId() != null) {
+            if (request.getAssigneeId() == 0) {
+                // Снимаем назначение
+                subtask.setAssignee(null);
+                logger.debug("Снято назначение с подзадачи {}", subtaskId);
+            } else {
+                User assignee = userRepository.findById(request.getAssigneeId())
+                        .orElseThrow(() -> new RuntimeException("User not found with id: " + request.getAssigneeId()));
+                subtask.setAssignee(assignee);
+                logger.debug("Назначен ответственный {} на подзадачу {}", assignee.getUsername(), subtaskId);
+            }
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        subtask.setUpdatedAt(now);
         
         logger.debug("Сохранение обновленной подзадачи");
-        return subtaskRepository.save(subtask);
+        Subtask savedSubtask = subtaskRepository.save(subtask);
+        
+        // Записываем изменения в историю
+        try {
+            User currentUser = getCurrentUser();
+            if (request.getCompleted() != null && !wasCompleted && request.getCompleted()) {
+                TaskHistory history = new TaskHistory();
+                history.setTask(parentTask);
+                history.setChangedBy(currentUser);
+                history.setAction("subtask_completed");
+                history.setNewValue("Завершена подзадача: " + savedSubtask.getTitle());
+                history.setTimestamp(now);
+                taskHistoryService.createHistory(history);
+                
+                // Отправляем уведомление о завершении подзадачи
+                notificationUtil.notifySubtaskCompleted(savedSubtask);
+            } else if (request.getTitle() != null && !oldTitle.equals(request.getTitle())) {
+                TaskHistory history = new TaskHistory();
+                history.setTask(parentTask);
+                history.setChangedBy(currentUser);
+                history.setAction("subtask_updated");
+                history.setOldValue("Старое название: " + oldTitle);
+                history.setNewValue("Новое название: " + request.getTitle());
+                history.setTimestamp(now);
+                taskHistoryService.createHistory(history);
+            }
+        } catch (Exception e) {
+            logger.error("Ошибка при записи истории обновления подзадачи", e);
+        }
+        
+        return subtaskMapper.toDto(savedSubtask);
     }
     
     @Transactional
     public void deleteSubtask(Long subtaskId) {
         logger.debug("Удаление подзадачи {}", subtaskId);
+        
+        Subtask subtask = subtaskRepository.findById(subtaskId)
+                .orElseThrow(() -> new RuntimeException("Subtask not found with id: " + subtaskId));
+        
+        Task parentTask = subtask.getParentTask();
+        String subtaskTitle = subtask.getTitle();
+        
         subtaskRepository.deleteById(subtaskId);
+        
+        // Записываем удаление в историю
+        try {
+            User currentUser = getCurrentUser();
+            TaskHistory history = new TaskHistory();
+            history.setTask(parentTask);
+            history.setChangedBy(currentUser);
+            history.setAction("subtask_deleted");
+            history.setNewValue("Удалена подзадача: " + subtaskTitle);
+            history.setTimestamp(LocalDateTime.now());
+            taskHistoryService.createHistory(history);
+        } catch (Exception e) {
+            logger.error("Ошибка при записи истории удаления подзадачи", e);
+        }
     }
     
-    public Subtask getSubtask(Long subtaskId) {
-        return subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new RuntimeException("Subtask not found"));
+    public SubtaskDto getSubtask(Long subtaskId) {
+        Subtask subtask = subtaskRepository.findById(subtaskId)
+                .orElseThrow(() -> new RuntimeException("Subtask not found with id: " + subtaskId));
+        return subtaskMapper.toDto(subtask);
     }
     
-    public List<Subtask> getSubtasksByTask(Long taskId) {
-        return subtaskRepository.findByParentTaskIdOrderByPositionAsc(taskId);
+    public List<SubtaskDto> getSubtasksByTask(Long taskId) {
+        List<Subtask> subtasks = subtaskRepository.findByParentTaskIdOrderByPositionAsc(taskId);
+        return subtaskMapper.toDtoList(subtasks);
     }
     
     @Transactional
-    public Subtask assignSubtask(Long subtaskId, Long userId) {
+    public SubtaskDto assignSubtask(Long subtaskId, Long userId) {
         logger.debug("Назначение подзадачи {} пользователю {}", subtaskId, userId);
         
         Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new RuntimeException("Subtask not found"));
+                .orElseThrow(() -> new RuntimeException("Subtask not found with id: " + subtaskId));
         
         User assignee = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
         
+        User oldAssignee = subtask.getAssignee();
         subtask.setAssignee(assignee);
         subtask.setUpdatedAt(LocalDateTime.now());
         
-        return subtaskRepository.save(subtask);
+        Subtask savedSubtask = subtaskRepository.save(subtask);
+        
+        // Записываем назначение в историю
+        try {
+            User currentUser = getCurrentUser();
+            TaskHistory history = new TaskHistory();
+            history.setTask(subtask.getParentTask());
+            history.setChangedBy(currentUser);
+            history.setAction("subtask_assigned");
+            if (oldAssignee != null) {
+                history.setOldValue("Старый ответственный: " + oldAssignee.getUsername());
+            }
+            history.setNewValue("Назначен ответственный за подзадачу \"" + subtask.getTitle() + "\": " + assignee.getUsername());
+            history.setTimestamp(LocalDateTime.now());
+            taskHistoryService.createHistory(history);
+        } catch (Exception e) {
+            logger.error("Ошибка при записи истории назначения подзадачи", e);
+        }
+        
+        return subtaskMapper.toDto(savedSubtask);
     }
     
     @Transactional
-    public List<Subtask> reorderSubtasks(Long taskId, List<Long> subtaskIds) {
+    public List<SubtaskDto> reorderSubtasks(Long taskId, List<Long> subtaskIds) {
         logger.debug("Изменение порядка подзадач для задачи {}", taskId);
+        
+        // Проверяем существование задачи
+        Task parentTask = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
         
         List<Subtask> subtasks = subtaskRepository.findByParentTaskId(taskId);
         
         // Создаем мапу для быстрого доступа к подзадачам
-        Map<Long, Subtask> subtaskMap = subtasks.stream()
+        java.util.Map<Long, Subtask> subtaskMap = subtasks.stream()
                 .collect(java.util.stream.Collectors.toMap(Subtask::getId, s -> s));
         
         // Обновляем позиции
@@ -159,6 +333,22 @@ public class SubtaskService {
             }
         }
         
-        return subtaskRepository.saveAll(subtasks);
+        List<Subtask> savedSubtasks = subtaskRepository.saveAll(subtasks);
+        
+        // Записываем изменение порядка в историю
+        try {
+            User currentUser = getCurrentUser();
+            TaskHistory history = new TaskHistory();
+            history.setTask(parentTask);
+            history.setChangedBy(currentUser);
+            history.setAction("subtasks_reordered");
+            history.setNewValue("Изменен порядок подзадач");
+            history.setTimestamp(LocalDateTime.now());
+            taskHistoryService.createHistory(history);
+        } catch (Exception e) {
+            logger.error("Ошибка при записи истории изменения порядка подзадач", e);
+        }
+        
+        return subtaskMapper.toDtoList(savedSubtasks);
     }
 } 

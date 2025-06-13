@@ -54,6 +54,9 @@ import { useTheme, useMediaQuery } from '@mui/material';
 import BoardMembersModal from '../components/Board/BoardMembersModal';
 import { useRoleContext } from '../contexts/RoleContext';
 import { Permission } from '../hooks/useUserRole';
+import { BoardMembersService } from '../services/BoardMembersService';
+import { BoardMember } from '../types/BoardMember';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -144,6 +147,9 @@ export const BoardPage: React.FC = () => {
     const [isCompactMode, setIsCompactMode] = useState(false);
     // Добавляем состояние для модального окна участников
     const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
+    // Добавляем состояния для участников доски и фильтрации по ним
+    const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
+    const [selectedAssignees, setSelectedAssignees] = useState<number[]>([]);
     const theme = useTheme();
     // Добавляем определение мобильного устройства
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -168,6 +174,37 @@ export const BoardPage: React.FC = () => {
         
         loadUserSettings();
     }, []);
+
+    // Загружаем участников доски
+    useEffect(() => {
+        const loadBoardMembers = async () => {
+            if (!boardId) {
+                console.warn('BoardPage: boardId не определен, пропускаем загрузку участников');
+                return;
+            }
+            
+            console.log('BoardPage: Начинаем загрузку участников доски для boardId:', boardId);
+            
+            try {
+                const members = await BoardMembersService.getBoardMembers(boardId);
+                console.log('BoardPage: Получены участники доски:', members);
+                
+                // Безопасно устанавливаем участников, проверяя что это массив
+                if (Array.isArray(members)) {
+                    console.log(`BoardPage: Установлено ${members.length} участников доски`);
+                    setBoardMembers(members);
+                } else {
+                    console.warn('BoardPage: Получены некорректные данные участников:', members);
+                    setBoardMembers([]);
+                }
+            } catch (error) {
+                console.error('BoardPage: Не удалось загрузить участников доски:', error);
+                setBoardMembers([]); // Устанавливаем пустой массив при ошибке
+            }
+        };
+        
+        loadBoardMembers();
+    }, [boardId]);
 
     // Добавляем обработчик события удаления задачи
     useEffect(() => {
@@ -283,12 +320,16 @@ export const BoardPage: React.FC = () => {
                 const matchesTags = selectedTags.length === 0 ||
                     selectedTags.every(tag => task.tags?.includes(tag));
 
-                return matchesSearch && matchesStatus && matchesType && matchesTags;
+                // Фильтрация по назначенным пользователям
+                const matchesAssignees = selectedAssignees.length === 0 ||
+                    (task.assignee && task.assignee.id && selectedAssignees.includes(task.assignee.id));
+
+                return matchesSearch && matchesStatus && matchesType && matchesTags && matchesAssignees;
             })
         }));
 
         setFilteredColumns([...filtered]);
-    }, [searchQuery, board, selectedStatuses, selectedTypes, selectedTags]);
+    }, [searchQuery, board, selectedStatuses, selectedTypes, selectedTags, selectedAssignees]);
 
     // Обновляем TaskCards при изменении статусов задач
     useEffect(() => {
@@ -927,10 +968,24 @@ export const BoardPage: React.FC = () => {
         );
     };
 
+    const handleAssigneeToggle = (userId: number) => {
+        if (!userId || typeof userId !== 'number') {
+            console.warn('Invalid userId provided to handleAssigneeToggle:', userId);
+            return;
+        }
+        
+        setSelectedAssignees(prev => 
+            prev.includes(userId)
+                ? prev.filter(id => id !== userId)
+                : [...prev, userId]
+        );
+    };
+
     const clearFilters = () => {
         setSelectedStatuses([]);
         setSelectedTags([]);
         setSelectedTypes([]);
+        setSelectedAssignees([]);
         handleFilterClose();
     };
 
@@ -1227,7 +1282,7 @@ export const BoardPage: React.FC = () => {
                         <Typography variant="h6">Фильтры</Typography>
                         <Button 
                             onClick={clearFilters}
-                            disabled={selectedStatuses.length === 0 && selectedTags.length === 0 && selectedTypes.length === 0}
+                            disabled={selectedStatuses.length === 0 && selectedTags.length === 0 && selectedTypes.length === 0 && selectedAssignees.length === 0}
                         >
                             Сбросить все
                         </Button>
@@ -1242,6 +1297,7 @@ export const BoardPage: React.FC = () => {
                         <Tab label="Статусы" />
                         <Tab label="Теги" />
                         <Tab label="Типы" />
+                        <Tab label="Участники" />
                     </Tabs>
                     
                     <TabPanel value={filterTabValue} index={0}>
@@ -1305,6 +1361,96 @@ export const BoardPage: React.FC = () => {
                                 />
                             ))}
                         </FormGroup>
+                    </TabPanel>
+                    
+                    <TabPanel value={filterTabValue} index={3}>
+                        
+                        {boardMembers && boardMembers.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {boardMembers
+                                    .filter(member => {
+                                        // Более гибкая фильтрация, поддерживающая разные структуры
+                                        const hasUser = member && (member.user || member.userId || member.username);
+                                        console.log('Фильтрация участника:', member, 'hasUser:', hasUser);
+                                        return hasUser;
+                                    })
+                                    .map((member) => {
+                                        // Определяем ID пользователя из разных возможных источников
+                                        const userId = member.user?.id || member.userId;
+                                        const username = member.user?.username || member.username;
+                                        const email = member.user?.email || member.email;
+                                        const avatarUrl = getAvatarUrl(member.user?.avatarUrl || member.avatarUrl);
+                                        
+                                        console.log('Рендеринг участника:', { userId, username, email, avatarUrl, member });
+                                        
+                                        if (!userId) {
+                                            console.warn('Пропускаем участника без ID:', member);
+                                            return null;
+                                        }
+                                        
+                                        return (
+                                            <FormControlLabel
+                                                key={userId}
+                                                control={
+                                                    <Checkbox
+                                                        checked={selectedAssignees.includes(userId)}
+                                                        onChange={() => handleAssigneeToggle(userId)}
+                                                        sx={{ p: 0.5 }}
+                                                    />
+                                                }
+                                                label={
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Box
+                                                            sx={{
+                                                                width: 32,
+                                                                height: 32,
+                                                                borderRadius: '50%',
+                                                                background: avatarUrl ? 
+                                                                    `url(${avatarUrl}) center/cover` : 
+                                                                    'linear-gradient(45deg, #FF6B6B, #4ECDC4)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                color: 'white',
+                                                                fontSize: '14px',
+                                                                fontWeight: 'bold',
+                                                                flexShrink: 0
+                                                            }}
+                                                        >
+                                                            {!avatarUrl && (username || email || 'U').charAt(0).toUpperCase()}
+                                                        </Box>
+                                                        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                                                                {username || email?.split('@')[0] || 'Пользователь'}
+                                                            </Typography>
+                                                            {member.role && (
+                                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                                    {member.role.name}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    </Box>
+                                                }
+                                                sx={{
+                                                    m: 0,
+                                                    p: 1,
+                                                    borderRadius: 1,
+                                                    '&:hover': {
+                                                        bgcolor: 'action.hover'
+                                                    },
+                                                    transition: 'background-color 0.2s'
+                                                }}
+                                            />
+                                        );
+                                    })
+                                    .filter(Boolean) // Убираем null элементы
+                                }
+                            </Box>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                                {boardMembers === undefined ? 'Загрузка участников...' : 'Участники не найдены'}
+                            </Typography>
+                        )}
                     </TabPanel>
                 </Popover>
             </Box>
