@@ -1,24 +1,89 @@
-import React from 'react';
-import { Typography, Box, useTheme } from '@mui/material';
+import React, { useState } from 'react';
+import { Typography, Box, useTheme, Button, Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress } from '@mui/material';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ImageIcon from '@mui/icons-material/Image';
+import VideoFileIcon from '@mui/icons-material/VideoFile';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import { taskService } from '../services/taskService';
 
 interface TextRendererProps {
     content: string;
     variant?: 'body1' | 'body2' | 'caption';
     maxHeight?: string;
     enableScroll?: boolean;
+    taskId?: number; // Для обработки файлов
+    onAttachmentAdd?: (attachment: any) => void; // Коллбек для добавления вложений
 }
 
 /**
  * Компонент для правильного отображения HTML контента от ReactQuill
  * Преобразует HTML в красивый читаемый текст с сохранением форматирования
+ * Поддерживает файлы и автоматическое добавление их в attachments
  */
 export const TextRenderer: React.FC<TextRendererProps> = ({ 
     content, 
     variant = 'body2', 
     maxHeight = '200px',
-    enableScroll = true 
+    enableScroll = true,
+    taskId,
+    onAttachmentAdd 
 }) => {
     const theme = useTheme();
+    const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+
+    // Функция для загрузки файла
+    const handleFileUpload = async (file: File) => {
+        if (!taskId || !onAttachmentAdd) return;
+
+        const fileId = `${file.name}-${Date.now()}`;
+        setUploadingFiles(prev => new Set([...prev, fileId]));
+
+        try {
+            // TODO: Добавить метод uploadAttachment в taskService
+            // Пока используем заглушку
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await fetch(`/api/tasks/${taskId}/attachments`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Ошибка загрузки файла');
+            
+            const attachment = await response.json();
+            onAttachmentAdd(attachment);
+            
+            // Возвращаем URL для вставки в текст
+            return attachment.url || `/api/tasks/${taskId}/attachments/${attachment.id}/download`;
+        } catch (error) {
+            console.error('Ошибка загрузки файла:', error);
+            throw error;
+        } finally {
+            setUploadingFiles(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(fileId);
+                return newSet;
+            });
+        }
+    };
+
+    // Функция для обработки drag & drop файлов
+    const handleFileDrop = async (event: React.DragEvent) => {
+        event.preventDefault();
+        const files = Array.from(event.dataTransfer.files);
+        
+        for (const file of files) {
+            try {
+                await handleFileUpload(file);
+            } catch (error) {
+                console.error('Ошибка при загрузке файла:', error);
+            }
+        }
+    };
 
     // Функция для очистки и преобразования HTML в текст с сохранением структуры
     const renderHtmlContent = (htmlContent: string) => {
@@ -175,6 +240,87 @@ export const TextRenderer: React.FC<TextRendererProps> = ({
                                 </Typography>
                             );
                             break;
+                        case 'img':
+                            const src = element.getAttribute('src');
+                            const alt = element.getAttribute('alt') || 'Изображение';
+                            if (src) {
+                                result.push(
+                                    <Box key={index} sx={{ margin: '8px 0', textAlign: 'center' }}>
+                                        <img 
+                                            src={src} 
+                                            alt={alt}
+                                            style={{
+                                                maxWidth: '100%',
+                                                height: 'auto',
+                                                borderRadius: '8px',
+                                                boxShadow: theme.shadows[2]
+                                            }}
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                        {alt !== 'Изображение' && (
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                                {alt}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                );
+                            }
+                            break;
+                        case 'video':
+                            const videoSrc = element.getAttribute('src');
+                            if (videoSrc) {
+                                result.push(
+                                    <Box key={index} sx={{ margin: '8px 0', textAlign: 'center' }}>
+                                        <video 
+                                            src={videoSrc}
+                                            controls
+                                            style={{
+                                                maxWidth: '100%',
+                                                height: 'auto',
+                                                borderRadius: '8px'
+                                            }}
+                                        >
+                                            Ваш браузер не поддерживает воспроизведение видео.
+                                        </video>
+                                    </Box>
+                                );
+                            }
+                            break;
+                        // Обработка ссылок на файлы
+                        case 'span':
+                            const dataFile = element.getAttribute('data-file');
+                            if (dataFile) {
+                                const fileName = element.getAttribute('data-filename') || 'Файл';
+                                const fileType = element.getAttribute('data-filetype') || '';
+                                
+                                const getFileIcon = (type: string) => {
+                                    if (type.includes('image')) return <ImageIcon />;
+                                    if (type.includes('video')) return <VideoFileIcon />;
+                                    if (type.includes('pdf')) return <PictureAsPdfIcon />;
+                                    return <AttachFileIcon />;
+                                };
+
+                                result.push(
+                                    <Button
+                                        key={index}
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={getFileIcon(fileType)}
+                                        onClick={() => window.open(dataFile, '_blank')}
+                                        sx={{ 
+                                            margin: '4px 8px 4px 0',
+                                            textTransform: 'none'
+                                        }}
+                                    >
+                                        {fileName}
+                                    </Button>
+                                );
+                            } else {
+                                result.push(...childContent);
+                            }
+                            break;
                         default:
                             // Для неизвестных тегов просто возвращаем содержимое
                             result.push(...childContent);
@@ -197,23 +343,35 @@ export const TextRenderer: React.FC<TextRendererProps> = ({
     const renderedContent = renderHtmlContent(content);
 
     return (
-        <Box sx={{ 
-            maxHeight: enableScroll ? maxHeight : 'auto',
-            overflow: enableScroll ? 'auto' : 'visible',
-            padding: '12px 16px',
-            backgroundColor: theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.05)' 
-                : 'rgba(0, 0, 0, 0.03)',
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            '& > *:first-of-type': {
-                marginTop: 0
-            },
-            '& > *:last-child': {
-                marginBottom: 0
-            }
-        }}>
+        <Box 
+            sx={{ 
+                maxHeight: enableScroll ? maxHeight : 'auto',
+                overflow: enableScroll ? 'auto' : 'visible',
+                padding: '12px 16px',
+                backgroundColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : 'rgba(0, 0, 0, 0.03)',
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+                '& > *:first-of-type': {
+                    marginTop: 0
+                },
+                '& > *:last-child': {
+                    marginBottom: 0
+                }
+            }}
+            onDrop={taskId ? handleFileDrop : undefined}
+            onDragOver={taskId ? (e) => e.preventDefault() : undefined}
+        >
             {renderedContent}
+            {uploadingFiles.size > 0 && (
+                <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                        Загрузка файлов...
+                    </Typography>
+                    <LinearProgress sx={{ mt: 1 }} />
+                </Box>
+            )}
         </Box>
     );
 };
@@ -260,5 +418,74 @@ export const TextPreview: React.FC<{ content: string; maxLength?: number }> = ({
         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
             {previewText}
         </Typography>
+    );
+};
+
+/**
+ * Функция для создания HTML с файлом
+ * Используется в Rich Text Editor для вставки ссылок на файлы
+ */
+export const createFileHtml = (fileName: string, fileUrl: string, fileType?: string): string => {
+    return `<span data-file="${fileUrl}" data-filename="${fileName}" data-filetype="${fileType || ''}" class="file-attachment">${fileName}</span>`;
+};
+
+/**
+ * Расширенный Rich Text Editor с поддержкой файлов
+ */
+export const EnhancedRichTextEditor: React.FC<{
+    value: string;
+    onChange: (value: string) => void;
+    taskId?: number;
+    onAttachmentAdd?: (attachment: any) => void;
+    placeholder?: string;
+    disabled?: boolean;
+}> = ({ value, onChange, taskId, onAttachmentAdd, placeholder, disabled = false }) => {
+    const [fileDialogOpen, setFileDialogOpen] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    
+    const handleFileSelect = async (files: File[]) => {
+        if (!taskId || !onAttachmentAdd) return;
+        
+        setUploading(true);
+        try {
+            for (const file of files) {
+                // TODO: Добавить метод uploadAttachment в taskService
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch(`/api/tasks/${taskId}/attachments`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Ошибка загрузки файла');
+                
+                const attachment = await response.json();
+                onAttachmentAdd(attachment);
+                
+                // Вставляем ссылку на файл в текст
+                const fileHtml = createFileHtml(file.name, attachment.url || '', file.type);
+                onChange(value + ' ' + fileHtml);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки файлов:', error);
+        } finally {
+            setUploading(false);
+            setFileDialogOpen(false);
+        }
+    };
+
+    // Здесь можно добавить ReactQuill с кастомными инструментами для файлов
+    // Пока возвращаем простой интерфейс для демонстрации
+    return (
+        <Box>
+            {/* Здесь будет ReactQuill с расширенными возможностями */}
+            <Typography variant="caption" color="text.secondary">
+                Перетащите файлы в область описания или используйте кнопку для добавления вложений
+            </Typography>
+        </Box>
     );
 }; 
