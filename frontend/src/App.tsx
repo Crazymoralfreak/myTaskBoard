@@ -21,6 +21,7 @@ import { Layout } from './components/layout/Layout';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { RoleProvider } from './contexts/RoleContext';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { AppLocalizationProvider } from './contexts/LocalizationContext';
 
 function App() {
     // Запуск миграции данных при инициализации приложения
@@ -37,10 +38,11 @@ function App() {
     return (
         <RoleProvider>
             <CustomThemeProvider>
-                <CssBaseline />
-                <SnackbarProvider maxSnack={3}>
-                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-                        <ConfirmDialogProvider>
+                <AppLocalizationProvider>
+                    <CssBaseline />
+                    <SnackbarProvider maxSnack={3}>
+                        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+                            <ConfirmDialogProvider>
                             <WebSocketProvider>
                                 <Router>
                                     <Routes>
@@ -109,9 +111,10 @@ function App() {
                                     </Routes>
                                 </Router>
                             </WebSocketProvider>
-                        </ConfirmDialogProvider>
-                    </LocalizationProvider>
-                </SnackbarProvider>
+                            </ConfirmDialogProvider>
+                        </LocalizationProvider>
+                    </SnackbarProvider>
+                </AppLocalizationProvider>
             </CustomThemeProvider>
         </RoleProvider>
     );

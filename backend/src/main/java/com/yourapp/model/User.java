@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import com.yourapp.dto.UserDTO;
+import com.yourapp.dto.UserSettingsDTO;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -285,6 +286,25 @@ public class User implements UserDetails {
     }
 
     public UserDTO toDto() {
+        UserSettingsDTO settingsDto = null;
+        if (this.userSettings != null) {
+            settingsDto = UserSettingsDTO.builder()
+                    .darkMode(this.userSettings.getDarkMode())
+                    .compactMode(this.userSettings.getCompactMode())
+                    .enableAnimations(this.userSettings.getEnableAnimations())
+                    .browserNotifications(this.userSettings.getBrowserNotifications())
+                    .emailNotifications(this.userSettings.getEmailNotifications())
+                    .telegramNotifications(this.userSettings.getTelegramNotifications())
+                    .language(this.userSettings.getLanguage())
+                    .timezone(this.userSettings.getTimezone())
+                    .profileVisibility(this.userSettings.getProfileVisibility())
+                    .emailVisible(this.userSettings.getEmailVisible())
+                    .phoneVisible(this.userSettings.getPhoneVisible())
+                    .positionVisible(this.userSettings.getPositionVisible())
+                    .bioVisible(this.userSettings.getBioVisible())
+                    .build();
+        }
+        
         return UserDTO.builder()
                 .id(this.id)
                 .email(this.email)
@@ -294,6 +314,7 @@ public class User implements UserDetails {
                 .phoneNumber(this.phoneNumber)
                 .position(this.position)
                 .bio(this.bio)
+                .settings(settingsDto)
                 .build();
     }
 }

@@ -30,12 +30,12 @@
     <logger name="jdbc.connection" level="OFF"/>
     
     <!-- Отключаем логи Spring -->
-    <logger name="org.springframework" level="ERROR"/>
-    <logger name="org.springframework.web" level="ERROR"/>
-    <logger name="org.springframework.security" level="ERROR"/>
-    <logger name="org.springframework.jdbc" level="ERROR"/>
-    <logger name="org.springframework.orm" level="ERROR"/>
+    <logger name="org.springframework" level="INFO"
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.security" level="INFO"/>
+    <logger name="org.springframework.jdbc" level="INFO"/>
+    <logger name="org.springframework.orm" level="INFO"/>
     
     <!-- Логи вашего приложения на уровне ERROR -->
-    <logger name="com.yourapp" level="ERROR"/>
+    <logger name="com.yourapp" level="INFO"/>
 </configuration> 

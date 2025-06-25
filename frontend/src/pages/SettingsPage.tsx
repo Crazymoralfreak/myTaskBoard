@@ -35,6 +35,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import NotificationChannelSettingsComponent from '../components/notifications/NotificationChannelSettings';
 import { updateNotificationSetting } from '../services/notificationPreferencesService';
+import { useLocalization } from '../hooks/useLocalization';
 
 interface UserSettings {
   darkMode: boolean;
@@ -48,6 +49,7 @@ interface UserSettings {
 }
 
 export const SettingsPage: React.FC = () => {
+  const { setLanguage } = useLocalization();
   const [tabValue, setTabValue] = useState(0);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
@@ -193,6 +195,8 @@ export const SettingsPage: React.FC = () => {
       // Обновляем localStorage для некоторых настроек
       if (setting === 'language') {
         localStorage.setItem('language', newValue);
+        // Немедленно обновляем язык в системе локализации
+        await setLanguage(newValue as 'ru' | 'en');
       } else if (setting === 'timezone') {
         localStorage.setItem('timezone', newValue);
       }

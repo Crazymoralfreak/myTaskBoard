@@ -43,6 +43,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import * as authService from '../services/authService';
 import { styled } from '@mui/system';
+import { useLocalization } from '../hooks/useLocalization';
 
 // Стандартные аватары
 const AVATAR_OPTIONS = [
@@ -68,6 +69,7 @@ const AVATAR_OPTIONS = [
 ];
 
 export const ProfilePage = () => {
+  const { t } = useLocalization();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -115,11 +117,15 @@ export const ProfilePage = () => {
     try {
       setLoading(true);
       const userData = await fetchUserProfile();
-      if (!userData.userSettings) {
-        userData.userSettings = {
+      // Теперь backend возвращает settings, а не userSettings
+      if (!userData.settings) {
+        userData.settings = {
           darkMode: false,
         };
       }
+      // Для обратной совместимости добавляем userSettings как алиас к settings
+      userData.userSettings = userData.settings;
+      console.log('Загружен профиль пользователя:', userData);
       setProfile(userData);
       setOriginalProfile(userData);
       if (userData.avatarUrl) {
@@ -129,7 +135,7 @@ export const ProfilePage = () => {
       console.error('Ошибка загрузки профиля:', error);
       setSnackbar({
         open: true,
-        message: 'Не удалось загрузить данные профиля',
+        message: t('profile.loadProfileError'),
         severity: 'error'
       });
     } finally {
@@ -153,29 +159,33 @@ export const ProfilePage = () => {
         bio: profile.bio
       });
       
+      // Обновляем состояние данными с сервера (теперь содержит актуальные settings)
+      console.log('Получен обновленный профиль от сервера:', updatedProfile);
+      setProfile(updatedProfile);
+      
       // Затем отдельно сохраняем настройки пользователя (если они есть)
-      if (profile?.userSettings && token) {
+      if (updatedProfile?.settings && token) {
         try {
-          console.log('Сохранение настроек пользователя:', profile.userSettings);
-          await updateUserSettings(token, profile.userSettings);
+          console.log('Сохранение настроек пользователя:', updatedProfile.settings);
+          await updateUserSettings(token, updatedProfile.settings);
           console.log('Настройки пользователя успешно сохранены');
         } catch (settingsError) {
           console.error('Ошибка при сохранении настроек:', settingsError);
           // Продолжаем выполнение, даже если настройки не сохранились
-          toast.error('Не удалось сохранить настройки пользователя');
+          toast.error(t('profile.settingsUpdateError'));
         }
       }
       
       setIsEditing(false);
-      setOriginalProfile({...profile});
-      toast.success('Профиль успешно обновлен');
+      setOriginalProfile({...updatedProfile});
+      toast.success(t('profile.profileUpdated'));
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      if (error.response && error.response.status === 401) {
-        toast.error('Сессия истекла. Пожалуйста, войдите снова.');
+              if (error.response && error.response.status === 401) {
+        toast.error(t('profile.sessionExpired'));
         navigate('/login');
       } else {
-        toast.error('Ошибка при сохранении профиля: ' + (error.message || 'Неизвестная ошибка'));
+        toast.error(t('profile.profileUpdateError') + ': ' + (error.message || t('profile.unknownError')));
       }
     } finally {
       setSaving(false);
@@ -236,7 +246,7 @@ export const ProfilePage = () => {
       
     } catch (error: any) {
       // Показываем сообщение об ошибке
-      setSnackbarMessage(error.message || 'Произошла ошибка при смене пароля');
+      setSnackbarMessage(error.message || t('profile.passwordChangeError'));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -291,7 +301,15 @@ export const ProfilePage = () => {
       console.log('Результат загрузки аватара:', result);
       
       if (result && result.avatarUrl) {
-        const updatedProfile = {...profile, avatarUrl: result.avatarUrl};
+        // Получаем обновленный профиль с сервера
+        const updatedProfile = await fetchUserProfile();
+        console.log('Получен обновленный профиль после загрузки аватара:', updatedProfile);
+        
+        // Для обратной совместимости
+        if (!updatedProfile.userSettings && updatedProfile.settings) {
+          updatedProfile.userSettings = updatedProfile.settings;
+        }
+        
         setProfile(updatedProfile);
         setOriginalProfile(updatedProfile);
         setSelectedAvatar(result.avatarUrl);
@@ -302,7 +320,7 @@ export const ProfilePage = () => {
         
         setSnackbar({
           open: true,
-          message: 'Аватар успешно обновлен',
+          message: t('profile.avatarUpdated'),
           severity: 'success'
         });
       }
@@ -310,7 +328,7 @@ export const ProfilePage = () => {
       console.error('Ошибка обновления аватара:', error);
       setSnackbar({
         open: true,
-        message: 'Не удалось обновить аватар',
+        message: t('profile.avatarUpdateError'),
         severity: 'error'
       });
     } finally {
@@ -324,22 +342,30 @@ export const ProfilePage = () => {
     try {
       setLoading(true);
       await updateUserAvatar(avatarUrl);
-      // Обновляем профиль после изменения аватара
-      const updatedProfile = {...profile, avatarUrl};
+      
+      // Получаем обновленный профиль с сервера
+      const updatedProfile = await fetchUserProfile();
+      console.log('Получен обновленный профиль после выбора аватара:', updatedProfile);
+      
+      // Для обратной совместимости
+      if (!updatedProfile.userSettings && updatedProfile.settings) {
+        updatedProfile.userSettings = updatedProfile.settings;
+      }
+      
       setProfile(updatedProfile);
       setOriginalProfile(updatedProfile);
       setSelectedAvatar(avatarUrl);
       setAvatarMenuAnchor(null); // Закрываем меню
       setSnackbar({
         open: true,
-        message: 'Аватар успешно обновлен',
+        message: t('profile.avatarUpdated'),
         severity: 'success'
       });
     } catch (error) {
       console.error('Ошибка обновления аватара:', error);
       setSnackbar({
         open: true,
-        message: 'Не удалось обновить аватар',
+        message: t('profile.avatarUpdateError'),
         severity: 'error'
       });
     } finally {
@@ -377,22 +403,27 @@ export const ProfilePage = () => {
   const handleFileUpload = async (file: File) => {
     try {
       setUploading(true);
-      setSnackbarMessage('Загрузка аватара...');
+      setSnackbarMessage(t('profile.avatarUploading'));
       setSnackbarSeverity('info');
       setSnackbarOpen(true);
       
       // Загружаем файл на сервер
       const result = await uploadUserAvatar(file);
       
-      // Обновляем профиль с новым URL аватара
+      // Получаем обновленный профиль с сервера
       if (result && result.avatarUrl) {
-        setProfile({
-          ...profile!,
-          avatarUrl: result.avatarUrl
-        });
+        const updatedProfile = await fetchUserProfile();
+        console.log('Получен обновленный профиль после загрузки файла:', updatedProfile);
+        
+        // Для обратной совместимости
+        if (!updatedProfile.userSettings && updatedProfile.settings) {
+          updatedProfile.userSettings = updatedProfile.settings;
+        }
+        
+        setProfile(updatedProfile);
         
         // Показываем сообщение об успехе
-        setSnackbarMessage('Аватар успешно обновлен');
+        setSnackbarMessage(t('profile.avatarUpdated'));
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
       }
@@ -400,7 +431,7 @@ export const ProfilePage = () => {
       console.error('Ошибка при загрузке аватара:', error);
       
       // Показываем сообщение об ошибке
-      setSnackbarMessage(error.message || 'Произошла ошибка при загрузке аватара');
+      setSnackbarMessage(error.message || t('profile.avatarUpdateError'));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -418,8 +449,8 @@ export const ProfilePage = () => {
     const isDarkMode = event.target.checked;
     setProfile((prevProfile: any) => ({
       ...prevProfile,
-      userSettings: {
-        ...(prevProfile.userSettings || {}),
+      settings: {
+        ...(prevProfile.settings || {}),
         darkMode: isDarkMode
       }
     }));
@@ -433,7 +464,7 @@ export const ProfilePage = () => {
     
     setSnackbar({
       open: true,
-      message: isDarkMode ? 'Включена темная тема' : 'Включена светлая тема',
+      message: isDarkMode ? t('profile.darkThemeEnabled') : t('profile.lightThemeEnabled'),
       severity: 'info'
     });
   };
@@ -457,7 +488,7 @@ export const ProfilePage = () => {
   return (
     <Container maxWidth="md" sx={{ mt: 4, px: isMobile ? 2 : 3 }}>
       <Typography variant="h4" gutterBottom>
-        Мой профиль
+        {t('profile.title')}
       </Typography>
       
       <Paper sx={{ p: isMobile ? 2 : 3, mt: 3 }}>
@@ -504,7 +535,7 @@ export const ProfilePage = () => {
                   {profile.username || 'Пользователь'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {profile.position || 'Должность не указана'}
+                  {profile.position || t('profile.positionPlaceholder')}
                 </Typography>
               </Box>
               
@@ -515,10 +546,10 @@ export const ProfilePage = () => {
                 onClose={handleAvatarMenuClose}
               >
                 <MenuItem onClick={handleOpenStandardAvatars}>
-                  Выбрать из стандартных
+                  {t('profile.selectFromStandard')}
                 </MenuItem>
                 <MenuItem onClick={handleOpenAvatarUploader}>
-                  Загрузить и обрезать аватар
+                  {t('profile.uploadAndCrop')}
                 </MenuItem>
               </Menu>
             </Box>
@@ -529,7 +560,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Имя пользователя"
+                  label={t('profile.username')}
                   value={profile.username || ''}
                   onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                   variant="outlined"
@@ -539,7 +570,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Email"
+                  label={t('profile.email')}
                   value={profile.email || ''}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                   variant="outlined"
@@ -549,7 +580,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Телефон"
+                  label={t('profile.phone')}
                   value={profile.phone || profile.phoneNumber || ''}
                   onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                   variant="outlined"
@@ -559,7 +590,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Должность"
+                  label={t('profile.position')}
                   value={profile.position || ''}
                   onChange={(e) => setProfile({ ...profile, position: e.target.value })}
                   variant="outlined"
@@ -569,7 +600,7 @@ export const ProfilePage = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="О себе"
+                  label={t('profile.bio')}
                   value={profile.bio || ''}
                   onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                   variant="outlined"
@@ -593,7 +624,7 @@ export const ProfilePage = () => {
                 onClick={() => setShowSecuritySection(!showSecuritySection)}
               >
                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                  <LockIcon sx={{ mr: 1 }} /> Безопасность
+                  <LockIcon sx={{ mr: 1 }} /> {t('profile.security')}
                 </Typography>
                 <IconButton>
                   {showSecuritySection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -603,11 +634,10 @@ export const ProfilePage = () => {
               <Collapse in={showSecuritySection}>
                 <Paper variant="outlined" sx={{ p: isMobile ? 2 : 3, mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                    Изменение пароля
+                    {t('profile.changePassword')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Для обеспечения безопасности используйте надежный пароль и меняйте его регулярно. 
-                    После изменения пароля вам потребуется войти снова.
+                    {t('profile.securityDescription')}
                   </Typography>
                   
                   <form onSubmit={handlePasswordChange}>
@@ -615,7 +645,7 @@ export const ProfilePage = () => {
                       <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
-                          label="Текущий пароль"
+                          label={t('profile.currentPassword')}
                           type="password"
                           variant="outlined"
                           value={passwordData.currentPassword}
@@ -627,7 +657,7 @@ export const ProfilePage = () => {
                       <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
-                          label="Новый пароль"
+                          label={t('profile.newPassword')}
                           type="password"
                           variant="outlined"
                           value={passwordData.newPassword}
@@ -638,7 +668,7 @@ export const ProfilePage = () => {
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
-                          label="Подтвердите новый пароль"
+                          label={t('profile.confirmPassword')}
                           type="password"
                           variant="outlined"
                           value={passwordData.confirmPassword}
@@ -646,7 +676,7 @@ export const ProfilePage = () => {
                           error={passwordData.newPassword !== passwordData.confirmPassword && !!passwordData.confirmPassword}
                           helperText={
                             passwordData.newPassword !== passwordData.confirmPassword && !!passwordData.confirmPassword
-                              ? 'Пароли не совпадают'
+                              ? t('profile.passwordMismatch')
                               : ''
                           }
                           required
@@ -667,7 +697,7 @@ export const ProfilePage = () => {
                             color="primary"
                             disabled={!isPasswordFormValid || changePasswordLoading}
                           >
-                            {changePasswordLoading ? <CircularProgress size={24} /> : 'Изменить пароль'}
+                            {changePasswordLoading ? <CircularProgress size={24} /> : t('profile.changePasswordButton')}
                           </Button>
                         </Box>
                       </Grid>
@@ -686,7 +716,7 @@ export const ProfilePage = () => {
                     onClick={handleCancelEdit}
                     fullWidth={isMobile}
                   >
-                    Отмена
+                    {t('profile.cancel')}
                   </Button>
                   <Button 
                     variant="contained" 
@@ -695,7 +725,7 @@ export const ProfilePage = () => {
                     disabled={loading || saving}
                     fullWidth={isMobile}
                   >
-                    {loading || saving ? <CircularProgress size={24} /> : 'Сохранить изменения'}
+                    {loading || saving ? <CircularProgress size={24} /> : t('profile.saveChanges')}
                   </Button>
                 </>
               ) : (
@@ -706,7 +736,7 @@ export const ProfilePage = () => {
                   disabled={loading}
                   fullWidth={isMobile}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Редактировать профиль'}
+                  {loading ? <CircularProgress size={24} /> : t('profile.editProfile')}
                 </Button>
               )}
             </Box>
@@ -720,7 +750,7 @@ export const ProfilePage = () => {
           </>
         ) : (
           <Typography>
-            Профиль не найден
+            {t('profile.profileNotFound')}
           </Typography>
         )}
       </Paper>
@@ -733,19 +763,18 @@ export const ProfilePage = () => {
         maxWidth="sm"
         fullScreen={isMobile}
       >
-        <DialogTitle>Подтверждение смены пароля</DialogTitle>
+        <DialogTitle>{t('profile.confirmPasswordChange')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            После смены пароля вы будете автоматически разлогинены из системы и перенаправлены на страницу входа.
-            Вам потребуется снова авторизоваться с новым паролем.
+            {t('profile.passwordChangeWarning')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={closePasswordDialog} color="primary">
-            Отмена
+            {t('profile.cancel')}
           </Button>
           <Button onClick={confirmPasswordChange} color="primary" variant="contained">
-            Подтвердить
+            {t('profile.confirm')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -766,8 +795,8 @@ export const ProfilePage = () => {
         }}>
           <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <CircularProgress />
-            <Typography sx={{ mt: 2 }}>Изменение пароля...</Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>Вы будете перенаправлены на страницу входа</Typography>
+            <Typography sx={{ mt: 2 }}>{t('profile.changingPassword')}</Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>{t('profile.redirectMessage')}</Typography>
           </Paper>
         </Box>
       )}
@@ -780,14 +809,14 @@ export const ProfilePage = () => {
         maxWidth="md"
         fullScreen={isMobile}
       >
-        <DialogTitle>Выберите аватар</DialogTitle>
+        <DialogTitle>{t('profile.selectAvatar')}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} justifyContent="center">
             {AVATAR_OPTIONS.map((avatar, index) => (
               <Grid item key={index}>
                 <Avatar
                   src={processAvatarUrl(avatar)}
-                  alt={`Аватар ${index + 1}`}
+                  alt={`${t('profile.avatarAlt')} ${index + 1}`}
                   sx={{ 
                     width: 64, 
                     height: 64, 
@@ -806,7 +835,7 @@ export const ProfilePage = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAvatarDialogOpen(false)}>Закрыть</Button>
+          <Button onClick={() => setAvatarDialogOpen(false)}>{t('profile.close')}</Button>
         </DialogActions>
       </Dialog>
       

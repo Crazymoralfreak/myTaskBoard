@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+import { useLocalization } from '../hooks/useLocalization';
 
 interface AvatarUploaderProps {
   open: boolean;
@@ -101,6 +102,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
   const imgRef = useRef<HTMLImageElement>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useLocalization();
 
   const onSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -127,7 +129,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
         onSave(croppedImageUrl);
         onClose();
       } catch (error) {
-        console.error('Ошибка при обрезке изображения:', error);
+        console.error(t('profile.cropImageError') + ':', error);
       } finally {
         setIsLoading(false);
       }
@@ -149,18 +151,18 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
       fullWidth
       fullScreen={isMobile}
     >
-      <DialogTitle>Загрузка аватара</DialogTitle>
+      <DialogTitle>{t('profile.uploadAvatarTitle')}</DialogTitle>
       <DialogContent>
         {!imgSrc ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" gutterBottom>
-              Выберите изображение для загрузки
+              {t('profile.selectImagePrompt')}
             </Typography>
             <Button
               variant="contained"
               component="label"
             >
-              Выбрать изображение
+              {t('profile.chooseImage')}
               <input
                 type="file"
                 hidden
@@ -199,7 +201,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
             </ReactCrop>
             
             <Box sx={{ width: '100%', maxWidth: 500, mt: 2 }}>
-              <Typography gutterBottom>Масштаб</Typography>
+              <Typography gutterBottom>{t('profile.scale')}</Typography>
               <Slider
                 value={scale}
                 min={0.5}
@@ -209,7 +211,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
                 onChange={(_, value) => setScale(value as number)}
               />
               
-              <Typography gutterBottom>Поворот</Typography>
+              <Typography gutterBottom>{t('profile.rotation')}</Typography>
               <Slider
                 value={rotate}
                 min={0}
@@ -223,14 +225,14 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleCancel}>Отмена</Button>
+        <Button onClick={handleCancel}>{t('profile.cancel')}</Button>
         <Button 
           onClick={handleSave} 
           variant="contained" 
           color="primary" 
           disabled={!imgSrc || !completedCrop || isLoading}
         >
-          {isLoading ? <CircularProgress size={24} /> : 'Сохранить'}
+          {isLoading ? <CircularProgress size={24} /> : t('profile.save')}
         </Button>
       </DialogActions>
     </Dialog>

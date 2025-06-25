@@ -270,9 +270,13 @@ public class UserController {
             User user = userOptional.get();
             logger.debug("Найден пользователь ID: {}", user.getId());
             
-            // Обновляем только поле аватарки, не затрагивая другие поля
-            user.setAvatarUrl(avatarDto.getAvatarUrl());
-            User updatedUser = userService.updateUser(user.getId(), user);
+            // Создаем новый объект только с данными для обновления аватара
+            // ВАЖНО: НЕ передаем полный объект user, чтобы не перезаписать пароль!
+            User avatarUpdate = new User();
+            avatarUpdate.setId(user.getId());
+            avatarUpdate.setAvatarUrl(avatarDto.getAvatarUrl());
+            
+            User updatedUser = userService.updateUser(user.getId(), avatarUpdate);
             
             // Возвращаем DTO пользователя вместо полного объекта
             return ResponseEntity.ok(updatedUser.toDto());
