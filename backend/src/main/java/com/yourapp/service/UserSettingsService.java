@@ -37,27 +37,90 @@ public class UserSettingsService {
         "America/Sao_Paulo"
     );
 
-    @Transactional(readOnly = true)
+    @Transactional
     public UserSettingsDTO getUserSettings(User user) {
         Optional<UserSettings> settingsOpt = userSettingsRepository.findByUser(user);
         
         if (settingsOpt.isPresent()) {
             UserSettings settings = settingsOpt.get();
-            // Применяем значения по умолчанию для null полей
+            
+            // Проверяем и инициализируем null значения один раз при первом обращении
+            boolean needsSave = false;
+            
+            if (settings.getDarkMode() == null) {
+                settings.setDarkMode(false);
+                needsSave = true;
+            }
+            if (settings.getCompactMode() == null) {
+                settings.setCompactMode(false);
+                needsSave = true;
+            }
+            if (settings.getEnableAnimations() == null) {
+                settings.setEnableAnimations(true);
+                needsSave = true;
+            }
+            if (settings.getBrowserNotifications() == null) {
+                settings.setBrowserNotifications(true);
+                needsSave = true;
+            }
+            if (settings.getEmailNotifications() == null) {
+                settings.setEmailNotifications(true);
+                needsSave = true;
+            }
+            if (settings.getTelegramNotifications() == null) {
+                settings.setTelegramNotifications(true);
+                needsSave = true;
+            }
+            if (settings.getProfileVisibility() == null) {
+                settings.setProfileVisibility("public");
+                needsSave = true;
+            }
+            if (settings.getEmailVisible() == null) {
+                settings.setEmailVisible(true);
+                needsSave = true;
+            }
+            if (settings.getPhoneVisible() == null) {
+                settings.setPhoneVisible(true);
+                needsSave = true;
+            }
+            if (settings.getPositionVisible() == null) {
+                settings.setPositionVisible(true);
+                needsSave = true;
+            }
+            if (settings.getBioVisible() == null) {
+                settings.setBioVisible(true);
+                needsSave = true;
+            }
+            if (settings.getLanguage() == null) {
+                settings.setLanguage("en");
+                needsSave = true;
+            }
+            if (settings.getTimezone() == null) {
+                settings.setTimezone("UTC");
+                needsSave = true;
+            }
+            
+            // Сохраняем инициализированные значения в БД один раз
+            if (needsSave) {
+                settings = userSettingsRepository.save(settings);
+                logger.info("Инициализированы null значения в настройках пользователя {}", user.getUsername());
+            }
+            
+            // Возвращаем настройки (все значения теперь гарантированно не null)
             return UserSettingsDTO.builder()
-                    .darkMode(settings.getDarkMode() != null ? settings.getDarkMode() : false)
-                    .compactMode(settings.getCompactMode() != null ? settings.getCompactMode() : false)
-                    .enableAnimations(settings.getEnableAnimations() != null ? settings.getEnableAnimations() : true)
-                    .browserNotifications(settings.getBrowserNotifications() != null ? settings.getBrowserNotifications() : true)
-                    .emailNotifications(settings.getEmailNotifications() != null ? settings.getEmailNotifications() : true)
-                    .telegramNotifications(settings.getTelegramNotifications() != null ? settings.getTelegramNotifications() : true)
-                    .profileVisibility(settings.getProfileVisibility() != null ? settings.getProfileVisibility() : "public")
-                    .emailVisible(settings.getEmailVisible() != null ? settings.getEmailVisible() : true)
-                    .phoneVisible(settings.getPhoneVisible() != null ? settings.getPhoneVisible() : true)
-                    .positionVisible(settings.getPositionVisible() != null ? settings.getPositionVisible() : true)
-                    .bioVisible(settings.getBioVisible() != null ? settings.getBioVisible() : true)
-                    .language(settings.getLanguage() != null ? settings.getLanguage() : "en")
-                    .timezone(settings.getTimezone() != null ? settings.getTimezone() : "UTC")
+                    .darkMode(settings.getDarkMode())
+                    .compactMode(settings.getCompactMode())
+                    .enableAnimations(settings.getEnableAnimations())
+                    .browserNotifications(settings.getBrowserNotifications())
+                    .emailNotifications(settings.getEmailNotifications())
+                    .telegramNotifications(settings.getTelegramNotifications())
+                    .profileVisibility(settings.getProfileVisibility())
+                    .emailVisible(settings.getEmailVisible())
+                    .phoneVisible(settings.getPhoneVisible())
+                    .positionVisible(settings.getPositionVisible())
+                    .bioVisible(settings.getBioVisible())
+                    .language(settings.getLanguage())
+                    .timezone(settings.getTimezone())
                     .build();
         }
         
@@ -184,9 +247,6 @@ public class UserSettingsService {
                     return new RuntimeException("UserSettings not found for user.");
                 });
         
-        // Исправляем null значения в существующих настройках
-        fixNullSettings(settings);
-        
         // Обновляем только указанную настройку
         switch (settingKey) {
             case "darkMode":
@@ -228,71 +288,7 @@ public class UserSettingsService {
         return getUserSettings(user);
     }
     
-    /**
-     * Исправляет null значения в настройках пользователя
-     * @param settings настройки пользователя
-     */
-    private void fixNullSettings(UserSettings settings) {
-        boolean needsSave = false;
-        
-        if (settings.getDarkMode() == null) {
-            settings.setDarkMode(false);
-            needsSave = true;
-        }
-        if (settings.getCompactMode() == null) {
-            settings.setCompactMode(false);
-            needsSave = true;
-        }
-        if (settings.getEnableAnimations() == null) {
-            settings.setEnableAnimations(true);
-            needsSave = true;
-        }
-        if (settings.getBrowserNotifications() == null) {
-            settings.setBrowserNotifications(true);
-            needsSave = true;
-        }
-        if (settings.getEmailNotifications() == null) {
-            settings.setEmailNotifications(true);
-            needsSave = true;
-        }
-        if (settings.getTelegramNotifications() == null) {
-            settings.setTelegramNotifications(true);
-            needsSave = true;
-        }
-        if (settings.getLanguage() == null) {
-            settings.setLanguage("en");
-            needsSave = true;
-        }
-        if (settings.getTimezone() == null) {
-            settings.setTimezone("UTC");
-            needsSave = true;
-        }
-        if (settings.getProfileVisibility() == null) {
-            settings.setProfileVisibility("public");
-            needsSave = true;
-        }
-        if (settings.getEmailVisible() == null) {
-            settings.setEmailVisible(true);
-            needsSave = true;
-        }
-        if (settings.getPhoneVisible() == null) {
-            settings.setPhoneVisible(true);
-            needsSave = true;
-        }
-        if (settings.getPositionVisible() == null) {
-            settings.setPositionVisible(true);
-            needsSave = true;
-        }
-        if (settings.getBioVisible() == null) {
-            settings.setBioVisible(true);
-            needsSave = true;
-        }
-        
-        if (needsSave) {
-            userSettingsRepository.save(settings);
-            logger.info("Исправлены null значения в настройках пользователя {}", settings.getUser().getUsername());
-        }
-    }
+
     
     /**
      * Валидация языка - проверяет, что язык поддерживается

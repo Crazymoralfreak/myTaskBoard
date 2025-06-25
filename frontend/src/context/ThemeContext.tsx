@@ -2,7 +2,8 @@ import React, { createContext, useState, useMemo, useContext, useEffect } from '
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { lightTheme, darkTheme } from '../theme/theme';
-import { fetchUserProfile, updateUserSettings } from '../api/api'; // Для загрузки/сохранения настроек
+import { fetchUserProfile } from '../api/api'; // Для загрузки настроек
+import { userService } from '../services/userService'; // Для сохранения настроек
 
 // Создаем контекст
 interface ThemeContextType {
@@ -65,12 +66,7 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const profile = await fetchUserProfile();
-        const updatedSettings = { 
-          ...(profile.userSettings || {}), 
-          darkMode: newMode === 'dark' 
-        };
-        await updateUserSettings(token, updatedSettings);
+        await userService.updateUserSetting('darkMode', newMode === 'dark');
         console.log('Настройки темы сохранены на сервере');
       } catch (error) {
         console.error('Не удалось сохранить настройки темы на сервере:', error);
