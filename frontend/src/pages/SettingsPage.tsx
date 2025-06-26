@@ -49,7 +49,7 @@ interface UserSettings {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { setLanguage } = useLocalization();
+  const { t, setLanguage } = useLocalization();
   const [tabValue, setTabValue] = useState(0);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
@@ -84,7 +84,7 @@ export const SettingsPage: React.FC = () => {
       setNotificationPreferences(notificationPrefsResponse);
     } catch (error) {
       console.error('Ошибка при загрузке настроек:', error);
-      enqueueSnackbar('Не удалось загрузить настройки', { variant: 'error' });
+      enqueueSnackbar(t('settingsLoadError'), { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -309,14 +309,14 @@ export const SettingsPage: React.FC = () => {
   // Функция для получения читаемого названия настройки интерфейса
   const getInterfaceSettingDisplayName = (key: keyof UserSettings): string => {
     const displayNames: Record<keyof UserSettings, string> = {
-      darkMode: 'Темная тема',
-      compactMode: 'Компактный режим',
-      enableAnimations: 'Анимации',
-      browserNotifications: 'Браузерные уведомления',
-      emailNotifications: 'Email уведомления',
-      telegramNotifications: 'Telegram уведомления',
-      language: 'Язык',
-      timezone: 'Временная зона'
+      darkMode: t('darkMode'),
+      compactMode: t('compactMode'),
+      enableAnimations: t('animations'),
+      browserNotifications: t('browserNotifications'),
+      emailNotifications: t('emailNotifications'),
+      telegramNotifications: t('telegramNotifications'),
+      language: t('language'),
+      timezone: t('temporalZone')
     };
     return displayNames[key] || key as string;
   };
@@ -324,29 +324,29 @@ export const SettingsPage: React.FC = () => {
   // Функция для получения читаемого названия настройки уведомлений
   const getNotificationSettingDisplayName = (key: keyof NotificationPreferences): string => {
     const displayNames: Record<keyof NotificationPreferences, string> = {
-      globalNotificationsEnabled: 'Глобальные уведомления',
-      emailNotificationsEnabled: 'Email уведомления',
-      telegramNotificationsEnabled: 'Telegram уведомления',
-      browserNotificationsEnabled: 'Браузер уведомления',
-      boardInviteNotifications: 'Приглашения на доску',
-      taskAssignedNotifications: 'Назначение задач',
-      taskStatusChangedNotifications: 'Изменение статуса задач',
-      taskCreatedNotifications: 'Создание задач',
-      taskUpdatedNotifications: 'Обновление задач',
-      taskDeletedNotifications: 'Удаление задач',
-      taskCommentAddedNotifications: 'Комментарии к задачам',
-      mentionNotifications: 'Упоминания',
-      subtaskCreatedNotifications: 'Создание подзадач',
-      subtaskCompletedNotifications: 'Завершение подзадач',
-      boardMemberAddedNotifications: 'Добавление участников',
-      boardMemberRemovedNotifications: 'Удаление участников',
-      attachmentAddedNotifications: 'Прикрепление файлов',
-      deadlineReminderNotifications: 'Напоминания о дедлайнах',
-      roleChangedNotifications: 'Изменение ролей',
-      taskDueSoonNotifications: 'Скорые дедлайны',
-      taskOverdueNotifications: 'Просроченные задачи',
-      onlyHighPriorityNotifications: 'Только высокий приоритет',
-      groupSimilarNotifications: 'Группировка уведомлений',
+      globalNotificationsEnabled: t('globalNotifications'),
+      emailNotificationsEnabled: t('emailNotifications'),
+      telegramNotificationsEnabled: t('telegramNotifications'),
+      browserNotificationsEnabled: t('browserNotifications'),
+      boardInviteNotifications: t('boardInviteNotifications'),
+      taskAssignedNotifications: t('taskAssignedNotifications'),
+      taskStatusChangedNotifications: t('taskStatusChangedNotifications'),
+      taskCreatedNotifications: t('taskCreatedNotifications'),
+      taskUpdatedNotifications: t('taskUpdatedNotifications'),
+      taskDeletedNotifications: t('taskDeletedNotifications'),
+      taskCommentAddedNotifications: t('taskCommentAddedNotifications'),
+      mentionNotifications: t('mentionNotifications'),
+      subtaskCreatedNotifications: t('subtaskCreatedNotifications'),
+      subtaskCompletedNotifications: t('subtaskCompletedNotifications'),
+      boardMemberAddedNotifications: t('boardMemberAddedNotifications'),
+      boardMemberRemovedNotifications: t('boardMemberRemovedNotifications'),
+      attachmentAddedNotifications: t('attachmentAddedNotifications'),
+      deadlineReminderNotifications: t('deadlineReminderNotifications'),
+      roleChangedNotifications: t('roleChangedNotifications'),
+      taskDueSoonNotifications: t('taskDueSoonNotifications'),
+      taskOverdueNotifications: t('taskOverdueNotifications'),
+      onlyHighPriorityNotifications: t('onlyHighPriorityNotifications'),
+      groupSimilarNotifications: t('groupSimilarNotifications'),
       id: 'ID'
     };
     return displayNames[key] || key as string;
@@ -363,7 +363,7 @@ export const SettingsPage: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom>
-        Настройки
+        {t('settingsTitle')}
       </Typography>
       
       {/* Диагностический блок - только для разработки */}
@@ -385,9 +385,9 @@ export const SettingsPage: React.FC = () => {
             onChange={handleTabChange}
             aria-label="settings tabs"
           >
-            <Tab label="Интерфейс" />
-            <Tab label="Уведомления" />
-            <Tab label="Приложение" />
+            <Tab label={t('interface')} />
+            <Tab label={t('notifications')} />
+            <Tab label={t('general')} />
           </Tabs>
         </Box>
         
@@ -396,10 +396,10 @@ export const SettingsPage: React.FC = () => {
             {tabValue === 0 && (
               <Box sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
-                  Настройки интерфейса
+                  {t('interfaceSettings')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Настройки сохраняются автоматически при изменении
+                  {t('settingsSaved')}
                 </Typography>
                 <Divider sx={{ my: 2 }} />
                 
@@ -413,7 +413,7 @@ export const SettingsPage: React.FC = () => {
                   }
                   label={
                     <Box display="flex" alignItems="center" gap={1}>
-                      <span>Темная тема</span>
+                      <span>{t('darkMode')}</span>
                       {savingSettings.darkMode && <CircularProgress size={16} />}
                     </Box>
                   }
@@ -430,7 +430,7 @@ export const SettingsPage: React.FC = () => {
                     }
                     label={
                       <Box display="flex" alignItems="center" gap={1}>
-                        <span>Компактный вид задач</span>
+                        <span>{t('compactMode')}</span>
                         {savingSettings.compactMode && <CircularProgress size={16} />}
                       </Box>
                     }
@@ -448,7 +448,7 @@ export const SettingsPage: React.FC = () => {
                     }
                     label={
                       <Box display="flex" alignItems="center" gap={1}>
-                        <span>Анимации интерфейса</span>
+                        <span>{t('enableAnimations')}</span>
                         {savingSettings.enableAnimations && <CircularProgress size={16} />}
                       </Box>
                     }
@@ -459,16 +459,16 @@ export const SettingsPage: React.FC = () => {
 
                 {/* Языковые и региональные настройки */}
                 <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
-                  Язык и регион
+                  {t('language')} и {t('timezone')}
                 </Typography>
 
                 <Box sx={{ mt: 2 }}>
                   <FormControl fullWidth disabled={savingSettings.language}>
-                    <InputLabel id="language-label">Язык интерфейса</InputLabel>
+                    <InputLabel id="language-label">{t('language')}</InputLabel>
                     <Select
                       labelId="language-label"
                       value={settings.language}
-                      label="Язык интерфейса"
+                      label={t('language')}
                       onChange={handleSelectSettingChange('language')}
                       endAdornment={
                         savingSettings.language && (
@@ -492,11 +492,11 @@ export const SettingsPage: React.FC = () => {
 
                 <Box sx={{ mt: 2 }}>
                   <FormControl fullWidth disabled={savingSettings.timezone}>
-                    <InputLabel id="timezone-label">Часовой пояс</InputLabel>
+                    <InputLabel id="timezone-label">{t('timezone')}</InputLabel>
                     <Select
                       labelId="timezone-label"
                       value={settings.timezone}
-                      label="Часовой пояс"
+                      label={t('timezone')}
                       onChange={handleSelectSettingChange('timezone')}
                       endAdornment={
                         savingSettings.timezone && (
@@ -520,10 +520,10 @@ export const SettingsPage: React.FC = () => {
             {tabValue === 1 && (
               <Box sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
-                  Настройки уведомлений
+                  {t('notificationsTitle')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Настройте детальные предпочтения уведомлений для каждого канала доставки
+                  {t('notificationsDescription')}
                 </Typography>
                 
                 <NotificationChannelSettingsComponent
@@ -537,12 +537,12 @@ export const SettingsPage: React.FC = () => {
             {tabValue === 2 && (
               <Box sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
-                  Настройки приложения
+                  {t('appSettings')}
                 </Typography>
                 <Divider sx={{ my: 2 }} />
                 
                 <Typography variant="body2" color="text.secondary" paragraph>
-                  Версия приложения: 0.1.0
+                  {t('appVersion')}: 0.1.0
                 </Typography>
                 
                 <Button 
@@ -550,7 +550,7 @@ export const SettingsPage: React.FC = () => {
                   color="primary"
                   onClick={handleClearCache}
                 >
-                  Очистить кэш приложения
+                  {t('clearCache')}
                 </Button>
                 
                 <Box sx={{ mt: 2 }}>
@@ -559,7 +559,7 @@ export const SettingsPage: React.FC = () => {
                     color="error"
                     onClick={handleDeleteData}
                   >
-                    Удалить все данные
+                    {t('deleteAllData')}
                   </Button>
                 </Box>
               </Box>

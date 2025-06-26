@@ -15,6 +15,7 @@ import {
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { BoardEntitiesManager } from '../BoardEntitiesManager/BoardEntitiesManager';
 import { Board } from '../../../types/board';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -61,6 +62,7 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
     board,
     onBoardUpdate
 }) => {
+    const { t } = useLocalization();
     const [name, setName] = useState(initialName);
     const [description, setDescription] = useState(initialDescription || '');
     const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
 
     const handleSubmit = async () => {
         if (!name.trim()) {
-            setError('Название доски обязательно');
+            setError(t('nameRequired'));
             return;
         }
 
@@ -126,18 +128,18 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
     return (
         <>
             <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-                <DialogTitle>Настройки доски</DialogTitle>
+                <DialogTitle>{t('boardSettings')}</DialogTitle>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tabs value={selectedTab} onChange={handleTabChange}>
-                        <Tab label="Основные" />
-                        <Tab label="Сущности" />
+                                    <Tab label={t('generalSettings')} />
+            <Tab label={t('boardEntities')} />
                     </Tabs>
                 </Box>
                 <DialogContent>
                     <TabPanel value={selectedTab} index={0}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                             <TextField
-                                label="Название"
+                                label={t('boardName')}
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 fullWidth
@@ -147,7 +149,7 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
                                 disabled={loading}
                             />
                             <TextField
-                                label="Описание"
+                                label={t('boardDescription')}
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 fullWidth
@@ -166,18 +168,18 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
                         )}
                         {board && !onBoardUpdate && (
                             <Typography color="text.secondary">
-                                Обновление сущностей может не отображаться сразу. Пожалуйста, перезагрузите страницу после изменений.
+                                {t('entitiesUpdateNote')}
                             </Typography>
                         )}
                         {!board && (
                             <Typography color="error">
-                                Не удалось загрузить данные доски
+                                {t('errorsLoadBoard')}
                             </Typography>
                         )}
                     </TabPanel>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleClose} disabled={loading}>Закрыть</Button>
+                    <Button onClick={handleClose} disabled={loading}>{t('close')}</Button>
                     {selectedTab === 0 && (
                         <Button 
                             onClick={handleSubmit} 
@@ -185,7 +187,7 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
                             disabled={loading}
                             startIcon={loading ? <CircularProgress size={20} /> : null}
                         >
-                            {loading ? 'Сохранение...' : 'Сохранить'}
+                            {loading ? t('saving') : t('save')}
                         </Button>
                     )}
                 </DialogActions>
@@ -198,8 +200,8 @@ export const EditBoardModal: React.FC<EditBoardModalProps> = ({
                     setShowConfirm(false);
                     setSelectedTab(1);
                 }}
-                title="Несохраненные изменения"
-                message="У вас есть несохраненные изменения. Вы уверены, что хотите перейти на другую вкладку без сохранения?"
+                                      title={t('errorsUnsavedChanges')}
+                      message={t('errorsDiscardChanges')}
                 actionType="edit"
             />
         </>

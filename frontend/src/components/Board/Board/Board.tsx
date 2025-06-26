@@ -8,6 +8,7 @@ import { Task } from '../../../types/task';
 import { boardService } from '../../../services/boardService';
 import { taskService } from '../../../services/taskService';
 import AddIcon from '@mui/icons-material/Add';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface BoardProps {
     board: BoardType;
@@ -17,6 +18,7 @@ interface BoardProps {
 }
 
 const Board: React.FC<BoardProps> = ({ board, boardStatuses, taskTypes, onBoardUpdate }) => {
+    const { t } = useLocalization();
     const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
     const [columns, setColumns] = useState<Column[]>(board.columns || []);
 
@@ -62,7 +64,7 @@ const Board: React.FC<BoardProps> = ({ board, boardStatuses, taskTypes, onBoardU
                     }
                 }}
             >
-                Добавить колонку
+                {t('addColumn')}
             </Button>
             <Grid container spacing={2} sx={{ mt: 2 }}>
                 {columns.map((column) => (

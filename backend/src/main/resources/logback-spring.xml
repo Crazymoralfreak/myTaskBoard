@@ -29,8 +29,8 @@
     <logger name="jdbc.resultsettable" level="OFF"/>
     <logger name="jdbc.connection" level="OFF"/>
     
-    <!-- Отключаем логи Spring -->
-    <logger name="org.springframework" level="INFO"
+    <!-- логи Spring -->
+    <logger name="org.springframework" level="INFO"/>
     <logger name="org.springframework.web" level="INFO"/>
     <logger name="org.springframework.security" level="INFO"/>
     <logger name="org.springframework.jdbc" level="INFO"/>

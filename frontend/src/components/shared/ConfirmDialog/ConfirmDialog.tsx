@@ -8,6 +8,7 @@ import {
     Typography,
     CircularProgress
 } from '@mui/material';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 type ActionType = 'delete' | 'edit' | 'save';
 
@@ -30,6 +31,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     loading = false,
     actionType = 'delete'
 }) => {
+    const { t } = useLocalization();
     const getActionColor = () => {
         switch (actionType) {
             case 'delete':
@@ -45,13 +47,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     const getActionText = () => {
         switch (actionType) {
             case 'delete':
-                return loading ? 'Удаление...' : 'Удалить';
+                return loading ? t('deleting') : t('delete');
             case 'edit':
-                return loading ? 'Сохранение...' : 'Сохранить изменения';
+                return loading ? t('saving') : t('saveChanges');
             case 'save':
-                return loading ? 'Сохранение...' : 'Сохранить';
+                return loading ? t('saving') : t('save');
             default:
-                return loading ? 'Подтверждение...' : 'Подтвердить';
+                return loading ? t('confirming') : t('confirm');
         }
     };
     
@@ -104,7 +106,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 <Typography>{message}</Typography>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={loading}>Отмена</Button>
+                <Button onClick={onClose} disabled={loading}>{t('cancel')}</Button>
                 <Button 
                     onClick={handleConfirm} 
                     variant="contained" 

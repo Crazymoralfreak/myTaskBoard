@@ -32,6 +32,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import NotificationBell from '../notifications/NotificationBell';
 import { useWebSocket } from '../../context/WebSocketContext';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -40,6 +41,7 @@ interface SidebarProps {
 const DRAWER_WIDTH = 72; // Уменьшаем ширину для отображения только иконок
 
 export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
+  const { t } = useLocalization();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [isOpen, setIsOpen] = useState(!isMobile);
@@ -71,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
       setLogoutDialogOpen(false);
       navigate('/auth', { replace: true });
     } catch (error) {
-      console.error('Ошибка при выходе:', error);
+      console.error(t('logoutError'), error);
     }
   };
   
@@ -80,9 +82,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
   };
 
   const menuItems = [
-    { text: 'Доски', icon: <DashboardIcon />, path: '/' },
+    { text: t('boards'), icon: <DashboardIcon />, path: '/' },
     { 
-      text: 'Уведомления', 
+      text: t('notifications'), 
       icon: (
         <Badge badgeContent={unreadCount || 0} color="error">
           <NotificationsIcon />
@@ -90,8 +92,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
       ), 
       path: '/notifications' 
     },
-    { text: 'Настройки', icon: <SettingsIcon />, path: '/settings' },
-    { text: 'Профиль', icon: <PersonIcon />, path: '/profile' },
+    { text: t('settings'), icon: <SettingsIcon />, path: '/settings' },
+    { text: t('profile'), icon: <PersonIcon />, path: '/profile' },
   ];
 
   const isSelected = (path: string) => {
@@ -152,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
       </List>
 
       <List>
-        <Tooltip title="Выйти" placement="right">
+        <Tooltip title={t('logout')} placement="right">
           <ListItem
             button
             onClick={handleLogoutClick}
@@ -198,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            MyTaskBoard
+            {t('taskboard')}
           </Typography>
           {/* Колокольчик уведомлений в мобильной шапке */}
           {token && <NotificationBell token={token} />}
@@ -243,16 +245,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ children }) => {
         open={logoutDialogOpen}
         onClose={handleLogoutCancel}
       >
-        <DialogTitle>Выход из системы</DialogTitle>
+        <DialogTitle>{t('logoutDialogTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Вы действительно хотите выйти из системы?
+            {t('logoutConfirm')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleLogoutCancel}>Отмена</Button>
+          <Button onClick={handleLogoutCancel}>{t('cancel')}</Button>
           <Button onClick={handleLogoutConfirm} color="primary" autoFocus>
-            Выйти
+            {t('logout')}
           </Button>
         </DialogActions>
       </Dialog>

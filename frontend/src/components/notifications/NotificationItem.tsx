@@ -33,6 +33,7 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -114,19 +115,77 @@ const getPriorityColor = (priority: NotificationPriority) => {
  * @param priority приоритет уведомления
  * @returns название приоритета
  */
-const getPriorityLabel = (priority: NotificationPriority) => {
+const getPriorityLabel = (priority: NotificationPriority, t: any) => {
   switch (priority) {
     case NotificationPriority.CRITICAL:
-      return 'Критический';
+      return t('prioritiesCritical');
     case NotificationPriority.HIGH:
-      return 'Высокий';
-    case NotificationPriority.NORMAL:
-      return 'Обычный';
+      return t('prioritiesHigh');
+          case NotificationPriority.NORMAL:
+        return t('prioritiesNormal');
     case NotificationPriority.LOW:
-      return 'Низкий';
-    default:
-      return 'Обычный';
+      return t('prioritiesLow');
+          default:
+        return t('prioritiesNormal');
   }
+};
+
+/**
+ * Локализует текст уведомления
+ * @param text оригинальный текст уведомления
+ * @param t функция локализации
+ * @returns локализованный текст
+ */
+const localizeNotificationText = (text: string, t: any): string => {
+  // Словарь для замены русских текстов на ключи локализации
+  const translations: Record<string, string> = {
+    'Вы добавлены в доску': t('notificationBoardInviteTitle'),
+    'Вы были добавлены в доску:': t('notificationBoardInviteMessage'),
+    'Задача назначена': t('notificationTaskAssignedTitle'),
+    'Вам назначена задача:': t('notificationTaskAssignedMessage'),
+    'Статус задачи изменен': t('notificationTaskStatusChangedTitle'),
+    'Статус задачи изменен на:': t('notificationTaskStatusChangedMessage'),
+    'Новая задача создана': t('notificationTaskCreatedTitle'),
+    'На доске создана новая задача:': t('notificationTaskCreatedMessage'),
+    'Задача обновлена': t('notificationTaskUpdatedTitle'),
+    'Задача была обновлена:': t('notificationTaskUpdatedMessage'),
+    'Задача удалена': t('notificationTaskDeletedTitle'),
+    'Задача была удалена:': t('notificationTaskDeletedMessage'),
+    'Новый комментарий': t('notificationCommentAddedTitle'),
+    'К задаче добавлен комментарий:': t('notificationCommentAddedMessage'),
+    'Вас упомянули': t('notificationMentionTitle'),
+    'Вас упомянули в комментарии:': t('notificationMentionMessage'),
+    'Приближается дедлайн': t('notificationDeadlineTitle'),
+    'Срок выполнения задачи истекает:': t('notificationDeadlineMessage'),
+    'Задача просрочена': t('notificationOverdueTitle'),
+    'Задача просрочена:': t('notificationOverdueMessage'),
+    'Новая подзадача': t('notificationSubtaskCreatedTitle'),
+    'К задаче добавлена подзадача:': t('notificationSubtaskCreatedMessage'),
+    'Подзадача завершена': t('notificationSubtaskCompletedTitle'),
+    'Подзадача завершена:': t('notificationSubtaskCompletedMessage'),
+    'Новый участник': t('notificationMemberAddedTitle'),
+    'На доску добавлен новый участник:': t('notificationMemberAddedMessage'),
+    'Участник удален': t('notificationMemberRemovedTitle'),
+    'Участник удален с доски:': t('notificationMemberRemovedMessage'),
+    'Файл добавлен': t('notificationAttachmentTitle'),
+    'К задаче прикреплен файл:': t('notificationAttachmentMessage'),
+    'Роль изменена': t('notificationRoleChangedTitle'),
+    'Ваша роль на доске изменена:': t('notificationRoleChangedMessage')
+  };
+
+  // Проверяем точное совпадение
+  if (translations[text]) {
+    return translations[text];
+  }
+
+  // Проверяем частичные совпадения для сложных текстов
+  for (const [key, value] of Object.entries(translations)) {
+    if (text.includes(key)) {
+      return text.replace(key, value);
+    }
+  }
+
+  return text;
 };
 
 /**
@@ -144,6 +203,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onSelect,
   showCheckbox = true
 }) => {
+  const { t } = useLocalization();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   // Логгирование для диагностики проблемы со статусом "Новое"
@@ -276,7 +336,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         >
           {/* Кнопка навигации */}
           {onNavigate && (
-            <Tooltip title="Перейти к связанной задаче/доске">
+            <Tooltip title={t('itemNavigate')}>
               <IconButton 
                 edge="end" 
                 aria-label="navigate"
@@ -294,7 +354,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           )}
           
           {showActions && (
-            <Tooltip title="Действия">
+            <Tooltip title={t('itemActions')}>
               <IconButton 
                 edge="end" 
                 aria-label="more actions"
@@ -347,11 +407,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 flexGrow: 1
               }}
             >
-              {notification.title}
+              {localizeNotificationText(notification.title, t)}
             </Typography>
             <Box display="flex" alignItems="center" gap={0.5}>
               <Chip 
-                label={getPriorityLabel(notification.priority)} 
+                label={getPriorityLabel(notification.priority, t)} 
                 size="small" 
                 sx={{ 
                   height: 18, 
@@ -363,7 +423,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               />
               {shouldShowNewStatus && (
                 <Chip 
-                  label="Новое" 
+                  label={t('itemNewStatus')} 
                   size="small" 
                   color="error"
                   variant="filled"
@@ -391,7 +451,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   fontWeight: notification.isRead ? 400 : 500
                 }}
               >
-                {notification.message}
+                {localizeNotificationText(notification.message, t)}
               </Typography>
             )}
             <Typography
@@ -422,13 +482,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         {onArchive && !notification.isArchived && (
           <MenuItem onClick={handleArchive}>
             <ArchiveIcon fontSize="small" sx={{ mr: 1 }} />
-            Архивировать
+            {t('itemArchive')}
           </MenuItem>
         )}
         {onDelete && (
           <MenuItem onClick={handleDelete}>
             <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-            Удалить
+            {t('itemDelete')}
           </MenuItem>
         )}
       </Menu>

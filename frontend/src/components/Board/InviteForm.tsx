@@ -49,6 +49,7 @@ import { AddBoardMemberRequest } from '../../types/BoardMember';
 import UserSearch from './UserSearch';
 import { User } from '../../types/user';
 import { debounce } from 'lodash';
+import { useLocalization } from '../../hooks/useLocalization';
 
 // Внешний URL сайта из переменных окружения
 const OUTER_URL = process.env.OUTER_URL || 'mytaskboard.online';
@@ -90,6 +91,7 @@ const inviteMethodIcons = [
  * Форма для приглашения пользователей на доску
  */
 const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => {
+  const { t } = useLocalization();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -109,9 +111,9 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
         setRecentUsers(JSON.parse(storedUsers));
       }
     } catch (err) {
-      console.error('Ошибка при загрузке недавно приглашенных пользователей:', err);
+                  console.error(t('inviteErrorsLoadRecentUsersFailed'), err);
     }
-  }, []);
+  }, [t]);
   
   // Сохраняем недавно приглашенного пользователя
   const saveRecentUser = (user: User) => {
@@ -121,7 +123,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecentUsers));
     } catch (err) {
-      console.error('Ошибка при сохранении недавно приглашенных пользователей:', err);
+                  console.error(t('inviteErrorsSaveRecentUsersFailed'), err);
     }
   };
   
@@ -142,12 +144,12 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
     
     // Проверка в зависимости от метода приглашения
     if (inviteMethod === InviteMethod.USER_SEARCH && !selectedUser) {
-      setError('Пожалуйста, выберите пользователя для приглашения');
+                  setError(t('inviteErrorsSelectUser'));
       return;
     }
     
     if (!selectedRoleId) {
-      setError('Пожалуйста, выберите роль для пользователя');
+                  setError(t('inviteErrorsSelectRole'));
       return;
     }
     
@@ -184,8 +186,8 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
         }
       }
     } catch (err) {
-      console.error('Ошибка при приглашении пользователя:', err);
-      setError('Не удалось пригласить пользователя. Пожалуйста, попробуйте еще раз.');
+                  console.error(t('inviteErrorsInviteFailed'), err);
+            setError(t('inviteErrorsInviteFailed'));
     } finally {
       setLoading(false);
     }
@@ -237,44 +239,47 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
     
     switch (role.name.toUpperCase()) {
       case SystemRoles.ADMIN:
-        permissions.can = [
-          'Просматривать доску',
-          'Редактировать задачи',
-          'Добавлять/удалять участников',
-          'Управлять настройками доски',
-          'Удалять доску'
-        ];
+                  permissions.can = [
+            t('inviteRolesAdminCan0'),
+            t('inviteRolesAdminCan1'),
+            t('inviteRolesAdminCan2'),
+            t('inviteRolesAdminCan3'),
+            t('inviteRolesAdminCan4')
+          ];
         permissions.cannot = [];
         break;
       case SystemRoles.EDITOR:
-        permissions.can = [
-          'Просматривать доску',
-          'Редактировать задачи',
-          'Добавлять комментарии'
-        ];
-        permissions.cannot = [
-          'Добавлять/удалять участников',
-          'Создавать и редактировать колонки',
-          'Изменять настройки доски',
-          'Удалять доску'
-        ];
+                  permissions.can = [
+            t('inviteRolesEditorCan0'),
+            t('inviteRolesEditorCan1'),
+            t('inviteRolesEditorCan2')
+          ];
+          permissions.cannot = [
+            t('inviteRolesEditorCanNot0'),
+            t('inviteRolesEditorCanNot1'),
+            t('inviteRolesEditorCanNot2'),
+            t('inviteRolesEditorCanNot3')
+          ];
         break;
       case SystemRoles.VIEWER:
-        permissions.can = [
-          'Просматривать доску',
-          'Просматривать задачи',
-          'Читать комментарии'
-        ];
-        permissions.cannot = [
-          'Редактировать задачи',
-          'Добавлять комментарии',
-          'Добавлять/удалять участников',
-          'Изменять настройки доски'
-        ];
+                  permissions.can = [
+            t('inviteRolesViewerCan0'),
+            t('inviteRolesViewerCan1'),
+            t('inviteRolesViewerCan2')
+          ];
+          permissions.cannot = [
+            t('inviteRolesViewerCanNot0'),
+            t('inviteRolesViewerCanNot1'),
+            t('inviteRolesViewerCanNot2'),
+            t('inviteRolesViewerCanNot3')
+          ];
         break;
       default:
-        permissions.can = ['Просматривать доску'];
-        permissions.cannot = ['Редактировать доску', 'Управлять участниками'];
+                  permissions.can = [t('inviteRolesDefaultCan0')];
+          permissions.cannot = [
+            t('inviteRolesDefaultCanNot0'),
+            t('inviteRolesDefaultCanNot1')
+          ];
     }
     
     return permissions;
@@ -298,7 +303,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography fontWeight="medium">
-                Пользователь успешно добавлен на доску
+                {t('inviteMessagesSuccess')}
               </Typography>
             </Box>
             <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
@@ -312,7 +317,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
               <Typography variant="body2">
                 {addedUser.displayName || addedUser.username} 
                 {selectedRole && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                  с ролью "{selectedRole.name}"
+                  {t('inviteMessagesSuccessWithRole')} "{selectedRole.name}"
                 </Typography>}
               </Typography>
             </Box>
@@ -323,14 +328,14 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
       <Box mb={3}>
         <Box display="flex" alignItems="center" mb={1}>
           <Typography variant="h6" component="h2">
-            Добавление нового участника
+            {t('inviteTitle')}
           </Typography>
-          <Tooltip title="Добавленные пользователи получат доступ к доске в соответствии с выбранной ролью">
+          <Tooltip title={t('inviteTooltip')}>
             <InfoOutlinedIcon fontSize="small" color="action" sx={{ ml: 1 }} />
           </Tooltip>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Выберите пользователя и назначьте ему соответствующую роль на доске
+          {t('inviteDescription')}
         </Typography>
       </Box>
       
@@ -364,8 +369,8 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
             <>
               <Box sx={{ position: 'relative' }}>
                 <UserSearch
-                  label="Найти пользователя"
-                  placeholder="Введите имя пользователя или email"
+                              label={t('inviteUserSearchLabel')}
+            placeholder={t('inviteUserSearchPlaceholder')}
                   value={selectedUser}
                   onChange={setSelectedUser}
                   disabled={loading}
@@ -379,7 +384,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
                       onClick={() => setShowRecentUsers(!showRecentUsers)}
                       color="inherit"
                     >
-                      Недавно приглашенные
+                      {t('inviteRecentUsersButton')}
                     </Button>
                     
                     <Collapse in={showRecentUsers}>
@@ -419,7 +424,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
               {selectedUser && (
                 <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Выбранный пользователь:
+                    {t('inviteSelectedUserTitle')}
                   </Typography>
                   <Box display="flex" alignItems="center">
                     <Avatar
@@ -513,7 +518,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
           
           {/* Выбор роли (общий для всех способов приглашения) */}
           <Typography variant="subtitle2" sx={{ mt: 2 }}>
-            Выберите роль для приглашаемого участника:
+            {t('inviteRoleSelectionTitle')}
           </Typography>
           
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -556,7 +561,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
                         {getRolePermissions(role).can.length > 0 && (
                           <Box sx={{ mb: 1 }}>
                             <Typography variant="caption" color="success.main" fontWeight="medium">
-                              Может:
+                              {t('inviteRolePermissionsCan')}
                             </Typography>
                             <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                               {getRolePermissions(role).can.map((perm, i) => (
@@ -576,7 +581,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
                         {getRolePermissions(role).cannot.length > 0 && (
                           <Box>
                             <Typography variant="caption" color="error.main" fontWeight="medium">
-                              Не может:
+                              {t('inviteRolePermissionsCanNot')}
                             </Typography>
                             <Box component="ul" sx={{ mt: 0.5, pl: 2, mb: 0 }}>
                               {getRolePermissions(role).cannot.map((perm, i) => (
@@ -611,7 +616,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
               size="large"
               sx={{ mt: 2 }}
             >
-              {loading ? 'Добавление...' : 'Добавить участника'}
+              {loading ? t('inviteButtonsSubmitting') : t('inviteButtonsSubmit')}
             </Button>
           {/* )} */}
         </Stack>

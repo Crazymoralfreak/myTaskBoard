@@ -6,6 +6,7 @@ import { Column, BoardStatus, TaskType } from '@/types/board';
 import { Task } from '@/types/task';
 import { AddColumnModal } from './AddColumnModal';
 import AddIcon from '@mui/icons-material/Add';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface BoardProps {
     columns: Column[];
@@ -28,6 +29,7 @@ export const Board: React.FC<BoardProps> = ({
     onTaskMove,
     onColumnMove
 }) => {
+    const { t } = useLocalization();
     const handleDragEnd = (result: DropResult) => {
         if (!result.destination) {
             return;
@@ -90,7 +92,7 @@ export const Board: React.FC<BoardProps> = ({
                     <Button
                         variant="outlined"
                         startIcon={<AddIcon />}
-                        onClick={() => onColumnAdd('Новая колонка')}
+                        onClick={() => onColumnAdd(t('newColumn'))}
                         sx={{
                             width: '100%',
                             borderStyle: 'dashed',
@@ -100,7 +102,7 @@ export const Board: React.FC<BoardProps> = ({
                             }
                         }}
                     >
-                        Добавить колонку
+                        {t('addColumn')}
                     </Button>
                 </Box>
             </Box>

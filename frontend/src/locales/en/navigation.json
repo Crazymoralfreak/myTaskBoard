@@ -1,0 +1,12 @@
+{
+  "boards": "Boards",
+  "notifications": "Notifications",
+  "settings": "Settings",
+  "profile": "Profile",
+  "logout": "Logout",
+  "menu": "Menu",
+  "logoutConfirm": "Are you sure you want to logout?",
+  "logoutDialogTitle": "Confirm Logout", 
+  "logoutError": "Logout error",
+  "taskboard": "Task Board"
+} 

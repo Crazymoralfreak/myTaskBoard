@@ -7,6 +7,7 @@ import {
     TextField,
     Button
 } from '@mui/material';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface AddColumnModalProps {
     open: boolean;
@@ -15,6 +16,7 @@ interface AddColumnModalProps {
 }
 
 export const AddColumnModal: React.FC<AddColumnModalProps> = ({ open, onClose, onSubmit }) => {
+    const { t } = useLocalization();
     const [name, setName] = useState('');
 
     const handleSubmit = () => {
@@ -27,12 +29,12 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({ open, onClose, o
 
     return (
         <Dialog open={open} onClose={onClose}>
-            <DialogTitle>Создание новой колонки</DialogTitle>
+            <DialogTitle>{t('addColumn')}</DialogTitle>
             <DialogContent>
                 <TextField
                     autoFocus
                     margin="dense"
-                    label="Название колонки"
+                    label={t('columnName')}
                     fullWidth
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -40,9 +42,9 @@ export const AddColumnModal: React.FC<AddColumnModalProps> = ({ open, onClose, o
                 />
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Отмена</Button>
+                <Button onClick={onClose}>{t('cancel')}</Button>
                 <Button onClick={handleSubmit} variant="contained" color="primary">
-                    Создать
+                    {t('create')}
                 </Button>
             </DialogActions>
         </Dialog>

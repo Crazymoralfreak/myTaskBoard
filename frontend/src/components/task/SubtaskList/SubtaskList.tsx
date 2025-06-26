@@ -46,6 +46,7 @@ import { useTheme } from '@mui/material/styles';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { TextRenderer } from '../../../utils/textUtils';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface SubtaskListProps {
     task: Task;
@@ -55,6 +56,7 @@ interface SubtaskListProps {
 
 export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, onLocalUpdate }) => {
     const theme = useTheme();
+    const { t } = useLocalization();
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newSubtaskDescription, setNewSubtaskDescription] = useState('');
     const [editingSubtask, setEditingSubtask] = useState<number | null>(null);
@@ -399,7 +401,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
             >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Подзадачи
+                        {t('subtasksTitle')}
                     </Typography>
                     <Chip 
                         icon={<CheckCircleIcon />}
@@ -413,7 +415,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                     <Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography variant="body2" color="text.secondary">
-                                Прогресс выполнения
+                                {t('subtasksProgress')}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                                 {Math.round(progressPercentage)}%
@@ -447,7 +449,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                         <TextField
                             size="small"
                             fullWidth
-                            placeholder="Добавить подзадачу..."
+                            placeholder={t('addSubtask')}
                             value={newSubtaskTitle}
                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
                             disabled={loading}
@@ -475,7 +477,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                 textTransform: 'none'
                             }}
                         >
-                            {showDescriptionForm ? 'Скрыть' : 'Описание'}
+                            {showDescriptionForm ? t('subtasksHide') : t('subtasksDescription')}
                         </Button>
                         <Button
                             variant="contained"
@@ -489,21 +491,21 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                 fontWeight: 600
                             }}
                         >
-                            {loading ? 'Добавление...' : 'Добавить'}
+                                                            {loading ? t('adding') : t('add')}
                         </Button>
                     </Box>
                     
                     {showDescriptionForm && (
                         <Box sx={{ mb: 2 }}>
                             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-                                Описание подзадачи
+                                {t('subtasksDescriptionLabel')}
                             </Typography>
                             <ReactQuill
                                 value={newSubtaskDescription}
                                 onChange={setNewSubtaskDescription}
                                 modules={quillModules}
                                 formats={quillFormats}
-                                placeholder="Добавьте описание подзадачи с поддержкой markdown..."
+                                                                    placeholder={t('subtasksAddDescription')}
                                 theme="snow"
                                 style={{ 
                                     height: '150px', 
@@ -632,7 +634,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                         onChange={setEditDescription}
                                                                         modules={quillModules}
                                                                         formats={quillFormats}
-                                                                        placeholder="Редактировать описание..."
+                                                                        placeholder={t('subtasksEditDescription')}
                                                                         theme="snow"
                                                                         style={{ 
                                                                             height: '120px', 
@@ -655,7 +657,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                             textTransform: 'none'
                                                                         }}
                                                                     >
-                                                                        Отмена
+                                                                        {t('subtasksCancel')}
                                                                     </Button>
                                                                     <Button
                                                                         variant="contained"
@@ -667,7 +669,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                             textTransform: 'none'
                                                                         }}
                                                                     >
-                                                                        Сохранить
+                                                                        {t('subtasksSave')}
                                                                     </Button>
                                                                 </Box>
                                                             </Box>
@@ -704,7 +706,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                     {subtask.dueDate && (
                                                                         <Chip
                                                                             size="small"
-                                                                            label={`Срок: ${format(new Date(subtask.dueDate), 'dd MMM yyyy', { locale: ru })}`}
+                                                                            label={`${t('subtasksDueDate')}: ${format(new Date(subtask.dueDate), 'dd MMM yyyy', { locale: ru })}`}
                                                                             variant="outlined"
                                                                             sx={{ height: 24, fontSize: '0.75rem' }}
                                                                         />
@@ -728,7 +730,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 2 }}>
                                                             {/* Assignee */}
                                                             {subtask.assignee ? (
-                                                                <Tooltip title={`Назначена на: ${subtask.assignee.username}`}>
+                                                                <Tooltip title={`${t('subtasksAssignedTo')}: ${subtask.assignee.username}`}>
                                                                     <Avatar
                                                                         src={getAvatarUrl(subtask.assignee.avatarUrl)}
                                                                         sx={{ 
@@ -746,7 +748,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                     </Avatar>
                                                                 </Tooltip>
                                                             ) : (
-                                                                <Tooltip title="Назначить участника">
+                                                                <Tooltip title={t('subtasksAssignMember')}>
                                                                     <IconButton
                                                                         size="small"
                                                                         onClick={(e) => handleAssigneeClick(e, subtask.id)}
@@ -764,7 +766,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                 </Tooltip>
                                                             )}
                                                             
-                                                            <Tooltip title="Редактировать">
+                                                            <Tooltip title={t('subtasksEditTooltip')}>
                                                                 <IconButton
                                                                     size="small"
                                                                     onClick={() => handleStartEdit(subtask)}
@@ -774,7 +776,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                 </IconButton>
                                                             </Tooltip>
                                                             
-                                                            <Tooltip title="Удалить">
+                                                            <Tooltip title={t('delete')}>
                                                                 <IconButton
                                                                     size="small"
                                                                     onClick={() => handleDeleteSubtask(subtask.id)}
@@ -808,10 +810,10 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                     }}
                 >
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                        Нет подзадач
+                        {t('subtasksEmpty')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        Добавьте первую подзадачу, чтобы разбить работу на этапы
+                        {t('subtasksEmptyDescription')}
                     </Typography>
                 </Paper>
             )}
@@ -833,7 +835,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                 }}
             >
                 <Typography variant="subtitle2" sx={{ px: 2, py: 1, color: 'text.secondary', fontWeight: 600 }}>
-                    Назначить участника
+                    {t('subtasksAssignMember')}
                 </Typography>
                 <Divider />
                 
@@ -852,10 +854,10 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                         </Avatar>
                         <Box>
                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                Не назначено
+                                {t('subtasksUnassigned')}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                Снять назначение
+                                {t('subtasksRemoveAssignment')}
                             </Typography>
                         </Box>
                     </Box>
@@ -892,7 +894,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                         </Avatar>
                                         <Box>
                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                {username || user.email?.split('@')[0] || 'Пользователь'}
+                                                {username || user.email?.split('@')[0] || t('subtasksUser')}
                                             </Typography>
                                             {member.role && (
                                                 <Chip 
@@ -910,7 +912,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                 ) : (
                     <MenuItem disabled>
                         <Typography variant="body2" color="text.secondary">
-                            Участники не найдены
+                            {t('subtasksNoMembersFound')}
                         </Typography>
                     </MenuItem>
                 )}

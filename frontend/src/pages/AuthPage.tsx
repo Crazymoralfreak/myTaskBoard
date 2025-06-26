@@ -3,6 +3,7 @@ import { Container, Paper, Tabs, Tab, Box, TextField, Button, Typography } from 
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { authService } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
+import { useLocalization } from '../hooks/useLocalization';
 
 interface TelegramAuthResponse {
     token: string;
@@ -12,6 +13,7 @@ interface TelegramAuthResponse {
 }
 
 export const AuthPage: React.FC = () => {
+    const { t } = useLocalization();
     const [activeTab, setActiveTab] = useState<number>(0);
     const [loginData, setLoginData] = useState({ email: '', password: '' });
     const [registerData, setRegisterData] = useState({ email: '', password: '', name: '' });
@@ -29,7 +31,7 @@ export const AuthPage: React.FC = () => {
                 navigate('/');
             }
         } catch (error) {
-            console.error('Login failed:', error);
+            console.error(t('loginFailed'), error);
         }
     };
 
@@ -43,7 +45,7 @@ export const AuthPage: React.FC = () => {
                 navigate('/boards');
             }
         } catch (error) {
-            console.error('Registration failed:', error);
+            console.error(t('registerFailed'), error);
         }
     };
 
@@ -52,7 +54,7 @@ export const AuthPage: React.FC = () => {
         try {
             // Проверяем наличие необходимых полей для аутентификации
             if (!authResponse.id || !authResponse.first_name) {
-                console.error('Invalid Telegram auth response:', authResponse);
+                console.error(t('invalidTelegramResponse'), authResponse);
                 return;
             }
 
@@ -73,10 +75,10 @@ export const AuthPage: React.FC = () => {
             if (response.token) {
                 navigate('/');
             } else {
-                console.error('Authentication failed, no token received');
+                console.error(t('noTokenReceived'));
             }
         } catch (error) {
-            console.error('Telegram authentication error:', error);
+            console.error(t('telegramAuthFailed'), error);
         }
     };
 
@@ -86,7 +88,7 @@ export const AuthPage: React.FC = () => {
                 <Paper elevation={3}>
                     <Box sx={{ p: 3 }}>
                         <Typography variant="h4" align="center" gutterBottom>
-                            MyTaskBoard
+                            {t('authTitle')}
                         </Typography>
                         
                         <Box sx={{ mb: 3 }}>
@@ -97,15 +99,15 @@ export const AuthPage: React.FC = () => {
                         </Box>
 
                         <Tabs value={activeTab} onChange={handleTabChange} centered>
-                            <Tab label="Вход" />
-                            <Tab label="Регистрация" />
+                            <Tab label={t('loginTab')} />
+                            <Tab label={t('registerTab')} />
                         </Tabs>
 
                         {activeTab === 0 && (
                             <Box component="form" onSubmit={handleLogin} sx={{ mt: 3 }}>
                                 <TextField
                                     fullWidth
-                                    label="Email"
+                                    label={t('email')}
                                     type="email"
                                     margin="normal"
                                     value={loginData.email}
@@ -114,7 +116,7 @@ export const AuthPage: React.FC = () => {
                                 />
                                 <TextField
                                     fullWidth
-                                    label="Пароль"
+                                    label={t('password')}
                                     type="password"
                                     margin="normal"
                                     value={loginData.password}
@@ -127,7 +129,7 @@ export const AuthPage: React.FC = () => {
                                     variant="contained"
                                     sx={{ mt: 3 }}
                                 >
-                                    Войти
+                                    {t('loginButton')}
                                 </Button>
                             </Box>
                         )}
@@ -136,7 +138,7 @@ export const AuthPage: React.FC = () => {
                             <Box component="form" onSubmit={handleRegister} sx={{ mt: 3 }}>
                                 <TextField
                                     fullWidth
-                                    label="Имя"
+                                    label={t('name')}
                                     margin="normal"
                                     value={registerData.name}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegisterData({ ...registerData, name: e.target.value })}
@@ -144,7 +146,7 @@ export const AuthPage: React.FC = () => {
                                 />
                                 <TextField
                                     fullWidth
-                                    label="Email"
+                                    label={t('email')}
                                     type="email"
                                     margin="normal"
                                     value={registerData.email}
@@ -153,7 +155,7 @@ export const AuthPage: React.FC = () => {
                                 />
                                 <TextField
                                     fullWidth
-                                    label="Пароль"
+                                    label={t('password')}
                                     type="password"
                                     margin="normal"
                                     value={registerData.password}
@@ -166,7 +168,7 @@ export const AuthPage: React.FC = () => {
                                     variant="contained"
                                     sx={{ mt: 3 }}
                                 >
-                                    Зарегистрироваться
+                                    {t('registerButton')}
                                 </Button>
                             </Box>
                         )}

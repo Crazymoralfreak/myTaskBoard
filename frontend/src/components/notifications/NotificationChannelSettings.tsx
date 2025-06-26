@@ -29,85 +29,72 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
 import { NotificationSettings, NotificationPreferences } from '../../types/NotificationSettings';
+import { useLocalization } from '../../hooks/useLocalization';
 
 const NOTIFICATION_CHANNELS = [
   {
     key: 'browser',
-    label: 'Веб-уведомления',
     icon: <WebIcon />,
-    description: 'Уведомления в браузере',
-    color: '#2196f3',
-    info: 'Мгновенные уведомления прямо в браузере. Убедитесь, что разрешили уведомления для сайта.'
+    color: '#2196f3'
   },
   {
     key: 'email',
-    label: 'Email уведомления',
     icon: <EmailIcon />,
-    description: 'Уведомления на электронную почту',
-    color: '#ff9800',
-    info: 'Email уведомления отправляются на вашу зарегистрированную почту. Подходят для важных событий.'
+    color: '#ff9800'
   },
   {
     key: 'telegram',
-    label: 'Telegram уведомления',
     icon: <TelegramIcon />,
-    description: 'Уведомления в Telegram',
-    color: '#00bcd4',
-    info: 'Быстрые уведомления в Telegram. Для настройки свяжите ваш аккаунт с Telegram ботом.'
+    color: '#00bcd4'
   }
 ] as const;
 
 const NOTIFICATION_TYPES = {
   tasks: {
-    label: 'Задачи',
     icon: '📋',
     color: '#4caf50',
     types: [
-      { key: 'taskAssignedNotifications', label: 'Назначение задачи', priority: 'high', description: 'Когда вам назначают задачу' },
-      { key: 'taskCreatedNotifications', label: 'Создание задачи', priority: 'normal', description: 'При создании новой задачи на доске' },
-      { key: 'taskUpdatedNotifications', label: 'Обновление задачи', priority: 'low', description: 'При изменении описания или деталей задачи' },
-      { key: 'taskDeletedNotifications', label: 'Удаление задачи', priority: 'high', description: 'При удалении задач, где вы участник' },
-      { key: 'taskStatusChangedNotifications', label: 'Изменение статуса', priority: 'normal', description: 'При переносе задачи между статусами' },
-      { key: 'taskDueSoonNotifications', label: 'Приближение дедлайна', priority: 'high', description: 'За 24 часа до дедлайна' },
-      { key: 'taskOverdueNotifications', label: 'Просроченные задачи', priority: 'critical', description: 'Когда задача просрочена' }
+      { key: 'taskAssignedNotifications', priority: 'high' },
+      { key: 'taskCreatedNotifications', priority: 'normal' },
+      { key: 'taskUpdatedNotifications', priority: 'low' },
+      { key: 'taskDeletedNotifications', priority: 'high' },
+      { key: 'taskStatusChangedNotifications', priority: 'normal' },
+      { key: 'taskDueSoonNotifications', priority: 'high' },
+      { key: 'taskOverdueNotifications', priority: 'critical' }
     ]
   },
   collaboration: {
-    label: 'Совместная работа',
     icon: '👥',
     color: '#9c27b0',
     types: [
-      { key: 'taskCommentAddedNotifications', label: 'Новые комментарии', priority: 'normal', description: 'При добавлении комментариев к вашим задачам' },
-      { key: 'mentionNotifications', label: 'Упоминания (@username)', priority: 'high', description: 'Когда вас упоминают в комментариях' },
-      { key: 'boardMemberAddedNotifications', label: 'Добавление участника', priority: 'normal', description: 'При добавлении нового участника на доску' },
-      { key: 'boardMemberRemovedNotifications', label: 'Удаление участника', priority: 'normal', description: 'При удалении участника с доски' },
-      { key: 'roleChangedNotifications', label: 'Изменение роли', priority: 'high', description: 'При изменении ваших прав на доске' }
+      { key: 'taskCommentAddedNotifications', priority: 'normal' },
+      { key: 'mentionNotifications', priority: 'high' },
+      { key: 'boardMemberAddedNotifications', priority: 'normal' },
+      { key: 'boardMemberRemovedNotifications', priority: 'normal' },
+      { key: 'roleChangedNotifications', priority: 'high' }
     ]
   },
   boards: {
-    label: 'Доски',
     icon: '📊',
     color: '#ff5722',
     types: [
-      { key: 'boardInviteNotifications', label: 'Приглашения на доску', priority: 'high', description: 'При приглашении на новую доску' }
+      { key: 'boardInviteNotifications', priority: 'high' }
     ]
   },
   subtasks: {
-    label: 'Подзадачи',
     icon: '✅',
     color: '#607d8b',
     types: [
-      { key: 'subtaskCreatedNotifications', label: 'Создание подзадачи', priority: 'low', description: 'При добавлении подзадач к вашим задачам' },
-      { key: 'subtaskCompletedNotifications', label: 'Завершение подзадачи', priority: 'normal', description: 'При выполнении подзадач' }
+      { key: 'subtaskCreatedNotifications', priority: 'low' },
+      { key: 'subtaskCompletedNotifications', priority: 'normal' }
     ]
   },
   other: {
-    label: 'Прочее',
     icon: '📎',
     color: '#795548',
     types: [
-      { key: 'attachmentAddedNotifications', label: 'Добавление файла', priority: 'low', description: 'При прикреплении файлов к задачам' },
-      { key: 'deadlineReminderNotifications', label: 'Напоминания о дедлайнах', priority: 'critical', description: 'Регулярные напоминания о приближающихся дедлайнах' }
+      { key: 'attachmentAddedNotifications', priority: 'low' },
+      { key: 'deadlineReminderNotifications', priority: 'critical' }
     ]
   }
 };
@@ -117,13 +104,6 @@ const PRIORITY_COLORS = {
   high: '#ff9800', 
   normal: '#2196f3',
   low: '#9e9e9e'
-};
-
-const PRIORITY_LABELS = {
-  critical: 'Критично',
-  high: 'Важно',
-  normal: 'Обычно',
-  low: 'Не важно'
 };
 
 interface NotificationChannelSettingsProps {
@@ -137,6 +117,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
   onUpdateSettings,
   loading = false
 }) => {
+  const { t } = useLocalization();
   const theme = useTheme();
   // По умолчанию все блоки свернуты для компактности
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -167,9 +148,9 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
   const handleToggle = async (settingKey: string, enabled: boolean) => {
     setLoadingStates(prev => ({ ...prev, [settingKey]: true }));
     
-        try {
+    try {
       await onUpdateSettings(settingKey, enabled);
-      setSuccessMessage(`Настройка "${getSettingDisplayName(settingKey)}" обновлена`);
+      setSuccessMessage(`${t('settingUpdated')}: "${getSettingDisplayName(settingKey)}"`);
       setTimeout(() => setSuccessMessage(''), 3000);
       
       // Отправляем событие об обновлении настроек для обновления polling
@@ -195,22 +176,116 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
   const getSettingDisplayName = (key: string): string => {
     // Поиск в каналах
     const channel = NOTIFICATION_CHANNELS.find(ch => `${ch.key}NotificationsEnabled` === key);
-    if (channel) return channel.label;
+    if (channel) return getChannelLabel(channel.key);
     
     // Поиск в типах уведомлений
     for (const group of Object.values(NOTIFICATION_TYPES)) {
       const type = group.types.find(t => t.key === key);
-      if (type) return type.label;
+      if (type) return getTypeLabel(type.key);
     }
     
     // Глобальные настройки
     const globalSettings: Record<string, string> = {
-      globalNotificationsEnabled: 'Глобальные уведомления',
-      onlyHighPriorityNotifications: 'Только важные уведомления',
-      groupSimilarNotifications: 'Группировка уведомлений'
+      globalNotificationsEnabled: t('globalNotifications'),
+      onlyHighPriorityNotifications: t('onlyHighPriority'),
+      groupSimilarNotifications: t('groupSimilar')
     };
     
     return globalSettings[key] || key;
+  };
+
+  const getChannelLabel = (channelKey: string): string => {
+    switch (channelKey) {
+      case 'browser': return t('channelWeb');
+      case 'email': return t('channelEmail');
+      case 'telegram': return t('channelTelegram');
+      default: return channelKey;
+    }
+  };
+
+  const getChannelDescription = (channelKey: string): string => {
+    switch (channelKey) {
+      case 'browser': return t('channelWebDescription');
+      case 'email': return t('channelEmailDescription');
+      case 'telegram': return t('channelTelegramDescription');
+      default: return '';
+    }
+  };
+
+  const getChannelInfo = (channelKey: string): string => {
+    switch (channelKey) {
+      case 'browser': return t('channelWebInfo');
+      case 'email': return t('channelEmailInfo');
+      case 'telegram': return t('channelTelegramInfo');
+      default: return '';
+    }
+  };
+
+  const getGroupLabel = (groupKey: string): string => {
+    switch (groupKey) {
+      case 'tasks': return t('groupTasks');
+      case 'collaboration': return t('groupCollaboration');
+      case 'boards': return t('groupBoards');
+      case 'subtasks': return t('groupSubtasks');
+      case 'other': return t('groupOther');
+      default: return groupKey;
+    }
+  };
+
+  const getTypeLabel = (typeKey: string): string => {
+    switch (typeKey) {
+      case 'taskAssignedNotifications': return t('typeTaskAssigned');
+      case 'taskCreatedNotifications': return t('typeTaskCreated');
+      case 'taskUpdatedNotifications': return t('typeTaskUpdated');
+      case 'taskDeletedNotifications': return t('typeTaskDeleted');
+      case 'taskStatusChangedNotifications': return t('typeTaskStatusChanged');
+      case 'taskDueSoonNotifications': return t('typeTaskDueSoon');
+      case 'taskOverdueNotifications': return t('typeTaskOverdue');
+      case 'taskCommentAddedNotifications': return t('typeTaskCommentAdded');
+      case 'mentionNotifications': return t('typeMention');
+      case 'boardMemberAddedNotifications': return t('typeBoardMemberAdded');
+      case 'boardMemberRemovedNotifications': return t('typeBoardMemberRemoved');
+      case 'roleChangedNotifications': return t('typeRoleChanged');
+      case 'boardInviteNotifications': return t('typeBoardInvite');
+      case 'subtaskCreatedNotifications': return t('typeSubtaskCreated');
+      case 'subtaskCompletedNotifications': return t('typeSubtaskCompleted');
+      case 'attachmentAddedNotifications': return t('typeAttachmentAdded');
+      case 'deadlineReminderNotifications': return t('typeDeadlineReminder');
+      default: return typeKey;
+    }
+  };
+
+  const getTypeDescription = (typeKey: string): string => {
+    switch (typeKey) {
+      case 'taskAssignedNotifications': return t('typeTaskAssignedDescription');
+      case 'taskCreatedNotifications': return t('typeTaskCreatedDescription');
+      case 'taskUpdatedNotifications': return t('typeTaskUpdatedDescription');
+      case 'taskDeletedNotifications': return t('typeTaskDeletedDescription');
+      case 'taskStatusChangedNotifications': return t('typeTaskStatusChangedDescription');
+      case 'taskDueSoonNotifications': return t('typeTaskDueSoonDescription');
+      case 'taskOverdueNotifications': return t('typeTaskOverdueDescription');
+      case 'taskCommentAddedNotifications': return t('typeTaskCommentAddedDescription');
+      case 'mentionNotifications': return t('typeMentionDescription');
+      case 'boardMemberAddedNotifications': return t('typeBoardMemberAddedDescription');
+      case 'boardMemberRemovedNotifications': return t('typeBoardMemberRemovedDescription');
+      case 'roleChangedNotifications': return t('typeRoleChangedDescription');
+      case 'boardInviteNotifications': return t('typeBoardInviteDescription');
+      case 'subtaskCreatedNotifications': return t('typeSubtaskCreatedDescription');
+      case 'subtaskCompletedNotifications': return t('typeSubtaskCompletedDescription');
+      case 'attachmentAddedNotifications': return t('typeAttachmentAddedDescription');
+      case 'deadlineReminderNotifications': return t('typeDeadlineReminderDescription');
+      default: return '';
+    }
+  };
+
+  const getPriorityLabel = (priority: string): string => {
+    switch (priority) {
+      case 'critical': return t('priorityCritical');
+      case 'high': return t('priorityHigh');
+      case 'normal': return t('priorityNormal');
+      case 'low': return t('priorityLow');
+      default: return t('priorityNormal');
+    }
   };
 
   const getChannelEnabled = (channelKey: string): boolean => {
@@ -305,10 +380,10 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
             </Box>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                Общие настройки уведомлений
+                {t('settingsTitle')}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Основные параметры системы уведомлений
+                {t('settingsDescription')}
               </Typography>
             </Box>
           </Box>
@@ -316,10 +391,10 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
             <Box flexGrow={1}>
               <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Глобальные уведомления
+                {t('globalNotifications')}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Мастер-переключатель для всех уведомлений системы
+                {t('globalNotificationsDescription')}
               </Typography>
             </Box>
             <Box display="flex" alignItems="center" gap={1}>
@@ -350,9 +425,9 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
               >
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Только важные уведомления
+                    {t('onlyHighPriority')}
                   </Typography>
-                  <Tooltip title="При включении будут приходить только критичные и важные уведомления">
+                  <Tooltip title={t('onlyHighPriorityTooltip')}>
                     <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                   </Tooltip>
                 </Box>
@@ -383,9 +458,9 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
               >
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Группировать похожие
+                    {t('groupSimilar')}
                   </Typography>
-                  <Tooltip title="Схожие уведомления будут объединяться в одно сообщение">
+                  <Tooltip title={t('groupSimilarTooltip')}>
                     <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                   </Tooltip>
                 </Box>
@@ -407,7 +482,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
 
       {/* Настройки каналов */}
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-        Каналы уведомлений
+        {t('channelsTitle')}
       </Typography>
 
       {NOTIFICATION_CHANNELS.map(channel => {
@@ -465,14 +540,14 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
               
               <Box flexGrow={1}>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  {channel.label}
+                  {getChannelLabel(channel.key)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {channel.description}
+                  {getChannelDescription(channel.key)}
                 </Typography>
                 {channelEnabled && enabled > 0 && (
                   <Typography variant="caption" sx={{ color: channel.color, display: 'block', mt: 0.5 }}>
-                    Активно {enabled} из {total} типов уведомлений
+                    {t('channelActiveTypes').replace('{enabled}', enabled.toString()).replace('{total}', total.toString())}
                   </Typography>
                 )}
               </Box>
@@ -526,7 +601,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
                 }}
               >
                 <Typography variant="body2">
-                  {channel.info}
+                  {getChannelInfo(channel.key)}
                 </Typography>
               </Alert>
 
@@ -534,7 +609,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
               {channelEnabled && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                    Типы уведомлений для канала "{channel.label}"
+                    {t('typesForChannel').replace('{channel}', getChannelLabel(channel.key))}
                   </Typography>
                   
                   {Object.entries(NOTIFICATION_TYPES).map(([groupKey, group]) => {
@@ -568,7 +643,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
                               {group.icon}
                             </Typography>
                             <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 500 }}>
-                              {group.label}
+                              {getGroupLabel(groupKey)}
                             </Typography>
                             <Chip 
                               label={`${sectionCount.enabled}/${sectionCount.total}`}
@@ -617,10 +692,10 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
                                     <Box flexGrow={1}>
                                       <Box display="flex" alignItems="center" gap={1} mb={0.5}>
                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                          {type.label}
+                                          {getTypeLabel(type.key)}
                                         </Typography>
                                         <Chip
-                                          label={PRIORITY_LABELS[type.priority as keyof typeof PRIORITY_LABELS]}
+                                          label={getPriorityLabel(type.priority)}
                                           size="small"
                                           sx={{
                                             height: 18,
@@ -632,7 +707,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
                                         />
                                       </Box>
                                       <Typography variant="caption" color="text.secondary">
-                                        {type.description}
+                                        {getTypeDescription(type.key)}
                                       </Typography>
                                     </Box>
                                     
@@ -680,7 +755,7 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
                   }}
                 >
                   <Typography variant="body2">
-                    Включите канал "{channel.label}" для настройки типов уведомлений
+                    {t('enableChannel').replace('{channel}', getChannelLabel(channel.key))}
                   </Typography>
                 </Box>
               )}
@@ -700,22 +775,22 @@ const NotificationChannelSettingsComponent: React.FC<NotificationChannelSettings
         }}
       >
         <Typography variant="body2">
-          💡 <strong>Совет для оптимальной настройки:</strong>
+          💡 <strong>{t('tipsTitle')}</strong>
         </Typography>
         <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
           <li>
             <Typography variant="caption">
-              <strong>Веб-уведомления</strong> — для мгновенных уведомлений о критичных событиях
+              <strong>{t('channelWeb')}</strong> — {t('tipWeb')}
             </Typography>
           </li>
           <li>
             <Typography variant="caption">
-              <strong>Email</strong> — для дедлайнов, назначений задач и еженедельных сводок
+              <strong>Email</strong> — {t('tipEmail')}
             </Typography>
           </li>
           <li>
             <Typography variant="caption">
-              <strong>Telegram</strong> — для упоминаний и срочных уведомлений вне рабочего времени
+              <strong>Telegram</strong> — {t('tipTelegram')}
             </Typography>
           </li>
         </Box>

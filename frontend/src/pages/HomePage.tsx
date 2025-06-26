@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { Board } from '../types/board';
 import { boardService } from '../services/boardService';
 import { getAuthUser } from '../utils/auth';
+import { useLocalization } from '../hooks/useLocalization';
 
 export const HomePage: React.FC = () => {
+    const { t } = useLocalization();
     const [boards, setBoards] = useState<Board[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -23,7 +25,7 @@ export const HomePage: React.FC = () => {
                 const loadedBoards = await boardService.getUserBoards(user.id);
                 setBoards(loadedBoards || []);
             } catch (err) {
-                console.error('Failed to load boards:', err);
+                console.error(t('loadingError'), err);
                 setBoards([]); // В случае ошибки просто показываем пустой список
             } finally {
                 setLoading(false);
@@ -53,7 +55,7 @@ export const HomePage: React.FC = () => {
         <Container maxWidth="lg" sx={{ mt: 4 }}>
             <Grid container spacing={3} alignItems="center" sx={{ mb: 4 }}>
                 <Grid item xs>
-                    <Typography variant="h4">Мои доски</Typography>
+                    <Typography variant="h4">{t('homeTitle')}</Typography>
                 </Grid>
                 <Grid item>
                     <Button
@@ -61,7 +63,7 @@ export const HomePage: React.FC = () => {
                         startIcon={<AddIcon />}
                         onClick={handleCreateBoard}
                     >
-                        Создать доску
+                        {t('createBoard')}
                     </Button>
                 </Grid>
             </Grid>
@@ -69,7 +71,7 @@ export const HomePage: React.FC = () => {
             {boards.length === 0 ? (
                 <Container sx={{ textAlign: 'center', mt: 8 }}>
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                        У вас пока нет досок
+                        {t('noBoardsTitle')}
                     </Typography>
                     <Button
                         variant="contained"
@@ -77,7 +79,7 @@ export const HomePage: React.FC = () => {
                         onClick={handleCreateBoard}
                         sx={{ mt: 2 }}
                     >
-                        Создать первую доску
+                        {t('createFirstBoard')}
                     </Button>
                 </Container>
             ) : (
@@ -95,7 +97,7 @@ export const HomePage: React.FC = () => {
                                     </Typography>
                                 </CardContent>
                                 <CardActions>
-                                    <Button size="small">Открыть</Button>
+                                    <Button size="small">{t('openBoard')}</Button>
                                 </CardActions>
                             </Card>
                         </Grid>

@@ -25,6 +25,7 @@ import { Task, TaskHistory as TaskHistoryType } from '../../../types/task';
 import { format, isToday, isYesterday, isThisWeek, isSameDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { taskService } from '../../../services/taskService';
+import { useLocalization } from '../../../hooks/useLocalization';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import InfoIcon from '@mui/icons-material/Info';
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt';
@@ -195,6 +196,7 @@ const getActionColor = (action: string): "default" | "primary" | "secondary" | "
 };
 
 export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
+    const { t } = useLocalization();
     const [history, setHistory] = useState<TaskHistoryType[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -340,7 +342,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
             setVisibleGroups(prev => ({...prev, 'today': true}));
         } catch (error) {
             console.error('Ошибка при загрузке истории:', error);
-            setError('Не удалось загрузить историю задачи');
+            setError(t('historyErrorsLoadFailed'));
             setHistory([]); // Устанавливаем пустой массив при ошибке
         } finally {
             setLoading(false);
@@ -374,68 +376,19 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
 
     // Функция для форматирования типа действия
     const formatAction = (action: string): string => {
-        if (!action) return 'Неизвестное действие';
+        if (!action) return t('historyUnknownAction');
         
-        switch (action) {
-            case 'created':
-                return 'Создание задачи';
-            case 'updated':
-                return 'Обновление задачи';
-            case 'status_changed':
-                return 'Изменение статуса';
-            case 'type_changed':
-                return 'Изменение типа';
-            case 'priority_changed':
-                return 'Изменение приоритета';
-            case 'description_changed':
-                return 'Изменение описания';
-            case 'dates_changed':
-                return 'Изменение дат';
-            case 'comment_added':
-                return 'Добавлен комментарий';
-            case 'comment_updated':
-                return 'Изменен комментарий';
-            case 'comment_deleted':
-                return 'Удален комментарий';
-            case 'file_added':
-                return 'Добавлен файл';
-            case 'attachment_added':
-                return 'Добавлено вложение';
-            case 'attachment_deleted':
-                return 'Удалено вложение';
-            case 'moved_between_columns':
-            case 'column_changed':
-                return 'Перемещение задачи';
-            case 'task_created':
-                return 'Создание задачи';
-            case 'startDate_changed':
-                return 'Изменение даты начала';
-            case 'endDate_changed':
-                return 'Изменение даты окончания';
-            case 'title_changed': 
-                return 'Изменение названия';
-            case 'tags_changed':
-            case 'tags_updated':
-                return 'Изменение тегов';
-            case 'tag_added':
-                return 'Добавление тега';
-            // Добавляем переводы для действий с подзадачами
-            case 'subtask_created':
-                return 'Создание подзадачи';
-            case 'subtask_updated':
-                return 'Изменение подзадачи';
-            case 'subtask_completed':
-                return 'Завершение подзадачи';
-            case 'subtask_deleted':
-                return 'Удаление подзадачи';
-            case 'subtask_assigned':
-                return 'Назначение подзадачи';
-            case 'subtasks_reordered':
-                return 'Изменение порядка подзадач';
-            default:
-                // Если это неизвестное действие, пытаемся красиво отформатировать
-                return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        // Проверяем, есть ли перевод для этого действия
+        const translationKey = `historyActions${action.charAt(0).toUpperCase() + action.slice(1).replace(/([A-Z])/g, '$1')}`;
+        const translation = t(translationKey);
+        
+        // Если перевод найден (не равен ключу), возвращаем его
+        if (translation !== translationKey) {
+            return translation;
         }
+        
+        // Если перевода нет, форматируем красиво как fallback
+        return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
 
     // Группируем записи истории по дате
@@ -451,10 +404,10 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
             : history;
             
         const groups: HistoryGroup[] = [
-            { title: 'Сегодня', items: [] },
-            { title: 'Вчера', items: [] },
-            { title: 'На этой неделе', items: [] },
-            { title: 'Ранее', items: [] }
+                  { title: t('historyGroupsToday'), items: [] },
+      { title: t('historyGroupsYesterday'), items: [] },
+      { title: t('historyGroupsThisWeek'), items: [] },
+      { title: t('historyGroupsEarlier'), items: [] }
         ];
         
         filteredHistory.forEach(item => {
@@ -510,18 +463,18 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
 
     // Предопределенные типы фильтров
     const filterOptions = [
-        { value: null, label: 'Все события' },
-        { value: 'изменение', label: 'Все изменения' },
-        { value: 'статус', label: 'Статус' },
-        { value: 'приоритет', label: 'Приоритет' },
-        { value: 'тип', label: 'Тип задачи' },
-        { value: 'название', label: 'Название' },
-        { value: 'описание', label: 'Описание' },
-        { value: 'даты', label: 'Даты' },
-        { value: 'перемещение', label: 'Перемещение' },
-        { value: 'теги', label: 'Теги' },
-        { value: 'вложение', label: 'Вложения' },
-        { value: 'создание', label: 'Создание' }
+              { value: null, label: t('historyFilterOptionsAll') },
+      { value: 'изменение', label: t('historyFilterOptionsChanges') },
+      { value: 'статус', label: t('historyFilterOptionsStatus') },
+      { value: 'приоритет', label: t('historyFilterOptionsPriority') },
+      { value: 'тип', label: t('historyFilterOptionsType') },
+      { value: 'название', label: t('historyFilterOptionsTitle') },
+      { value: 'описание', label: t('historyFilterOptionsDescription') },
+      { value: 'даты', label: t('historyFilterOptionsDates') },
+      { value: 'перемещение', label: t('historyFilterOptionsMovement') },
+      { value: 'теги', label: t('historyFilterOptionsTags') },
+      { value: 'вложение', label: t('historyFilterOptionsAttachments') },
+      { value: 'создание', label: t('historyFilterOptionsCreation') }
     ];
 
     if (loading) {
@@ -540,7 +493,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                     <IconButton onClick={loadHistory} color="primary">
                         <RefreshIcon />
                     </IconButton>
-                    <Typography variant="caption">Повторить загрузку</Typography>
+                    <Typography variant="caption">{t('historyRetryLoad')}</Typography>
                 </Box>
             </Box>
         );
@@ -549,7 +502,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
     if (history.length === 0) {
         return (
             <Box sx={{ p: 2 }}>
-                <Typography>История изменений пуста</Typography>
+                <Typography>{t('historyEmpty')}</Typography>
             </Box>
         );
     }
@@ -564,20 +517,20 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                 flexWrap: 'wrap',
                 gap: 1
             }}>
-                <Typography variant="subtitle1">История изменений</Typography>
+                <Typography variant="subtitle1">{t('historyTitle')}</Typography>
                 
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <ButtonGroup size="small" variant="outlined" sx={{ height: '32px' }}>
-                        <Tooltip title="Компактный режим">
+                        <Tooltip title={t('historyCompactMode')}>
                             <Button 
                                 color={compactMode ? "primary" : "inherit"}
                                 onClick={toggleCompactMode}
                                 sx={{ height: '100%' }}
                             >
-                                {compactMode ? "Развернуть" : "Свернуть"}
+                                {compactMode ? t('historyExpand') : t('historyCollapse')}
                             </Button>
                         </Tooltip>
-                        <Tooltip title="Фильтр по типу действий">
+                        <Tooltip title={t('historyFilterByType')}>
                             <Box sx={{ position: 'relative', height: '100%' }}>
                                 <Button
                                     color={filter ? "primary" : "inherit"}
@@ -585,7 +538,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                     onClick={() => setShowFilterMenu(!showFilterMenu)}
                                     sx={{ height: '100%' }}
                                 >
-                                    {filter ? "Фильтр: " + filter : "Фильтр"} 
+                                    {filter ? t('historyFilterLabel') + ' ' + filter : t('historyFilter')} 
                                 </Button>
                                 
                                 {showFilterMenu && (
@@ -625,7 +578,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                         </Tooltip>
                     </ButtonGroup>
                     
-                    <Tooltip title="Обновить историю">
+                    <Tooltip title={t('historyRefreshTooltip')}>
                         <IconButton onClick={loadHistory} size="small">
                             <RefreshIcon />
                         </IconButton>
@@ -688,7 +641,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                 onClick={hasExpandableContent ? () => toggleItemExpanded(item.id) : undefined}
                                             >
                                                 <ListItemAvatar sx={{ minWidth: 'auto', mr: 1.5, mt: compactMode ? 0 : 0.5 }}>
-                                                    <Tooltip title={item.username || 'Неизвестный пользователь'} arrow> 
+                                                    <Tooltip title={item.username || t('historyUnknownUser')} arrow> 
                                                         <Avatar 
                                                             alt={item.username || 'User'} 
                                                             src={item.avatarUrl ? getAvatarUrl(item.avatarUrl) : undefined}
@@ -706,7 +659,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                             gap: 1, 
                                                             alignItems: 'center'
                                                         }}>
-                                                            <Tooltip title={item.email || 'Email не указан'}>
+                                                            <Tooltip title={item.email || t('historyEmailNotSpecified')}>
                                                                 <Typography
                                                                     component="span"
                                                                     variant={compactMode ? "caption" : "body2"}
@@ -764,7 +717,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                                     }}>
                                                                         {item.action === 'moved_between_columns' ? (
                                                                             <Box>
-                                                                                {renderValue(item.oldValue || '', item)}
+                                                                                {renderValue(item.oldValue || '', item, t)}
                                                                             </Box>
                                                                         ) : (
                                                                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
@@ -779,7 +732,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                                                                     alignItems: 'center'
                                                                                                 }}
                                                                                             >
-                                                                                                {renderValue(item.oldValue, item)}
+                                                                                                {renderValue(item.oldValue, item, t)}
                                                                                             </Typography>
                                                                                         </Grid>
                                                                                         <Grid item xs={2} sx={{ textAlign: 'center' }}>
@@ -798,7 +751,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                                                                     alignItems: 'center'
                                                                                                 }}
                                                                                             >
-                                                                                                {renderValue(item.newValue, item)}
+                                                                                                {renderValue(item.newValue, item, t)}
                                                                                             </Typography>
                                                                                         </Grid>
                                                                                     </Grid>
@@ -813,7 +766,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                                                             alignItems: 'center'
                                                                                         }}
                                                                                     >
-                                                                                        {renderValue(item.oldValue, item)}
+                                                                                        {renderValue(item.oldValue, item, t)}
                                                                                     </Typography>
                                                                                 )}
                                                                                 
@@ -826,7 +779,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                                                             alignItems: 'center'
                                                                                         }}
                                                                                     >
-                                                                                        {renderValue(item.newValue, item)}
+                                                                                        {renderValue(item.newValue, item, t)}
                                                                                     </Typography>
                                                                                 )}
                                                                             </Box>
@@ -851,7 +804,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
 };
 
 // Функция для безопасного отображения значений
-const renderValue = (value: string | undefined, item: TaskHistoryType): React.ReactNode => {
+const renderValue = (value: string | undefined, item: TaskHistoryType, t: (key: string) => string): React.ReactNode => {
     if (!value) return '';
     
     // Для события создания задачи показываем детали задачи
@@ -864,37 +817,37 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
                 return (
                     <Box sx={{ mt: 1 }}>
                         <Typography variant="caption" color="text.secondary">
-                            Создана задача со следующими параметрами:
+                            {t('historyTaskCreatedDetailsLabel')}
                         </Typography>
                         <Box component="ul" sx={{ mt: 0.5, pl: 2, m: 0 }}>
                             {taskDetails.title && (
                                 <Typography component="li" variant="body2">
-                                    Название: {taskDetails.title}
+                                    {t('historyTaskCreatedTitle')}: {taskDetails.title}
                                 </Typography>
                             )}
                             {taskDetails.type && (
                                 <Typography component="li" variant="body2">
-                                    Тип: {taskDetails.type}
+                                    {t('historyTaskCreatedType')}: {taskDetails.type}
                                 </Typography>
                             )}
                             {taskDetails.status && (
                                 <Typography component="li" variant="body2">
-                                    Статус: {taskDetails.status}
+                                    {t('historyTaskCreatedStatus')}: {taskDetails.status}
                                 </Typography>
                             )}
                             {taskDetails.priority && (
                                 <Typography component="li" variant="body2">
-                                    Приоритет: {taskDetails.priority}
+                                    {t('historyTaskCreatedPriority')}: {taskDetails.priority}
                                 </Typography>
                             )}
                             {taskDetails.dates && (
                                 <Typography component="li" variant="body2">
-                                    Даты: {taskDetails.dates}
+                                    {t('historyTaskCreatedDates')}: {taskDetails.dates}
                                 </Typography>
                             )}
                             {taskDetails.tags && taskDetails.tags.length > 0 && (
                                 <Typography component="li" variant="body2">
-                                    Теги: {taskDetails.tags.join(', ')}
+                                    {t('historyTaskCreatedTags')}: {taskDetails.tags.join(', ')}
                                 </Typography>
                             )}
                         </Box>
@@ -902,10 +855,10 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
                 );
             } catch {
                 // Если не удалось распарсить JSON, просто показываем текст
-                return <Typography variant="body2">Задача создана</Typography>;
+                return <Typography variant="body2">{t('historyTaskCreatedText')}</Typography>;
             }
         }
-        return <Typography variant="body2">Задача создана</Typography>;
+        return <Typography variant="body2">{t('historyTaskCreatedText')}</Typography>;
     }
     
     // Для события изменения описания
@@ -944,7 +897,7 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
             // Для изменения описания больше не показываем diff
             if (item.oldValue === item.newValue) {
                 return <Typography variant="body2">
-                    Описание не изменилось
+                    {t('historyDescriptionNoChange')}
                 </Typography>;
             }
             
@@ -1056,8 +1009,8 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
     // Если это изменение тегов
     if (item.action === 'tags_changed' || item.action === 'tag_added') {
         if (item.oldValue && item.newValue) {
-            const oldTags = item.oldValue === 'Без тегов' ? [] : item.oldValue.split(', ');
-            const newTags = item.newValue === 'Без тегов' ? [] : item.newValue.split(', ');
+            const oldTags = item.oldValue === t('historyTagsNoTags') ? [] : item.oldValue.split(', ');
+            const newTags = item.newValue === t('historyTagsNoTags') ? [] : item.newValue.split(', ');
             
             const addedTags = newTags.filter(tag => !oldTags.includes(tag));
             const removedTags = oldTags.filter(tag => !newTags.includes(tag));
@@ -1067,7 +1020,7 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
                     {removedTags.length > 0 && (
                         <Box sx={{ mb: 0.5 }}>
                             <Typography variant="caption" color="error.main">
-                                Удалены: 
+                                {t('historyTagsRemoved')} 
                             </Typography>
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                                 {removedTags.map((tag, i) => (
@@ -1085,7 +1038,7 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
                     {addedTags.length > 0 && (
                         <Box>
                             <Typography variant="caption" color="success.main">
-                                Добавлены: 
+                                {t('historyTagsAdded')} 
                             </Typography>
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                                 {addedTags.map((tag, i) => (
@@ -1102,7 +1055,7 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
                     )}
                     {addedTags.length === 0 && removedTags.length === 0 && (
                         <Typography variant="body2">
-                            Теги не изменились
+                            {t('historyTagsNoChange')}
                         </Typography>
                     )}
                 </Box>
@@ -1113,7 +1066,7 @@ const renderValue = (value: string | undefined, item: TaskHistoryType): React.Re
             return (
                 <Box>
                     <Typography variant="caption" color="success.main">
-                        Добавлен тег: 
+                        {t('historyTagsTagAdded')} 
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                         <Chip 

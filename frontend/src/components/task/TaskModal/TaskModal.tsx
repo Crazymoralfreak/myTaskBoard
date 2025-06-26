@@ -73,6 +73,7 @@ import { useRoleContext } from '../../../contexts/RoleContext';
 import { BoardMembersService } from '../../../services/BoardMembersService';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
 import { TextRenderer } from '../../../utils/textUtils';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -150,6 +151,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     disableBackdropClick = false,
     boardId
 }) => {
+    const { t } = useLocalization();
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -355,7 +357,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     toast.error('Задача не найдена или была удалена');
                                     onClose();
                                 } else {
-                                    setError('Не удалось загрузить данные задачи');
+                                    setError(t('errorsLoadTaskData'));
                                 }
                             }
                         };
@@ -378,7 +380,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 setAvailableTags(tags);
             } catch (error) {
                 console.error('Ошибка при загрузке тегов:', error);
-                setError('Не удалось загрузить теги');
+                setError(t('errorsLoadTags'));
             }
         };
         
@@ -563,7 +565,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         
         // Проверяем, есть ли вообще изменения
         if (Object.keys(updatedTaskData).length === 0) {
-            setError('Нет изменений для сохранения');
+                            setError(t('errorsNoChanges'));
             setIsSubmitting(false);
             // Можно просто закрыть окно или остаться в режиме редактирования
             // onClose(); // Закрываем, если нет изменений
@@ -694,7 +696,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             
         } catch (error) {
             console.error('Ошибка при удалении задачи:', error);
-            setError('Не удалось удалить задачу');
+                            setError(t('errorsDeleteTask'));
             setIsSubmitting(false);
         }
     }, [task, onTaskDelete, onClose, setIsSubmitting, setError, boardId]);
@@ -753,7 +755,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             }
         } catch (error) {
             console.error('Ошибка при копировании задачи:', error);
-            setError('Не удалось создать копию задачи');
+                            setError(t('errorsCopyTask'));
         } finally {
             setIsSubmitting(false);
         }
@@ -777,7 +779,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     
     const handleSaveAsTemplate = () => {
         if (!title.trim()) {
-            setError('Название задачи обязательно для создания шаблона');
+            setError(t('errorsTemplateRequiresTitle'));
             return;
         }
         
@@ -821,13 +823,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const renderDialogTitle = () => {
         switch (mode) {
             case 'create':
-                return 'Создать задачу';
+                return t('createTask');
             case 'edit':
-                return 'Редактировать задачу';
+                return t('editTask');
             case 'view':
-                return 'Просмотр задачи';
+                return t('viewTask');
             default:
-                return 'Задача';
+                return t('taskTitle');
         }
     };
 
@@ -847,13 +849,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 return (
                     <Box sx={actionStyles} width="100%">
                         <DialogActions>
-                            <Button onClick={handleClose}>Отмена</Button>
+                            <Button onClick={handleClose}>{t('cancel')}</Button>
                             <Button 
                                 onClick={handleCreate} 
                                 variant="contained" 
                                 disabled={isSubmitting}
                             >
-                                {isSubmitting ? <CircularProgress size={24} /> : 'Создать'}
+                                {isSubmitting ? <CircularProgress size={24} /> : t('create')}
                             </Button>
                         </DialogActions>
                     </Box>
@@ -865,8 +867,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             {canDeleteTask() && (
                                 <Button 
                                     onClick={() => showConfirmDialog({
-                                        title: "Удалить задачу",
-                                        message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                        title: t('deleteTask'),
+                                        message: t('confirmDeleteTask'),
                                         actionType: "delete",
                                         onConfirm: handleDelete,
                                         loading: isSubmitting
@@ -876,18 +878,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     startIcon={<DeleteOutlineIcon />}
                                     sx={{ mr: 'auto' }}
                                 >
-                                    Удалить
+                                    {t('delete')}
                                 </Button>
                             )}
                             <Button onClick={() => setMode('view')} disabled={isSubmitting}>
-                                Отмена
+                                {t('cancel')}
                             </Button>
                             <Button 
                                 onClick={handleUpdate} 
                                 variant="contained" 
                                 disabled={isSubmitting}
                             >
-                                {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
+                                {isSubmitting ? <CircularProgress size={24} /> : t('save')}
                             </Button>
                         </DialogActions>
                     </Box>
@@ -908,8 +910,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             {canDelete && (
                                 <Button 
                                     onClick={() => showConfirmDialog({
-                                        title: "Удалить задачу",
-                                        message: "Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.",
+                                        title: t('deleteTask'),
+                                        message: t('confirmDeleteTask'),
                                         actionType: "delete",
                                         onConfirm: handleDelete,
                                         loading: isSubmitting
@@ -919,7 +921,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     startIcon={<DeleteOutlineIcon />}
                                     sx={{ mr: 1 }}
                                 >
-                                    {isMobile ? '' : 'Удалить'}
+                                    {isMobile ? '' : t('delete')}
                                 </Button>
                             )}
                             {canCopy && (
@@ -929,7 +931,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     startIcon={<ContentCopyIcon />}
                                     sx={{ mr: isMobile ? 'auto' : 1 }}
                                 >
-                                    {isMobile ? '' : 'Копировать'}
+                                    {isMobile ? '' : t('copy')}
                                 </Button>
                             )}
                             {onTaskUpdate && canEdit && (
@@ -939,10 +941,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                     }} 
                                     variant="contained"
                                 >
-                                    Редактировать
+                                    {t('edit')}
                                 </Button>
                             )}
-                            <Button onClick={handleClose}>Закрыть</Button>
+                            <Button onClick={handleClose}>{t('close')}</Button>
                         </DialogActions>
                     </Box>
                 );
@@ -950,7 +952,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 return (
                     <Box sx={actionStyles} width="100%">
                         <DialogActions>
-                            <Button onClick={handleClose}>Закрыть</Button>
+                            <Button onClick={handleClose}>{t('close')}</Button>
                         </DialogActions>
                     </Box>
                 );
@@ -1000,10 +1002,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 )}
                 <Chip
                     label={
-                        task.priority === 'HIGH' ? 'Высокий приоритет' :
-                        task.priority === 'MEDIUM' ? 'Средний приоритет' :
-                        task.priority === 'LOW' ? 'Низкий приоритет' :
-                        'Без приоритета'
+                                task.priority === 'HIGH' ? t('priorityHigh') :
+        task.priority === 'MEDIUM' ? t('priorityMedium') :
+        task.priority === 'LOW' ? t('priorityLow') :
+        t('priorityNone')
                     }
                     color={
                         task.priority === 'HIGH' ? 'error' :
@@ -1034,7 +1036,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 />
                             ) : undefined
                         }
-                        label={`Назначена на: ${task.assignee.username}`}
+                        label={`${t('assignedTo')}: ${task.assignee.username}`}
                         size="medium"
                         variant="outlined"
                         color="primary"

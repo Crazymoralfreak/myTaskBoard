@@ -8,6 +8,9 @@ import enTranslations from '../locales/en';
 // Типы
 export type SupportedLanguage = 'ru' | 'en';
 
+// Тип для объекта переводов - разрешаем любые объекты
+type TranslationsObject = Record<string, any>;
+
 interface LocalizationContextType {
   language: SupportedLanguage;
   setLanguage: (language: SupportedLanguage) => void;
@@ -15,9 +18,9 @@ interface LocalizationContextType {
 }
 
 // Все переводы
-const translations = {
-  ru: ruTranslations,
-  en: enTranslations,
+const translations: Record<SupportedLanguage, TranslationsObject> = {
+  ru: ruTranslations as TranslationsObject,
+  en: enTranslations as TranslationsObject,
 };
 
 // Контекст
@@ -67,57 +70,24 @@ export const AppLocalizationProvider: React.FC<LocalizationProviderProps> = ({
     initLanguage();
   }, [userSettings]);
 
-  // Функция для поиска ключа без учета регистра
-  const findKeyIgnoreCase = (obj: any, targetKey: string): string | undefined => {
-    const keys = targetKey.split('.');
-    let current = obj;
-
-    for (const key of keys) {
-      if (current && typeof current === 'object') {
-        // Поиск точного совпадения
-        if (current[key] !== undefined) {
-          current = current[key];
-          continue;
-        }
-
-        // Поиск без учета регистра
-        const foundKey = Object.keys(current).find(k => 
-          k.toLowerCase() === key.toLowerCase()
-        );
-
-        if (foundKey && current[foundKey] !== undefined) {
-          current = current[foundKey];
-          continue;
-        }
-
-        // Ключ не найден
-        return undefined;
-      }
-      return undefined;
-    }
-
-    return typeof current === 'string' ? current : undefined;
-  };
-
-  // Функция перевода
+  // Функция перевода для плоской структуры
   const t = (key: string): string => {
-    const translation = findKeyIgnoreCase(translations[language], key);
+    const currentTranslations = translations[language];
     
-    if (translation) {
-      return translation;
+    // Прямой доступ к переводу в плоской структуре
+    if (currentTranslations[key] && typeof currentTranslations[key] === 'string') {
+      return currentTranslations[key];
     }
 
-    // Fallback на английский
-    if (language !== 'en') {
-      const fallback = findKeyIgnoreCase(translations.en, key);
-      if (fallback) {
-        console.warn(`Translation missing for key "${key}" in language "${language}", using English fallback`);
-        return fallback;
-      }
+    // Fallback на английский если текущий язык не английский
+    if (language !== 'en' && translations.en[key] && typeof translations.en[key] === 'string') {
+      console.warn(`Translation missing for key "${key}" in language "${language}", using English fallback`);
+      return translations.en[key];
     }
 
-    console.warn(`Translation missing for key "${key}" in language "${language}"`);
-    return `[${key}]`; // Показываем ключ в квадратных скобках
+    // Если перевод не найден нигде, возвращаем ключ в квадратных скобках
+    console.warn(`Translation missing for key "${key}" in all languages`);
+    return `[${key}]`;
   };
 
   // Функция смены языка с сохранением в настройках

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface ErrorAlertProps {
   message: string;
@@ -10,13 +11,15 @@ interface ErrorAlertProps {
  * Компонент для отображения ошибок в UI
  */
 const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, details, onClose }) => {
+  const { t } = useLocalization();
+  
   return (
     <div className="error-alert" role="alert">
       <div className="error-alert-content">
         <div className="error-alert-message">{message}</div>
         {details && (
           <details className="error-alert-details">
-            <summary>Подробности</summary>
+            <summary>{t('errorAlertDetails')}</summary>
             <pre>{details}</pre>
           </details>
         )}
@@ -25,7 +28,7 @@ const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, details, onClose }) =>
         <button
           type="button"
           className="error-alert-close"
-          aria-label="Закрыть"
+                        aria-label={t('errorAlertClose')}
           onClick={onClose}
         >
           &times;

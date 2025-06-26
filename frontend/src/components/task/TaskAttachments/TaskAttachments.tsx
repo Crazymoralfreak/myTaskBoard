@@ -75,6 +75,7 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { taskService } from '../../../services/taskService';
 import { formatFileSize } from '../../../utils/fileUtils';
 import { getAttachmentUrl } from '../../../utils/attachmentUtils';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface TextFilePreviewProps {
     url: string;
@@ -82,6 +83,7 @@ interface TextFilePreviewProps {
 }
 
 const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
+    const { t } = useLocalization();
     const [content, setContent] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -94,14 +96,14 @@ const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
                 
                 const response = await fetch(url);
                 if (!response.ok) {
-                    throw new Error('Не удалось загрузить файл');
+                    throw new Error(t('attachmentsErrorsLoadFile'));
                 }
                 
                 const text = await response.text();
                 setContent(text);
             } catch (err) {
                 console.error('Ошибка при загрузке текстового файла:', err);
-                setError('Не удалось загрузить содержимое файла');
+                setError(t('attachmentsErrorsLoadContent'));
             } finally {
                 setLoading(false);
             }
@@ -114,7 +116,7 @@ const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
                 <CircularProgress />
-                <Typography sx={{ ml: 2 }}>Загрузка содержимого файла...</Typography>
+                <Typography sx={{ ml: 2 }}>{t('attachmentsLoadingContent')}</Typography>
             </Box>
         );
     }
@@ -124,7 +126,7 @@ const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
             <Box sx={{ textAlign: 'center', p: 3 }}>
                 <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
                 <Button variant="outlined" onClick={() => window.location.reload()}>
-                    Попробовать снова
+                    {t('tryAgain')}
                 </Button>
             </Box>
         );
@@ -168,6 +170,7 @@ interface TaskAttachmentsProps {
  * Компонент для работы с вложениями задачи
  */
 export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTaskUpdate }) => {
+    const { t } = useLocalization();
     const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -397,7 +400,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             
         } catch (err) {
             console.error('Ошибка при массовом удалении файлов:', err);
-            setError('Не удалось удалить выбранные файлы');
+                            setError(t('attachmentsErrorsDeleteSelected'));
         } finally {
             setLoading(false);
         }
@@ -420,7 +423,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             }
         } catch (err) {
             console.error('Ошибка при загрузке вложений:', err);
-            setError('Не удалось загрузить список вложений');
+            setError(t('attachmentsErrorsLoadList'));
         } finally {
             setLoading(false);
         }
@@ -466,7 +469,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 return updatedTask;
             } catch (error) {
                 console.error(`Ошибка при загрузке файла ${file.name}:`, error);
-                setError(`Не удалось загрузить файл: ${file.name}`);
+                setError(`${t('attachmentsErrorsUploadFile')}: ${file.name}`);
                 
                 setMultipleUploadProgress(prev => {
                     const newProgress = { ...prev };
@@ -506,12 +509,12 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             const failed = results.filter(r => r.status === 'rejected').length;
             
             if (failed > 0) {
-                setError(`Загружено файлов: ${successful}, не удалось загрузить: ${failed}`);
+                setError(`${t('attachmentsUploadSummary')}: ${successful}, ${t('attachmentsUploadFailed')}: ${failed}`);
             }
             
         } catch (error) {
             console.error('Ошибка при массовой загрузке:', error);
-            setError('Ошибка при загрузке файлов');
+            setError(t('attachmentsErrorsUploadFiles'));
         } finally {
             setUploadingFiles([]);
             setMultipleUploadProgress({});
@@ -543,7 +546,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 
             } catch (err) {
                 console.error('Ошибка при загрузке файла:', err);
-                setError('Не удалось загрузить файл');
+                setError(t('attachmentsErrorsUploadSingleFile'));
             } finally {
                 setUploadProgress(null);
             }
@@ -592,7 +595,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             
         } catch (err) {
             console.error('Ошибка при удалении файла:', err);
-            setError('Не удалось удалить файл');
+            setError(t('attachmentsErrorsDeleteFile'));
         } finally {
             setLoading(false);
             setSelectedAttachmentId(null);
@@ -885,7 +888,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     onClick={() => handleDownload(previewAttachment)}
                     size="large"
                 >
-                    Скачать файл
+                                                {t('download')}
                 </Button>
             </Box>
         );
@@ -1045,7 +1048,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 
                 {!compactMode && (
                     <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                        <Tooltip title="Скачать">
+                        <Tooltip title={t('download')}>
                             <IconButton 
                                 size="small"
                                 onClick={() => handleDownload(attachment)}
@@ -1054,7 +1057,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                             </IconButton>
                         </Tooltip>
                         
-                        <Tooltip title="Удалить">
+                        <Tooltip title={t('delete')}>
                             <IconButton 
                                 size="small" 
                                 color="error"
@@ -1065,7 +1068,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         </Tooltip>
                         
                         {canPreviewFile && (
-                            <Tooltip title="Просмотреть">
+                            <Tooltip title={t('preview')}>
                                 <IconButton 
                                     size="small" 
                                     color="primary"
@@ -1149,7 +1152,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 
                                 {canPreview(attachment.mimeType, attachment.filename) && (
                                     <Chip
-                                        label="Доступен просмотр"
+                                        label={t('attachmentsPreviewAvailable')}
                                         size="small"
                                         color="primary"
                                         variant="outlined"
@@ -1178,7 +1181,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     <ListItemSecondaryAction>
                         <Stack direction="row" spacing={1}>
                             {canPreview(attachment.mimeType, attachment.filename) && (
-                                <Tooltip title="Просмотреть">
+                                <Tooltip title={t('preview')}>
                                     <IconButton 
                                         edge="end" 
                                         aria-label="preview"
@@ -1191,7 +1194,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 </Tooltip>
                             )}
                             
-                            <Tooltip title="Скачать">
+                            <Tooltip title={t('download')}>
                                 <IconButton 
                                     edge="end" 
                                     aria-label="download"
@@ -1202,7 +1205,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 </IconButton>
                             </Tooltip>
                             
-                            <Tooltip title="Удалить">
+                            <Tooltip title={t('delete')}>
                                 <IconButton 
                                     edge="end" 
                                     aria-label="delete" 
@@ -1276,7 +1279,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 
             } catch (err) {
                 console.error('Ошибка при загрузке файла:', err);
-                setError('Не удалось загрузить файл');
+                setError(t('attachmentsErrorsUploadSingleFile'));
             } finally {
                 setUploadProgress(null);
             }
@@ -1336,7 +1339,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 fontWeight: 600
                             }}
                         >
-                            Отпустите файлы для загрузки
+                            {t('attachmentsDropFiles')}
                         </Typography>
                         <Typography 
                             variant="body2" 
@@ -1345,7 +1348,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 mt: 1
                             }}
                         >
-                            Поддерживается загрузка нескольких файлов
+                            {t('attachmentsMultipleFilesSupported')}
                         </Typography>
                     </Box>
                 </Box>
@@ -1358,7 +1361,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: showAdvancedFilters ? 1.5 : 0 }}>
                         <TextField
                             size="small"
-                            placeholder="Поиск файлов..."
+                            placeholder={t('attachmentsSearchFiles')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             InputProps={{
@@ -1417,10 +1420,10 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         <Fade in={showAdvancedFilters}>
                             <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems="center">
                                 <FormControl size="small" sx={{ minWidth: 120 }}>
-                                    <InputLabel>Тип файлов</InputLabel>
+                                    <InputLabel>{t('attachmentsFileType')}</InputLabel>
                                     <Select
                                         value={filter}
-                                        label="Тип файлов"
+                                        label={t('attachmentsFileType')}
                                         onChange={(e) => setFilter(e.target.value as FileFilter)}
                                     >
                                         <MenuItem value="all">Все файлы ({fileStats.all})</MenuItem>
@@ -1494,7 +1497,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         onClick={handleAttachButtonClick}
                         disabled={!!uploadProgress || uploadingFiles.length > 0 || loading}
                     >
-                        {isMobile ? 'Добавить' : 'Добавить файлы'}
+                        {isMobile ? t('add') : t('attachmentsAddFiles')}
                     </Button>
                     
                     {/* Массовые операции - компактно */}
@@ -1520,7 +1523,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                     onClick={handleMassDownload}
                                     disabled={loading}
                                 >
-                                    Скачать ({selectedFiles.size})
+                                    {t('download')} ({selectedFiles.size})
                                 </Button>
                             )}
                         </>
@@ -1592,7 +1595,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                             setActionsMenuAnchor(null);
                                         }} sx={{ color: 'error.main' }}>
                                             <DeleteSweepIcon fontSize="small" sx={{ mr: 1 }} />
-                                            Удалить выбранные ({selectedFiles.size})
+                                            {t('attachmentsDeleteSelected')} ({selectedFiles.size})
                                         </MenuItem>
                                     </>
                                 )}
@@ -1644,7 +1647,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <StorageIcon fontSize="small" color="primary" />
                                     <Typography variant="body2">
-                                        <strong>{attachments.length}</strong> файлов, <strong>{formatFileSizeHelper(getTotalSize())}</strong>
+                                        <strong>{attachments.length}</strong> {t('attachmentsFiles')}, <strong>{formatFileSizeHelper(getTotalSize())}</strong>
                                     </Typography>
                                 </Box>
                                 
@@ -1743,7 +1746,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         <Paper variant="outlined" sx={{ p: 2 }}>
                             <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                                 <CircularProgress size={16} sx={{ mr: 1 }} />
-                                Загрузка файлов ({uploadingFiles.length})
+                                {t('attachmentsUploadingFiles')} ({uploadingFiles.length})
                             </Typography>
                             {uploadingFiles.map((fileName) => {
                                 const progress = multipleUploadProgress[fileName] || 0;
@@ -1788,7 +1791,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                 <Box sx={{ display: 'flex', justifyContent: 'center', my: 4, flexDirection: 'column', alignItems: 'center' }}>
                     <CircularProgress size={40} />
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                        Загрузка вложений...
+                        {t('attachmentsLoadingAttachments')}
                     </Typography>
                 </Box>
             ) : error ? (
@@ -1797,7 +1800,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     sx={{ mb: 2 }} 
                     action={
                         <Button color="inherit" size="small" onClick={loadTaskAttachments}>
-                            Повторить
+                            {t('tryAgain')}
                         </Button>
                     }
                 >
@@ -1818,7 +1821,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         <InsertDriveFileIcon sx={{ fontSize: 50, color: isDarkTheme ? alpha('#fff', 0.5) : alpha('#000', 0.3) }} />
                     </Box>
                     <Typography sx={{ color: 'text.secondary', mb: 2 }}>
-                        К этой задаче пока не прикреплено ни одного файла
+                        {t('attachmentsNoFilesAttached')}
                     </Typography>
                     <Button 
                         variant="outlined" 
@@ -1826,7 +1829,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         startIcon={<AttachFileIcon />}
                         onClick={handleAttachButtonClick}
                     >
-                        Прикрепить файл
+                        {t('attachmentsAttachFile')}
                     </Button>
                 </Paper>
             ) : processedAttachments.length === 0 ? (
@@ -1844,7 +1847,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         <SearchIcon sx={{ fontSize: 50, color: isDarkTheme ? alpha('#fff', 0.5) : alpha('#000', 0.3) }} />
                     </Box>
                     <Typography sx={{ color: 'text.secondary', mb: 2 }}>
-                        По заданным фильтрам ничего не найдено
+                        {t('attachmentsNoFilesFound')}
                     </Typography>
                     <Button 
                         variant="outlined" 
@@ -1854,7 +1857,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                             setSearchQuery('');
                         }}
                     >
-                        Сбросить фильтры
+                        {t('attachmentsClearFilters')}
                     </Button>
                 </Paper>
                             ) : (
@@ -1887,8 +1890,8 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             {/* Диалог подтверждения удаления */}
             <ConfirmDialog
                 open={confirmDelete}
-                title="Удалить вложение"
-                message="Вы уверены, что хотите удалить этот файл? Это действие нельзя отменить."
+                        title={t('attachmentsDeleteAttachment')}
+        message={t('attachmentsConfirmDeleteFile')}
                 onConfirm={handleConfirmDelete}
                 onClose={() => setConfirmDelete(false)}
                 actionType="delete"
@@ -1940,7 +1943,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                             const previewableFiles = getPreviewableAttachments();
                             return previewableFiles.length > 1 && (
                                 <>
-                                    <Tooltip title="Предыдущий файл">
+                                    <Tooltip title={t('attachmentsPreviousFile')}>
                                         <IconButton 
                                             onClick={goToPreviousFile}
                                             size="small"
@@ -1948,7 +1951,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                             <NavigateBeforeIcon />
                                         </IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Следующий файл">
+                                    <Tooltip title={t('attachmentsNextFile')}>
                                         <IconButton 
                                             onClick={goToNextFile}
                                             size="small"
@@ -1961,7 +1964,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         })()}
                         
                         {/* Полноэкранный режим */}
-                        <Tooltip title={fullscreenPreview ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
+                        <Tooltip title={fullscreenPreview ? t('attachmentsExitFullscreen') : t('attachmentsFullscreen')}>
                             <IconButton 
                                 onClick={toggleFullscreenPreview}
                                 size="small"
@@ -2039,7 +2042,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     
                     <Stack direction="row" spacing={1}>
                         <Button onClick={() => setPreviewDialogOpen(false)}>
-                            Закрыть
+                            {t('close')}
                         </Button>
                         {previewAttachment && (
                             <Button 
@@ -2047,7 +2050,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 startIcon={<DownloadIcon />}
                                 onClick={() => handleDownload(previewAttachment)}
                             >
-                                Скачать
+                                {t('download')}
                             </Button>
                         )}
                     </Stack>

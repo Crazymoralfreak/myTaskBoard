@@ -27,11 +27,13 @@ import NotificationItem from '../components/notifications/NotificationItem';
 import { NotificationsService } from '../services/NotificationsService';
 import { Notification, NotificationType, NotificationPriority } from '../types/Notification';
 import { useNavigate } from 'react-router-dom';
+import { useLocalization } from '../hooks/useLocalization';
 
 /**
  * Страница уведомлений пользователя
  */
 const NotificationsPage: React.FC = () => {
+  const { t } = useLocalization();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ const NotificationsPage: React.FC = () => {
         // Не показываем ошибку для новых пользователей
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         if (!errorMessage.includes('404') && !errorMessage.includes('USER_NOT_FOUND')) {
-          setError('Не удалось загрузить уведомления. Пожалуйста, попробуйте позже.');
+          setError(t('errorsLoad'));
         }
       } finally {
         setLoading(false);
@@ -140,7 +142,7 @@ const NotificationsPage: React.FC = () => {
       
     } catch (err) {
       console.error('Error refreshing notifications:', err);
-      setError('Не удалось обновить уведомления. Попробуйте позже.');
+              setError(t('errorsRefresh'));
     } finally {
       setRefreshing(false);
     }
@@ -299,15 +301,15 @@ const NotificationsPage: React.FC = () => {
   const getPriorityLabel = (priority: string) => {
     switch (priority) {
       case NotificationPriority.CRITICAL:
-        return 'Критический';
+        return t('prioritiesCritical');
       case NotificationPriority.HIGH:
-        return 'Высокий';
+        return t('prioritiesHigh');
       case NotificationPriority.NORMAL:
-        return 'Обычный';
+        return t('prioritiesNormal');
       case NotificationPriority.LOW:
-        return 'Низкий';
+        return t('prioritiesLow');
       default:
-        return 'Все приоритеты';
+        return t('prioritiesAll');
     }
   };
   
@@ -423,7 +425,7 @@ const NotificationsPage: React.FC = () => {
       <Paper elevation={3} sx={{ p: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h5" component="h1">
-            Уведомления
+            {t('notificationsTitle')}
           </Typography>
           
           <Box display="flex" gap={1}>
@@ -433,7 +435,7 @@ const NotificationsPage: React.FC = () => {
               disabled={loading || refreshing}
               startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
             >
-              {refreshing ? 'Обновление...' : 'Обновить'}
+              {refreshing ? t('refreshing') : t('refresh')}
             </Button>
             
             {currentTab === 'active' && (
@@ -445,7 +447,7 @@ const NotificationsPage: React.FC = () => {
                 {markingAsRead ? (
                   <CircularProgress size={24} sx={{ mr: 1 }} />
                 ) : null}
-                Прочитать все
+                {t('markAllAsRead')}
               </Button>
             )}
           </Box>
@@ -455,13 +457,13 @@ const NotificationsPage: React.FC = () => {
         <Tabs value={currentTab} onChange={handleTabChange} sx={{ mb: 2 }}>
           <Tab 
             value="active" 
-            label="Активные" 
+            label={t('tabsActive')} 
             icon={<InboxIcon />} 
             iconPosition="start"
           />
           <Tab 
             value="archived" 
-            label="Архивированные" 
+            label={t('tabsArchived')} 
             icon={<ArchiveIcon />} 
             iconPosition="start"
           />
@@ -471,7 +473,7 @@ const NotificationsPage: React.FC = () => {
         <Box display="flex" gap={2} mb={3} flexWrap="wrap">
           <TextField
             size="small"
-            placeholder="Поиск уведомлений..."
+            placeholder={t('search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
@@ -485,13 +487,13 @@ const NotificationsPage: React.FC = () => {
           />
           
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Приоритет</InputLabel>
+            <InputLabel>{t('priority')}</InputLabel>
             <Select
               value={priorityFilter}
-              label="Приоритет"
+                              label={t('priority')}
               onChange={(e) => setPriorityFilter(e.target.value)}
             >
-              <MenuItem value="all">Все приоритеты</MenuItem>
+                              <MenuItem value="all">{t('prioritiesAll')}</MenuItem>
               <MenuItem value={NotificationPriority.CRITICAL}>
                 {getPriorityLabel(NotificationPriority.CRITICAL)}
               </MenuItem>
@@ -515,7 +517,7 @@ const NotificationsPage: React.FC = () => {
           <Box mb={2} p={2} bgcolor="action.hover" borderRadius={1}>
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="body2">
-                Выбрано: {selectedNotifications.size} уведомлений
+                {t('bulkActionsSelected').replace('{count}', selectedNotifications.size.toString())}
               </Typography>
               <Box display="flex" gap={1}>
                 <Button
@@ -526,7 +528,7 @@ const NotificationsPage: React.FC = () => {
                     notifications.find(n => n.id === id)?.isRead
                   )}
                 >
-                  Отметить как прочитанные
+                                      {t('bulkActionsMarkAsRead')}
                 </Button>
                 <Button
                   size="small"
@@ -534,14 +536,14 @@ const NotificationsPage: React.FC = () => {
                   color="error"
                   onClick={handleBulkDelete}
                 >
-                  Удалить
+                                      {t('bulkActionsDelete')}
                 </Button>
                 <Button
                   size="small"
                   variant="text"
                   onClick={() => setSelectedNotifications(new Set())}
                 >
-                  Отменить
+                                      {t('bulkActionsCancel')}
                 </Button>
               </Box>
             </Box>
@@ -565,7 +567,7 @@ const NotificationsPage: React.FC = () => {
                 variant="text"
                 onClick={() => handleSelectAll(selectedNotifications.size === 0)}
               >
-                {selectedNotifications.size === notifications.length ? 'Снять выделение' : 'Выбрать все'}
+                {selectedNotifications.size === notifications.length ? t('bulkActionsDeselectAll') : t('bulkActionsSelectAll')}
               </Button>
             </Box>
             
@@ -600,8 +602,8 @@ const NotificationsPage: React.FC = () => {
           <Box textAlign="center" py={4}>
             <Typography variant="body1" color="textSecondary">
               {currentTab === 'active' 
-                ? 'У вас нет активных уведомлений' 
-                : 'У вас нет архивированных уведомлений'
+                        ? t('emptyActive')
+        : t('emptyArchived')
               }
             </Typography>
           </Box>

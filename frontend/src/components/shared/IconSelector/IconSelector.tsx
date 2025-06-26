@@ -13,6 +13,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import { iconNameToComponent } from './iconMapping';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface IconSelectorProps {
     value: string;
@@ -20,7 +21,8 @@ interface IconSelectorProps {
     label?: string;
 }
 
-export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, label = 'Иконка' }) => {
+export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, label }) => {
+    const { t } = useLocalization();
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     
@@ -60,7 +62,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, lab
                 fullWidth
                 sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
             >
-                {value ? `Выбрана: ${value}` : label}
+                {value ? `${t('iconSelectorSelected')}: ${value}` : (label || t('iconSelectorDefaultLabel'))}
                 {value && (
                     <IconButton 
                         size="small" 
@@ -92,7 +94,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, lab
                 }}
             >
                 <TextField
-                    placeholder="Поиск иконок..."
+                    placeholder={t('iconSelectorSearchPlaceholder')}
                     variant="outlined"
                     size="small"
                     fullWidth

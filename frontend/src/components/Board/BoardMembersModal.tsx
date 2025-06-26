@@ -52,6 +52,7 @@ import { useTokenRefresh } from '../../hooks/useTokenRefresh';
 import { boardService } from '../../services/boardService';
 import { useUserRole, Permission } from '../../hooks/useUserRole';
 import { getAvatarUrl } from '../../utils/avatarUtils';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface BoardMembersModalProps {
   open: boolean;
@@ -77,6 +78,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   currentUserRole,
   currentUserRoleId
 }) => {
+  const { t } = useLocalization();
   const [activeTab, setActiveTab] = useState<number>(0);
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<BoardMember[]>([]);
@@ -125,7 +127,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       setBoardData(boardDetails);
     } catch (err) {
       console.error('Ошибка при загрузке информации о доске:', err);
-      setError('Не удалось загрузить информацию о доске');
+      setError(t('errorLoadBoardInfo'));
     }
   };
   
@@ -182,7 +184,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       setRoles(rolesData);
     } catch (err) {
       console.error('Ошибка при загрузке данных:', err);
-      setError('Не удалось загрузить данные. Пожалуйста, попробуйте еще раз.');
+      setError(t('errorLoadData'));
     } finally {
       setLoading(false);
     }
@@ -206,7 +208,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       const userId = selectedMember.userId || (selectedMember.user && selectedMember.user.id);
       
       if (!userId) {
-        throw new Error('Не удалось определить ID пользователя');
+        throw new Error(t('errorIdentifyUser'));
       }
       
       console.log('Обновляем роль пользователя:', { userId, roleId: selectedRoleId });
@@ -245,9 +247,9 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                        (updatedMember.user && updatedMember.user.username) || 
                        selectedMember.username || 
                        (selectedMember.user && selectedMember.user.username) || 
-                       'Пользователь';
+                       t('user');
       
-      setSuccessMessage(`Роль участника ${username} успешно изменена на ${getRoleName(selectedRoleId)}`);
+      setSuccessMessage(`${t('memberRoleChanged')} ${username} ${t('to')} ${getRoleName(selectedRoleId)}`);
       
       // Сбрасываем выбранные значения после небольшой задержки
       setTimeout(() => {
@@ -256,7 +258,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       }, 300);
     } catch (error) {
       console.error('Ошибка при изменении роли:', error);
-      setError('Не удалось изменить роль участника');
+      setError(t('errorChangeRole'));
       
       // Закрываем диалог при ошибке после небольшой задержки
       setTimeout(() => {
@@ -299,7 +301,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       const userId = selectedMember.userId || (selectedMember.user && selectedMember.user.id);
       
       if (!userId) {
-        throw new Error('Не удалось определить ID пользователя');
+        throw new Error(t('errorIdentifyUser'));
       }
       
       await BoardMembersService.removeMemberFromBoard(boardId, userId);
@@ -312,11 +314,11 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         (member.userId || (member.user && member.user.id)) !== userId
       ));
       
-      const username = selectedMember.username || (selectedMember.user && selectedMember.user.username) || 'Пользователь';
-      setSuccessMessage(`Участник ${username} успешно удален из доски`);
+      const username = selectedMember.username || (selectedMember.user && selectedMember.user.username) || t('user');
+      setSuccessMessage(`${t('memberRemovedSuccess')} ${username}`);
     } catch (error) {
       console.error('Ошибка при удалении участника:', error);
-      setError('Не удалось удалить участника');
+      setError(t('errorRemoveMember'));
     } finally {
       setDeletingMember(false);
       setConfirmDelete(false);
@@ -669,7 +671,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         {/* Список участников */}
         {filteredMembers.length === 0 && !loading ? (
           <Alert severity="info" sx={{ mt: 2 }}>
-            Участники не найдены
+            {t('membersNotFound')}
           </Alert>
         ) : (
           <List>
@@ -702,12 +704,12 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
               startIcon={<PersonAddIcon />}
               onClick={() => setActiveTab(1)}
             >
-              Добавить участника
+              {t('addMember')}
             </Button>
           </Box>
         ) : (
           <Alert severity="info" sx={{ mt: 2 }}>
-            Данное действие Вам недоступно, обратитесь к администратору
+            {t('actionNotAvailable')}
           </Alert>
         )}
       </Box>
@@ -728,15 +730,15 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
             <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
-              Участники доски
+              {t('boardMembersTitle')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {canManageMembers() 
-                ? "Просматривайте, добавляйте и удаляйте участников доски"
-                : "Просматривайте список участников доски"}
+                ? t('boardMembersDescriptionAdmin')
+                : t('boardMembersDescriptionUser')}
             </Typography>
           </Box>
-          <Tooltip title="Закрыть">
+          <Tooltip title={t('close')}>
             <IconButton
               aria-label="close"
               onClick={onClose}
@@ -756,13 +758,13 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"
-          aria-label="участники доски"
+          aria-label={t('boardMembers')}
         >
           <Tab 
             label={
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <PeopleAltIcon sx={{ mr: 1 }} />
-                <span>Участники</span>
+                <span>{t('members')}</span>
                 {members.length > 0 && (
                   <Chip 
                     label={members.length} 
@@ -781,7 +783,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <PersonAddIcon sx={{ mr: 1 }} />
-                  <span>Добавить участника</span>
+                  <span>{t('addMember')}</span>
                 </Box>
               } 
               id="tab-1" 
@@ -796,7 +798,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       {/* Информационное сообщение о недостаточных правах */}
       {!canManageMembers() && !loading && (
         <Alert severity="info" sx={{ mx: 3, mt: 2 }}>
-          У вас нет прав для управления участниками. Доступен только просмотр списка.
+          {t('noMemberManagementPermission')}
         </Alert>
       )}
       
@@ -806,7 +808,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <EditIcon sx={{ mr: 1 }} />
             <Typography variant="body2">
-              Вы можете изменить роль участника, нажав на кнопку "Роль" справа от его имени
+              {t('memberRoleChangeHint')}
             </Typography>
           </Box>
         </Alert>
@@ -817,7 +819,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         <Box sx={{ px: 3, py: 2 }}>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
-              placeholder="Поиск участников..."
+              placeholder={t('searchMembersPlaceholder')}
               value={searchQuery}
               onChange={handleSearchQueryChange}
               size="small"
@@ -832,7 +834,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                     <IconButton 
                       size="small" 
                       onClick={() => setSearchQuery('')}
-                      aria-label="очистить поиск"
+                      aria-label={t('clearSearch')}
                     >
                       <CloseIcon fontSize="small" />
                     </IconButton>
@@ -849,13 +851,13 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                 displayEmpty
                 renderValue={(selected) => {
                   if (!selected) {
-                    return <Typography color="text.secondary">Все роли</Typography>;
+                    return <Typography color="text.secondary">{t('allRoles')}</Typography>;
                   }
                   const role = roles.find(r => r.id.toString() === selected);
-                  return role ? role.name : 'Все роли';
+                  return role ? role.name : t('allRoles');
                 }}
               >
-                <MenuItem value="">Все роли</MenuItem>
+                <MenuItem value="">{t('allRoles')}</MenuItem>
                 {roles.map(role => (
                   <MenuItem key={role.id} value={role.id.toString()}>
                     {role.name}
@@ -865,7 +867,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
             </FormControl>
             
             {(searchQuery || roleFilter) && (
-              <Tooltip title="Сбросить фильтры">
+              <Tooltip title={t('resetFilters')}>
                 <Button 
                   size="small" 
                   variant="outlined" 
@@ -873,7 +875,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                   onClick={clearFilters}
                   startIcon={<FilterListIcon />}
                 >
-                  Сбросить
+                  {t('reset')}
                 </Button>
               </Tooltip>
             )}
@@ -881,7 +883,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
           
           {filteredMembers.length !== members.length && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              Показано {filteredMembers.length} из {members.length} участников
+              {`${t('showing')} ${filteredMembers.length} ${t('of')} ${members.length} ${t('members')}`}
             </Typography>
           )}
         </Box>
@@ -940,19 +942,19 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       
       <DialogActions>
         <Box sx={{ mr: 'auto', display: 'flex', alignItems: 'center' }}>
-          <Tooltip title="Права доступа определяются ролью пользователя">
+          <Tooltip title={t('accessRightsTooltip')}>
             <IconButton size="small" color="info">
               <InfoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
             {canManageRoles() ? 
-              `У вас есть права на управление участниками (роль: ${userRoles.userRole || currentUserRole || 'Админ'})` : 
-              'Для изменения ролей требуются права администратора'}
+              `${t('youHaveManagementRights')} (${t('role')}: ${userRoles.userRole || currentUserRole || t('admin')})` : 
+              t('adminRightsRequired')}
           </Typography>
         </Box>
         <Button onClick={onClose} color="primary">
-          Закрыть
+          {t('close')}
         </Button>
       </DialogActions>
       
@@ -967,16 +969,16 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          Удаление участника
+          {t('removeMemberTitle')}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" id="alert-dialog-description">
-            Вы действительно хотите удалить участника {selectedMember?.username || selectedMember?.user?.username || 'выбранного пользователя'} из доски?
+            {`${t('removeMemberConfirm')} ${selectedMember?.username || selectedMember?.user?.username || t('selectedUser')} ${t('fromBoard')}?`}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDelete(false)} color="primary">
-            Отмена
+            {t('cancel')}
           </Button>
           <Button 
             onClick={handleDeleteMember} 
@@ -985,7 +987,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
             disabled={deletingMember}
             startIcon={deletingMember && <CircularProgress size={16} />}
           >
-            {deletingMember ? 'Удаление...' : 'Удалить'}
+            {deletingMember ? t('removing') : t('remove')}
           </Button>
         </DialogActions>
       </Dialog>

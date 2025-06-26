@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { useTelegram } from '../hooks/useTelegram';
 import { fetchTask } from '../api/api';
 import { TextField, Button, Box, Typography } from '@mui/material';
+import { useLocalization } from '../hooks/useLocalization';
 
 interface TaskFormData {
     title: string;
@@ -15,6 +16,7 @@ interface TaskFormData {
 }
 
 export const TaskPage: React.FC = () => {
+    const { t } = useLocalization();
     const { taskId } = useParams<{ taskId: string }>();
     const [task, setTask] = useState<Task | null>(null);
     const { register, handleSubmit } = useForm<TaskFormData>();
@@ -35,24 +37,24 @@ export const TaskPage: React.FC = () => {
     };
 
     if (!task) {
-        return <div>Загрузка...</div>;
+        return <div>{t('loading')}</div>;
     }
 
     return (
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" gutterBottom>
-                Создание задачи
+                {t('createTask')}
             </Typography>
             <form onSubmit={handleSubmit(onSubmit)}>
                 <TextField
                     fullWidth
-                    label="Название"
+                    label={t('taskTitle')}
                     {...register('title')}
                     margin="normal"
                 />
                 <TextField
                     fullWidth
-                    label="Описание"
+                    label={t('taskDescription')}
                     {...register('description')}
                     margin="normal"
                     multiline
@@ -60,14 +62,14 @@ export const TaskPage: React.FC = () => {
                 />
                 <TextField
                     fullWidth
-                    label="Приоритет"
+                    label={t('taskPriority')}
                     type="number"
                     {...register('priority')}
                     margin="normal"
                 />
                 <TextField
                     fullWidth
-                    label="Срок выполнения"
+                    label={t('taskDueDate')}
                     type="date"
                     {...register('dueDate')}
                     margin="normal"
@@ -81,7 +83,7 @@ export const TaskPage: React.FC = () => {
                     color="primary"
                     sx={{ mt: 2 }}
                 >
-                    Сохранить
+                    {t('save')}
                 </Button>
             </form>
         </Box>

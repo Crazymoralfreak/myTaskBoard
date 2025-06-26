@@ -31,6 +31,7 @@ import { boardService } from '../../../services/boardService';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { IconSelector } from '../../shared/IconSelector';
 import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -72,6 +73,7 @@ interface BoardEntitiesManagerProps {
 }
 
 export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ board, onBoardUpdate }) => {
+    const { t } = useLocalization();
     const [tabValue, setTabValue] = useState(0);
     const [statuses, setStatuses] = useState<BoardStatus[]>([]);
     const [types, setTypes] = useState<TaskType[]>([]);
@@ -104,11 +106,11 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             setTypes(loadedTypes);
         } catch (err) {
             console.error('Ошибка при загрузке сущностей:', err);
-            setError('Не удалось загрузить сущности доски');
+            setError(t('entitiesLoadEntitiesError'));
         } finally {
             setIsLoading(false);
         }
-    }, [board.id]);
+    }, [board.id, t]);
 
     useEffect(() => {
         loadEntities();
@@ -153,10 +155,10 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             const newStatuses = statuses.filter(s => s.id !== deleteEntityId);
             setStatuses(newStatuses);
             
-            setSuccess('Статус задачи успешно удален');
+            setSuccess(t('entitiesStatusDeleted'));
         } catch (err) {
             console.error('Ошибка при удалении статуса задачи:', err);
-            setError('Не удалось удалить статус задачи: ' + (err as Error).message);
+            setError(t('entitiesDeleteStatusError') + ': ' + (err as Error).message);
         } finally {
             setIsDeleting(false);
             setDeleteDialogOpen(false);
@@ -167,7 +169,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
 
     const saveStatus = async () => {
         if (!currentEntity.name.trim()) {
-            setError('Название статуса обязательно');
+            setError(t('entitiesStatusNameRequired'));
             return;
         }
 
@@ -188,7 +190,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     ...board,
                     taskStatuses: updatedStatuses
                 });
-                setSuccess('Статус успешно обновлен');
+                setSuccess(t('entitiesStatusUpdated'));
             } else {
                 const newStatus = await boardService.createTaskStatus(
                     board.id,
@@ -210,12 +212,12 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     console.error('Ошибка при обновлении доски после создания статуса:', refreshErr);
                 }
                 
-                setSuccess('Статус успешно создан');
+                                  setSuccess(t('entitiesStatusCreated'));
             }
             setStatusDialogOpen(false);
         } catch (err) {
             console.error('Ошибка при сохранении статуса:', err);
-            setError('Не удалось сохранить статус');
+                          setError(t('entitiesCreateStatusError'));
         } finally {
             setIsSubmitting(false);
         }
@@ -257,10 +259,10 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             const newTypes = types.filter(t => t.id !== deleteEntityId);
             setTypes(newTypes);
             
-            setSuccess('Тип задачи успешно удален');
+                          setSuccess(t('entitiesTypeDeleted'));
         } catch (err) {
             console.error('Ошибка при удалении типа задачи:', err);
-            setError('Не удалось удалить тип задачи');
+                          setError(t('entitiesDeleteTypeError'));
         } finally {
             setIsDeleting(false);
             setDeleteDialogOpen(false);
@@ -271,7 +273,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
 
     const handleTypeSubmit = async () => {
         if (!currentEntity.name.trim()) {
-            setError('Название типа обязательно');
+            setError(t('entitiesTypeNameRequired'));
             return;
         }
 
@@ -293,7 +295,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     ...board,
                     taskTypes: updatedTypes
                 });
-                setSuccess('Тип успешно обновлен');
+                                  setSuccess(t('entitiesTypeUpdated'));
             } else {
                 const newType = await boardService.createTaskType(
                     board.id,
@@ -316,12 +318,12 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     console.error('Ошибка при обновлении доски после создания типа задачи:', refreshErr);
                 }
                 
-                setSuccess('Тип успешно создан');
+                                  setSuccess(t('entitiesTypeCreated'));
             }
             setTypeDialogOpen(false);
         } catch (err) {
             console.error('Ошибка при сохранении типа:', err);
-            setError('Не удалось сохранить тип');
+                          setError(t('entitiesCreateTypeError'));
         } finally {
             setIsSubmitting(false);
         }
@@ -351,10 +353,10 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                 onBoardUpdate(updatedBoard);
             }
             
-            setSuccess('Сущности доски обновлены');
+                          setSuccess(t('entitiesRefreshed'));
         } catch (err) {
             console.error('Ошибка при обновлении сущностей:', err);
-            setError('Не удалось обновить сущности доски');
+                          setError(t('entitiesRefreshEntitiesError'));
         } finally {
             setIsRefreshing(false);
         }
@@ -364,15 +366,15 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
         <Box sx={{ width: '100%' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={tabValue} onChange={handleTabChange}>
-                    <Tab label="Статусы задач" />
-                    <Tab label="Типы задач" />
+                            <Tab label={t('entitiesTaskStatuses')} />
+        <Tab label={t('entitiesTaskTypes')} />
                 </Tabs>
             </Box>
 
             {/* Панель статусов */}
             <TabPanel value={tabValue} index={0}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Статусы задач</Typography>
+                    <Typography variant="h6">{t('entitiesTaskStatuses')}</Typography>
                     <Box>
                         <Button 
                             startIcon={<RefreshIcon />} 
@@ -380,14 +382,14 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                             disabled={isRefreshing || isLoading}
                             sx={{ mr: 1 }}
                         >
-                            {isRefreshing ? <CircularProgress size={24} /> : 'Обновить'}
+                            {isRefreshing ? <CircularProgress size={24} /> : t('entitiesRefresh')}
                         </Button>
                         <Button 
                             startIcon={<AddIcon />} 
                             variant="contained" 
                             onClick={handleAddStatus}
                         >
-                            Добавить статус
+                            {t('entitiesAddStatus')}
                         </Button>
                     </Box>
                 </Box>
@@ -396,7 +398,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                 
                 {!isLoading && statuses.length === 0 && (
                     <Typography color="textSecondary">
-                        Нет доступных статусов. Создайте новый статус.
+                        {t('entitiesNoStatuses')}
                     </Typography>
                 )}
                 
@@ -417,10 +419,10 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                                         />
                                         <ListItemText 
                                             primary={status.name}
-                                            secondary={status.isDefault ? 'Системный статус' : ''}
+                                            secondary={status.isDefault ? t('entitiesSystemStatus') : ''}
                                         />
                                         <ListItemSecondaryAction>
-                                            <Tooltip title="Редактировать">
+                                            <Tooltip title={t('entitiesEdit')}>
                                                 <IconButton 
                                                     edge="end" 
                                                     onClick={() => handleEditStatus(status)}
@@ -429,7 +431,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                                                     <EditIcon />
                                                 </IconButton>
                                             </Tooltip>
-                                            <Tooltip title="Удалить">
+                                            <Tooltip title={t('entitiesDelete')}>
                                                 <IconButton 
                                                     edge="end" 
                                                     onClick={() => handleDeleteStatus(status.id)}
@@ -451,7 +453,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             {/* Панель типов задач */}
             <TabPanel value={tabValue} index={1}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">Типы задач</Typography>
+                    <Typography variant="h6">{t('entitiesTaskTypes')}</Typography>
                     <Box>
                         <Button 
                             startIcon={<RefreshIcon />} 
@@ -459,14 +461,14 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                             disabled={isRefreshing || isLoading}
                             sx={{ mr: 1 }}
                         >
-                            {isRefreshing ? <CircularProgress size={24} /> : 'Обновить'}
+                            {isRefreshing ? <CircularProgress size={24} /> : t('entitiesRefresh')}
                         </Button>
                         <Button 
                             startIcon={<AddIcon />} 
                             variant="contained" 
                             onClick={handleAddType}
                         >
-                            Добавить тип
+                            {t('entitiesAddType')}
                         </Button>
                     </Box>
                 </Box>
@@ -475,7 +477,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                 
                 {!isLoading && types.length === 0 && (
                     <Typography color="textSecondary">
-                        Нет доступных типов задач. Создайте новый тип.
+                        {t('entitiesNoTypes')}
                     </Typography>
                 )}
                 
@@ -501,10 +503,10 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                                         />
                                         <ListItemText 
                                             primary={type.name}
-                                            secondary={type.isDefault ? 'Системный тип' : ''}
+                                            secondary={type.isDefault ? t('entitiesSystemType') : ''}
                                         />
                                         <ListItemSecondaryAction>
-                                            <Tooltip title="Редактировать">
+                                            <Tooltip title={t('entitiesEdit')}>
                                                 <IconButton 
                                                     edge="end" 
                                                     onClick={() => handleEditType(type)}
@@ -513,7 +515,7 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                                                     <EditIcon />
                                                 </IconButton>
                                             </Tooltip>
-                                            <Tooltip title="Удалить">
+                                            <Tooltip title={t('entitiesDelete')}>
                                                 <IconButton 
                                                     edge="end" 
                                                     onClick={() => handleDeleteType(type.id)}
@@ -535,21 +537,21 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             {/* Диалог для статусов */}
             <Dialog open={statusDialogOpen} onClose={() => !isSubmitting && setStatusDialogOpen(false)}>
                 <DialogTitle>
-                    {isEditing ? 'Редактировать статус' : 'Добавить статус'}
+                    {isEditing ? t('entitiesEditStatus') : t('entitiesAddStatus')}
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1, minWidth: '300px' }}>
                         <TextField
-                            label="Название"
+                            label={t('entitiesName')}
                             value={currentEntity.name}
                             onChange={(e) => setCurrentEntity({...currentEntity, name: e.target.value})}
                             fullWidth
                             required
                             error={!currentEntity.name.trim()}
-                            helperText={!currentEntity.name.trim() ? 'Название обязательно' : ''}
+                            helperText={!currentEntity.name.trim() ? t('entitiesNameRequired') : ''}
                         />
                         <TextField
-                            label="Цвет"
+                            label={t('entitiesColor')}
                             type="color"
                             value={currentEntity.color}
                             onChange={(e) => setCurrentEntity({...currentEntity, color: e.target.value})}
@@ -572,13 +574,13 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setStatusDialogOpen(false)} disabled={isSubmitting}>Отмена</Button>
+                    <Button onClick={() => setStatusDialogOpen(false)} disabled={isSubmitting}>{t('cancel')}</Button>
                     <Button 
                         onClick={saveStatus} 
                         variant="contained"
                         disabled={isSubmitting || !currentEntity.name.trim()}
                     >
-                        {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
+                        {isSubmitting ? <CircularProgress size={24} /> : t('entitiesSave')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -586,21 +588,21 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
             {/* Диалог для типов задач */}
             <Dialog open={typeDialogOpen} onClose={() => !isSubmitting && setTypeDialogOpen(false)}>
                 <DialogTitle>
-                    {isEditing ? 'Редактировать тип задачи' : 'Добавить тип задачи'}
+                    {isEditing ? t('entitiesEditType') : t('entitiesAddType')}
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1, minWidth: '300px' }}>
                         <TextField
-                            label="Название"
+                            label={t('entitiesName')}
                             value={currentEntity.name}
                             onChange={(e) => setCurrentEntity({...currentEntity, name: e.target.value})}
                             fullWidth
                             required
                             error={!currentEntity.name.trim()}
-                            helperText={!currentEntity.name.trim() ? 'Название обязательно' : ''}
+                            helperText={!currentEntity.name.trim() ? t('entitiesNameRequired') : ''}
                         />
                         <TextField
-                            label="Цвет"
+                            label={t('entitiesColor')}
                             type="color"
                             value={currentEntity.color}
                             onChange={(e) => setCurrentEntity({...currentEntity, color: e.target.value})}
@@ -621,20 +623,20 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                             }}
                         />
                         <IconSelector
-                            label="Выберите иконку"
+                            label={t('entitiesSelectIcon')}
                             value={currentEntity.icon || ''}
                             onChange={(value) => setCurrentEntity({...currentEntity, icon: value})}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setTypeDialogOpen(false)} disabled={isSubmitting}>Отмена</Button>
+                    <Button onClick={() => setTypeDialogOpen(false)} disabled={isSubmitting}>{t('cancel')}</Button>
                     <Button 
                         onClick={handleTypeSubmit} 
                         variant="contained"
                         disabled={isSubmitting || !currentEntity.name.trim()}
                     >
-                        {isSubmitting ? <CircularProgress size={24} /> : 'Сохранить'}
+                        {isSubmitting ? <CircularProgress size={24} /> : t('entitiesSave')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -644,8 +646,11 @@ export const BoardEntitiesManager: React.FC<BoardEntitiesManagerProps> = ({ boar
                 open={deleteDialogOpen}
                 onClose={() => !isDeleting && setDeleteDialogOpen(false)}
                 onConfirm={tabValue === 0 ? confirmDeleteStatus : confirmDeleteType}
-                title="Подтверждение удаления"
-                message={`Вы уверены, что хотите удалить этот ${tabValue === 0 ? 'статус' : 'тип задачи'}? Это действие нельзя отменить.`}
+                title={tabValue === 0 ? t('entitiesConfirmDeleteStatus') : t('entitiesConfirmDeleteType')}
+                message={tabValue === 0 
+                    ? t('entitiesConfirmDeleteStatusMessage')
+                    : t('entitiesConfirmDeleteTypeMessage')
+                }
                 actionType="delete"
                 loading={isDeleting}
             />

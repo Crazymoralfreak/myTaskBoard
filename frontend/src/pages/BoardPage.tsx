@@ -57,6 +57,7 @@ import { Permission } from '../hooks/useUserRole';
 import { BoardMembersService } from '../services/BoardMembersService';
 import { BoardMember } from '../types/BoardMember';
 import { getAvatarUrl } from '../utils/avatarUtils';
+import { useLocalization } from '../hooks/useLocalization';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -119,6 +120,7 @@ interface TasksChangeFn {
 }
 
 export const BoardPage: React.FC = () => {
+    const { t } = useLocalization();
     const { boardId } = useParams<{ boardId: string }>();
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);
@@ -631,8 +633,8 @@ export const BoardPage: React.FC = () => {
             toast.success('Колонка успешно добавлена');
         } catch (error) {
             console.error('Ошибка при добавлении колонки:', error instanceof Error ? error.message : error);
-            setError('Не удалось добавить колонку');
-            toast.error('Не удалось добавить колонку');
+            setError(t('errorAddColumn'));
+            toast.error(t('errorAddColumn'));
         } finally {
             setLoading(false);
         }
@@ -883,7 +885,7 @@ export const BoardPage: React.FC = () => {
             navigate('/');
         } catch (error) {
             console.error('Failed to delete board:', error instanceof Error ? error.message : error);
-            setError('Не удалось удалить доску');
+            setError(t('errorDeleteBoard'));
         } finally {
             setDeletingBoard(false);
             setIsDeleteBoardDialogOpen(false);
@@ -930,7 +932,7 @@ export const BoardPage: React.FC = () => {
             setDeleteColumnData(null);
         } catch (error) {
             console.error('Failed to delete column:', error instanceof Error ? error.message : error);
-            setError('Не удалось удалить колонку');
+            setError(t('errorDeleteColumn'));
         } finally {
             setDeletingColumn(false);
         }
@@ -992,7 +994,8 @@ export const BoardPage: React.FC = () => {
     // Добавляем горячие клавиши
     useHotkeys('ctrl+f, cmd+f', (e: KeyboardEvent) => {
         e.preventDefault();
-        const searchInput = document.querySelector('input[placeholder="Поиск задач..."]') as HTMLInputElement;
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement || 
+                          document.querySelector('input[placeholder*="Поиск"]') as HTMLInputElement;
         if (searchInput) {
             searchInput.focus();
         }
@@ -1000,7 +1003,8 @@ export const BoardPage: React.FC = () => {
 
     useHotkeys('ctrl+/, cmd+/', (e: KeyboardEvent) => {
         e.preventDefault();
-        const filterButton = document.querySelector('[aria-label="Фильтры"]') as HTMLElement;
+        const filterButton = document.querySelector('[aria-label*="Filter"]') as HTMLElement ||
+                             document.querySelector('[aria-label*="Фильтр"]') as HTMLElement;
         if (filterButton) {
             setFilterAnchorEl(filterButton);
         }
@@ -1076,10 +1080,10 @@ export const BoardPage: React.FC = () => {
             setFilteredColumns([...processedBoard.columns]);
             setTaskTypes(processedBoard.taskTypes || []);
             
-            toast.success('Доска обновлена');
+            toast.success(t('boardUpdated'));
         } catch (error) {
-            console.error('Ошибка при обновлении доски:', error);
-            toast.error('Не удалось обновить доску');
+            console.error(t('errorUpdatingBoard'), error);
+            toast.error(t('failedToUpdateBoard'));
         } finally {
             setIsRefreshing(false);
         }
@@ -1096,7 +1100,7 @@ export const BoardPage: React.FC = () => {
     if (!board) {
         return (
             <Container>
-                <Typography>Доска не найдена</Typography>
+                <Typography>{t('boardNotFound')}</Typography>
             </Container>
         );
     }
@@ -1109,13 +1113,13 @@ export const BoardPage: React.FC = () => {
                         <ArrowBackIcon />
                     </IconButton>
                     <Typography variant="h5" component="h1" noWrap sx={{ maxWidth: { xs: 200, sm: 300, md: 500 } }}>
-                        {board?.name || 'Загрузка...'}
+                        {board?.name || t('loading')}
                     </Typography>
                     <IconButton 
                         onClick={handleBoardMenuOpen} 
                         aria-label="board settings"
                         aria-haspopup="true"
-                        title="Настройки доски"
+                        title={t('boardSettings')}
                     >
                         <SettingsIcon />
                     </IconButton>
@@ -1124,7 +1128,7 @@ export const BoardPage: React.FC = () => {
                 <Box sx={{ display: 'flex', gap: 1, ml: 'auto', flexWrap: 'wrap' }}>
                     <TextField
                         size="small"
-                        placeholder="Поиск задач..."
+                        placeholder={t('searchTasks')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         InputProps={{
@@ -1149,14 +1153,14 @@ export const BoardPage: React.FC = () => {
                         variant="outlined" 
                         onClick={handleFilterOpen}
                         startIcon={<FilterListIcon />}
-                        aria-label="Фильтры"
+                        aria-label={t('filterTasks')}
                         aria-haspopup="true"
                         aria-expanded={Boolean(filterAnchorEl) ? 'true' : undefined}
                         aria-controls={Boolean(filterAnchorEl) ? 'filter-menu' : undefined}
                         size="small"
                         sx={{ height: 40, display: { xs: 'none', sm: 'flex' } }}
                     >
-                        Фильтры
+                        {t('filterTasks')}
                         {(selectedStatuses.length > 0 || selectedTags.length > 0 || selectedTypes.length > 0) && (
                             <Chip 
                                 label={selectedStatuses.length + selectedTags.length + selectedTypes.length} 
@@ -1169,7 +1173,7 @@ export const BoardPage: React.FC = () => {
                     
                     <IconButton 
                         onClick={handleFilterOpen}
-                        aria-label="Фильтры"
+                        aria-label={t('filters')}
                         sx={{ display: { xs: 'flex', sm: 'none' } }}
                     >
                         <FilterListIcon />
@@ -1190,7 +1194,7 @@ export const BoardPage: React.FC = () => {
                     
                     <IconButton 
                         onClick={handleRefreshBoard}
-                        aria-label="Обновить доску"
+                        aria-label={t('refreshBoard')}
                         disabled={isRefreshing}
                     >
                         <RefreshIcon />
@@ -1220,7 +1224,7 @@ export const BoardPage: React.FC = () => {
                         >
                             <Box display="flex" alignItems="center">
                                 <EditIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
-                                Редактировать доску
+                                {t('editBoard')}
                             </Box>
                         </MenuItem>
                     )}
@@ -1233,7 +1237,7 @@ export const BoardPage: React.FC = () => {
                     >
                         <Box display="flex" alignItems="center">
                             <PeopleAltIcon fontSize="small" sx={{ mr: 2, color: 'primary.main' }} />
-                            Участники
+                            {t('members')}
                         </Box>
                     </MenuItem>
                 
@@ -1250,7 +1254,7 @@ export const BoardPage: React.FC = () => {
                         >
                             <Box display="flex" alignItems="center">
                                 <DeleteIcon fontSize="small" sx={{ mr: 2 }} />
-                                Удалить доску
+                                {t('deleteBoard')}
                             </Box>
                         </MenuItem>
                     )}
@@ -1279,12 +1283,12 @@ export const BoardPage: React.FC = () => {
                     }}
                 >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography variant="h6">Фильтры</Typography>
+                        <Typography variant="h6">{t('filters')}</Typography>
                         <Button 
                             onClick={clearFilters}
                             disabled={selectedStatuses.length === 0 && selectedTags.length === 0 && selectedTypes.length === 0 && selectedAssignees.length === 0}
                         >
-                            Сбросить все
+                            {t('resetAllFilters')}
                         </Button>
                     </Box>
                     
@@ -1294,10 +1298,10 @@ export const BoardPage: React.FC = () => {
                         variant="fullWidth"
                         sx={{ mb: 2 }}
                     >
-                        <Tab label="Статусы" />
-                        <Tab label="Теги" />
-                        <Tab label="Типы" />
-                        <Tab label="Участники" />
+                        <Tab label={t('filterTabStatuses')} />
+                        <Tab label={t('filterTabTags')} />
+                        <Tab label={t('filterTabTypes')} />
+                        <Tab label={t('filterTabMembers')} />
                     </Tabs>
                     
                     <TabPanel value={filterTabValue} index={0}>
@@ -1448,7 +1452,7 @@ export const BoardPage: React.FC = () => {
                             </Box>
                         ) : (
                             <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
-                                {boardMembers === undefined ? 'Загрузка участников...' : 'Участники не найдены'}
+                                {boardMembers === undefined ? t('loadingMembers') : t('membersNotFound')}
                             </Typography>
                         )}
                     </TabPanel>
@@ -1540,9 +1544,9 @@ export const BoardPage: React.FC = () => {
                                         {roleContext.hasPermission(Permission.ADD_COLUMNS) && (
                                             <Box 
                                                 sx={{ 
-                                                    minWidth: isMobile ? '100%' : 280,
-                                                    maxWidth: isMobile ? '100%' : 280,
-                                                    height: 80,
+                                                    minWidth: isMobile ? '100%' : 200,
+                                                    maxWidth: isMobile ? '100%' : 200,
+                                                    height: 50,
                                                     border: '2px dashed',
                                                     borderColor: 'primary.light',
                                                     borderRadius: 1,
@@ -1564,7 +1568,7 @@ export const BoardPage: React.FC = () => {
                                                     startIcon={<AddIcon />}
                                                     color="primary"
                                                 >
-                                                    Добавить колонку
+                                                    {t('addColumn')}
                                                 </Button>
                                             </Box>
                                         )}
@@ -1582,14 +1586,14 @@ export const BoardPage: React.FC = () => {
                                 mt: 4 
                             }}>
                                 <Typography variant="h6" color="text.secondary">
-                                    Задачи не найдены
+                                    {t('noTasksFound')}
                                 </Typography>
                                 <Button
                                     variant="text"
                                     onClick={() => setSearchQuery('')}
                                     sx={{ mt: 1 }}
                                 >
-                                    Сбросить поиск
+                                    {t('resetSearch')}
                                 </Button>
                             </Box>
                         ) : (
@@ -1601,7 +1605,7 @@ export const BoardPage: React.FC = () => {
                                 mt: 4 
                             }}>
                                 <Typography variant="h6" color="text.secondary">
-                                    На этой доске пока нет колонок
+                                    {t('noBoardColumns')}
                                 </Typography>
                                 <Button
                                     variant="contained"
@@ -1609,7 +1613,7 @@ export const BoardPage: React.FC = () => {
                                     onClick={() => setIsAddColumnModalOpen(true)}
                                     sx={{ mt: 2 }}
                                 >
-                                    Создать первую колонку
+                                    {t('createFirstColumn')}
                                 </Button>
                             </Box>
                         )
@@ -1651,8 +1655,8 @@ export const BoardPage: React.FC = () => {
                 open={isDeleteBoardDialogOpen}
                 onClose={() => setIsDeleteBoardDialogOpen(false)}
                 onConfirm={handleDeleteBoard}
-                title="Удалить доску"
-                message="Вы уверены, что хотите удалить эту доску? Это действие нельзя отменить."
+                title={t('deleteBoard')}
+                message={t('deleteBoardConfirm')}
                 loading={deletingBoard}
                 actionType="delete"
             />
@@ -1666,8 +1670,8 @@ export const BoardPage: React.FC = () => {
                         setDeleteColumnData(null);
                     }
                 }}
-                title="Удалить колонку"
-                message={`Вы уверены, что хотите удалить колонку "${deleteColumnData?.name}"? Все задачи в этой колонке также будут удалены.`}
+                title={t('deleteColumn')}
+                message={`${t('deleteColumnConfirm')} "${deleteColumnData?.name}"? ${t('deleteColumnWarning')}`}
                 loading={deletingColumn}
                 actionType="delete"
             />

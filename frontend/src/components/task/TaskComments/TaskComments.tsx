@@ -35,6 +35,7 @@ import { taskService } from '../../../services/taskService';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 // Расширяем интерфейс TaskComment для поддержки вложенных комментариев в UI
 interface CommentWithReplies extends TaskComment {
@@ -52,6 +53,7 @@ interface TaskCommentsProps {
 export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate, canComment = true }) => {
     const { user } = useAuth();
     const theme = useTheme();
+    const { t } = useLocalization();
     const commentsEndRef = useRef<HTMLDivElement>(null);
     
     // Состояния для работы с комментариями
@@ -112,7 +114,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             })
             .catch((err: Error) => {
                 console.error('Ошибка при загрузке комментариев:', err);
-                setError('Не удалось загрузить комментарии. Пожалуйста, попробуйте снова.');
+                setError(t('errorsLoadComments'));
                 setLoading(false);
             });
     }, [taskId]);
@@ -123,7 +125,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
         
         // Проверяем, что taskId существует и является числом
         if (!taskId || isNaN(Number(taskId))) {
-            setError('Ошибка: некорректный ID задачи');
+            setError(t('errorsInvalidTaskId'));
             return;
         }
         
@@ -188,7 +190,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             }
         } catch (err) {
             console.error('Ошибка при добавлении комментария:', err);
-            setError('Не удалось добавить комментарий. Пожалуйста, попробуйте снова.');
+            setError(t('errorsAddComment'));
             // В случае ошибки возвращаем ввод пользователя
             setNewComment(newComment);
             // И удаляем временный комментарий
@@ -236,7 +238,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error('Ошибка при добавлении ответа:', err);
-            setError('Не удалось добавить ответ. Пожалуйста, попробуйте снова.');
+            setError(t('errorsAddReply'));
         } finally {
             setLoading(false);
         }
@@ -269,7 +271,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             }
         } catch (err) {
             console.error('Ошибка при обновлении комментария:', err);
-            setError('Не удалось обновить комментарий. Пожалуйста, попробуйте снова.');
+            setError(t('errorsUpdateComment'));
         } finally {
             setLoading(false);
         }
@@ -301,7 +303,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             }
         } catch (err) {
             console.error('Ошибка при удалении комментария:', err);
-            setError('Не удалось удалить комментарий. Пожалуйста, попробуйте снова.');
+            setError(t('errorsDeleteComment'));
         } finally {
             setLoading(false);
         }
@@ -446,13 +448,13 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                                     {comment.author?.username || 'Пользователь'}
                                     {isCurrentUserComment && 
-                                        <Chip size="small" label="Вы" sx={{ ml: 1, height: 16, fontSize: '0.7rem' }} />
+                                        <Chip size="small" label={t('you')} sx={{ ml: 1, height: 16, fontSize: '0.7rem' }} />
                                     }
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
                                     {formatDate(comment.createdAt)}
                                     {comment.createdAt !== comment.updatedAt && 
-                                        ` (изменено ${formatDate(comment.updatedAt)})`}
+                                        ` (${t('edited')} ${formatDate(comment.updatedAt)})`}
                                 </Typography>
                             </Box>
                             
@@ -476,11 +478,11 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                     onChange={setEditContent}
                                     modules={quillModules}
                                     formats={quillFormats}
-                                    placeholder="Введите комментарий..."
+                                    placeholder={t('enterComment')}
                                 />
                                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
                                     <Button size="small" onClick={() => setEditingCommentId(null)}>
-                                        Отмена
+                                        {t('cancel')}
                                     </Button>
                                     <Button 
                                         size="small" 
@@ -488,7 +490,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                         onClick={handleEditComment}
                                         disabled={!editContent.trim() || loading}
                                     >
-                                        Сохранить
+                                        {t('save')}
                                     </Button>
                                 </Box>
                             </Box>
@@ -511,11 +513,11 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                     onChange={setReplyContent}
                                     modules={quillModules}
                                     formats={quillFormats}
-                                    placeholder={`Ответ для ${comment.author?.username}...`}
+                                    placeholder={`${t('replyTo')} ${comment.author?.username}...`}
                                 />
                                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
                                     <Button size="small" onClick={() => setReplyToId(null)}>
-                                        Отмена
+                                        {t('cancel')}
                                     </Button>
                                     <Button 
                                         size="small" 
@@ -524,7 +526,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                         disabled={!replyContent.trim() || loading}
                                         startIcon={<ReplyIcon />}
                                     >
-                                        Ответить
+                                        {t('reply')}
                                     </Button>
                                 </Box>
                             </Box>
@@ -537,7 +539,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                     startIcon={<ReplyIcon />}
                                     onClick={() => setReplyToId(comment.id)}
                                 >
-                                    Ответить
+                                    {t('reply')}
                                 </Button>
                             </Box>
                         )}
@@ -550,7 +552,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
     return (
         <Box sx={{ mt: 3 }}>
             <Typography variant="h6" gutterBottom>
-                Комментарии ({comments.length})
+                {t('comments')} ({comments.length})
             </Typography>
             
             {/* Список комментариев */}
@@ -565,7 +567,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                 )}
                 {!loading && comments.length === 0 && !error && (
                     <Typography color="text.secondary" sx={{ my: 2 }}>
-                        Комментариев пока нет.
+                        {t('noComments')}
                     </Typography>
                 )}
                 {comments.map((comment) => renderComment(comment))}
@@ -578,7 +580,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             {canComment ? (
                 <>
                     <Typography variant="subtitle1" gutterBottom>
-                        Добавить комментарий
+                        {t('addComment')}
                     </Typography>
                     <Box sx={{ mt: 1 }}>
                         <ReactQuill 
@@ -587,7 +589,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                             onChange={setNewComment}
                             modules={quillModules}
                             formats={quillFormats}
-                            placeholder="Введите ваш комментарий..."
+                            placeholder={t('enterYourComment')}
                         />
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
                             <Button 
@@ -596,14 +598,14 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                                 disabled={!newComment.trim() || loading}
                                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
                             >
-                                {loading ? 'Отправка...' : 'Отправить'}
+                                {loading ? t('sending') : t('send')}
                             </Button>
                         </Box>
                     </Box>
                 </>
             ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                    У вас нет прав для добавления комментариев.
+                    {t('noCommentPermission')}
                 </Typography>
             )}
             
@@ -615,7 +617,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             >
                 {selectedCommentId && canEditComment(findCommentById(selectedCommentId)!) && (
                     <MenuItem onClick={handleStartEdit}>
-                        <EditIcon fontSize="small" sx={{ mr: 1 }} /> Редактировать
+                        <EditIcon fontSize="small" sx={{ mr: 1 }} /> {t('edit')}
                     </MenuItem>
                 )}
                 {canComment && (
@@ -623,12 +625,12 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
                         if (selectedCommentId) setReplyToId(selectedCommentId); 
                         handleMenuClose(); 
                     }}>
-                        <ReplyIcon fontSize="small" sx={{ mr: 1 }} /> Ответить
+                        <ReplyIcon fontSize="small" sx={{ mr: 1 }} /> {t('reply')}
                     </MenuItem>
                 )}
                 {selectedCommentId && canEditComment(findCommentById(selectedCommentId)!) && (
                     <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
-                        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Удалить
+                        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> {t('delete')}
                     </MenuItem>
                 )}
             </Menu>
@@ -637,8 +639,8 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
             <ConfirmDialog
                 open={confirmDelete}
                 onClose={() => setConfirmDelete(false)}
-                title="Удалить комментарий?"
-                message="Вы уверены, что хотите удалить этот комментарий? Это действие необратимо."
+                title={t('deleteComment')}
+                message={t('confirmDeleteComment')}
                 onConfirm={handleDeleteComment}
                 actionType="delete"
             />

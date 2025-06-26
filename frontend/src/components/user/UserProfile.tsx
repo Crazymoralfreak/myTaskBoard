@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Box, Typography, Avatar, TextField, Button, Grid } from '@mui/material';
 import { User } from '../../types/user';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface UserProfileProps {
     user: User | null;
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
+    const { t } = useLocalization();
     const [profile, setProfile] = useState({
         username: user?.username || '',
         email: user?.email || '',
@@ -16,7 +18,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
     });
 
     const handleSaveProfile = () => {
-        console.log('Сохранение профиля', profile);
+        console.log(t('profileSavingProfile'), profile);
         // Здесь будет логика сохранения профиля
     };
 
@@ -31,10 +33,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                 </Avatar>
                 <Box>
                     <Typography variant="h5" gutterBottom>
-                        {user?.username || 'Пользователь'}
+                        {user?.username || t('profileDefaultUsername')}
                     </Typography>
                     <Button variant="outlined" size="small">
-                        Изменить фото
+                                                  {t('profileChangePhoto')}
                     </Button>
                 </Box>
             </Box>
@@ -43,7 +45,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                 <Grid item xs={12} sm={6}>
                     <TextField
                         fullWidth
-                        label="Имя пользователя"
+                        label={t('profileUsername')}
                         value={profile.username}
                         onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                         variant="outlined"
@@ -52,7 +54,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                 <Grid item xs={12} sm={6}>
                     <TextField
                         fullWidth
-                        label="Email"
+                        label={t('profileEmail')}
                         value={profile.email}
                         onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                         variant="outlined"
@@ -61,7 +63,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                 <Grid item xs={12} sm={6}>
                     <TextField
                         fullWidth
-                        label="Телефон"
+                        label={t('profilePhone')}
                         value={profile.phone}
                         onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                         variant="outlined"
@@ -70,7 +72,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                 <Grid item xs={12} sm={6}>
                     <TextField
                         fullWidth
-                        label="Должность"
+                        label={t('profilePosition')}
                         value={profile.position}
                         onChange={(e) => setProfile({ ...profile, position: e.target.value })}
                         variant="outlined"
@@ -79,7 +81,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                 <Grid item xs={12}>
                     <TextField
                         fullWidth
-                        label="О себе"
+                        label={t('profileBio')}
                         value={profile.bio}
                         onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                         variant="outlined"
@@ -95,7 +97,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
                     color="primary"
                     onClick={handleSaveProfile}
                 >
-                    Сохранить изменения
+                    {t('profileSaveChanges')}
                 </Button>
             </Box>
         </Box>

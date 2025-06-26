@@ -35,6 +35,7 @@ import { userService } from '../../../services/userService';
 // Импорты для проверки прав доступа
 import { useUserRole, Permission } from '../../../hooks/useUserRole';
 import { boardService } from '../../../services/boardService';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface BoardColumnProps {
     column: Column;
@@ -79,6 +80,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
         onDelete,
         boardId
     } = props;
+    const { t } = useLocalization();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
     const [sortType, setSortType] = useState<SortType | null>(null);
@@ -104,7 +106,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
               );
               setBoardData(data);
             } catch (error) {
-              console.error('Не удалось загрузить данные доски:', error);
+              console.error(t('errorsLoadBoard'), error);
             }
           }
         };
@@ -166,7 +168,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
             
             onTasksChange?.(updatedColumn);
         } catch (error) {
-            console.error('Ошибка при создании задачи:', error);
+            console.error(t('errorsCreateTask'), error);
         }
     };
 
@@ -567,7 +569,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                             }
                         }}
                     >
-                        Добавить задачу
+                        {t('addTask')}
                     </Button>
                 ) : (
                     <Box sx={{ height: 36 }} />
@@ -588,7 +590,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                         <ListItemIcon>
                             <EditOutlinedIcon fontSize="small" />
                         </ListItemIcon>
-                        <ListItemText>Редактировать</ListItemText>
+                        <ListItemText>{t('columnEditColumn')}</ListItemText>
                     </MenuItem>
                 )}
                 {canDeleteColumn() && (
@@ -602,7 +604,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                         <ListItemIcon>
                             <DeleteOutlineIcon fontSize="small" color="error" />
                         </ListItemIcon>
-                        <ListItemText>Удалить</ListItemText>
+                        <ListItemText>{t('columnDeleteColumn')}</ListItemText>
                     </MenuItem>
                 )}
             </Menu>
@@ -619,7 +621,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     <ListItemIcon>
                         <PriorityHighIcon fontSize="small" color={sortType === 'priority' ? 'primary' : 'inherit'} />
                     </ListItemIcon>
-                    <ListItemText>По приоритету</ListItemText>
+                    <ListItemText>{t('columnSortByPriority')}</ListItemText>
                 </MenuItem>
                 <MenuItem
                     onClick={() => handleSortChange('date')}
@@ -628,7 +630,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     <ListItemIcon>
                         <EventIcon fontSize="small" color={sortType === 'date' ? 'primary' : 'inherit'} />
                     </ListItemIcon>
-                    <ListItemText>По дате</ListItemText>
+                    <ListItemText>{t('columnSortByDate')}</ListItemText>
                 </MenuItem>
                 <MenuItem
                     onClick={() => handleSortChange('name')}
@@ -637,7 +639,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = (props) => {
                     <ListItemIcon>
                         <SortByAlphaIcon fontSize="small" color={sortType === 'name' ? 'primary' : 'inherit'} />
                     </ListItemIcon>
-                    <ListItemText>По названию</ListItemText>
+                    <ListItemText>{t('columnSortByName')}</ListItemText>
                 </MenuItem>
             </Menu>
 

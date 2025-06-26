@@ -22,6 +22,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ru } from 'date-fns/locale';
 import { TaskType, BoardStatus } from '../../../types/board';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface TaskFiltersProps {
   taskTypes: TaskType[];
@@ -44,6 +45,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
   onReset,
   onSort
 }) => {
+  const { t } = useLocalization();
   const [statusFilters, setStatusFilters] = useState<number[]>([]);
   const [typeFilters, setTypeFilters] = useState<number[]>([]);
   const [dueDateFilter, setDueDateFilter] = useState<Date | null>(null);
@@ -97,7 +99,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Фильтры и сортировка
+          {t('filtersTitle')}
         </Typography>
         
         <Grid container spacing={2}>
@@ -105,7 +107,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Поиск задач"
+              label={t('filtersSearchTasks')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
@@ -115,7 +117,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           
           {/* Статусы */}
           <Grid item xs={12}>
-            <Typography variant="subtitle1">Статусы</Typography>
+            <Typography variant="subtitle1">{t('filtersStatuses')}</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
               {boardStatuses.map(status => (
                 <Chip
@@ -135,7 +137,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           
           {/* Типы задач */}
           <Grid item xs={12}>
-            <Typography variant="subtitle1">Типы задач</Typography>
+            <Typography variant="subtitle1">{t('filtersTaskTypes')}</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
               {taskTypes.map(type => (
                 <Chip
@@ -156,7 +158,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           {/* Другие фильтры */}
           <Grid item xs={12} sm={6}>
             <DatePicker
-              label="Срок до"
+              label={t('filtersDueBefore')}
               value={dueDateFilter}
               onChange={(date) => setDueDateFilter(date)}
               slotProps={{ textField: { fullWidth: true, size: 'small' } }}
@@ -165,17 +167,17 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth size="small">
-              <InputLabel>Сортировать по</InputLabel>
+              <InputLabel>{t('filtersSortBy')}</InputLabel>
               <Select
                 value={sortBy}
-                label="Сортировать по"
+                label={t('filtersSortBy')}
                 onChange={handleSortChange}
               >
-                <MenuItem value="dueDate">Сроку</MenuItem>
-                <MenuItem value="status">Статусу</MenuItem>
-                <MenuItem value="title">Названию</MenuItem>
-                <MenuItem value="priority">Приоритету</MenuItem>
-                <MenuItem value="type">Типу</MenuItem>
+                        <MenuItem value="dueDate">{t('filtersSortOptionsDueDate')}</MenuItem>
+        <MenuItem value="status">{t('filtersSortOptionsStatus')}</MenuItem>
+        <MenuItem value="title">{t('filtersSortOptionsTitle')}</MenuItem>
+        <MenuItem value="priority">{t('filtersSortOptionsPriority')}</MenuItem>
+        <MenuItem value="type">{t('filtersSortOptionsType')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -189,7 +191,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
                     onChange={() => setHasTagsFilter(!hasTagsFilter)}
                   />
                 }
-                label="Только задачи с тегами"
+                label={t('filtersOnlyWithTags')}
               />
             </FormGroup>
           </Grid>
@@ -198,10 +200,10 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
             <Divider sx={{ mb: 2 }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Button variant="outlined" onClick={handleReset}>
-                Сбросить
+                {t('filtersReset')}
               </Button>
               <Button variant="contained" onClick={handleFilter}>
-                Применить
+                {t('filtersApply')}
               </Button>
             </Box>
           </Grid>

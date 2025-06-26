@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Container, Paper, TextField, Button, Typography, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { boardService } from '../services/boardService';
+import { useLocalization } from '../hooks/useLocalization';
 
 export const CreateBoardPage: React.FC = () => {
+    const { t } = useLocalization();
     const [boardData, setBoardData] = useState({ name: '', description: '' });
     const navigate = useNavigate();
 
@@ -13,7 +15,7 @@ export const CreateBoardPage: React.FC = () => {
             const newBoard = await boardService.createBoard(boardData);
             navigate(`/boards/${newBoard.id}`);
         } catch (error) {
-            console.error('Failed to create board:', error);
+            console.error(t('createError'), error);
         }
     };
 
@@ -23,12 +25,12 @@ export const CreateBoardPage: React.FC = () => {
                 <Paper elevation={3}>
                     <Box sx={{ p: 3 }}>
                         <Typography variant="h5" gutterBottom>
-                            Создание новой доски
+                            {t('createBoard')}
                         </Typography>
                         <Box component="form" onSubmit={handleSubmit}>
                             <TextField
                                 fullWidth
-                                label="Название"
+                                label={t('boardName')}
                                 margin="normal"
                                 value={boardData.name}
                                 onChange={(e) => setBoardData({ ...boardData, name: e.target.value })}
@@ -36,7 +38,7 @@ export const CreateBoardPage: React.FC = () => {
                             />
                             <TextField
                                 fullWidth
-                                label="Описание"
+                                label={t('boardDescription')}
                                 margin="normal"
                                 multiline
                                 rows={4}
@@ -50,7 +52,7 @@ export const CreateBoardPage: React.FC = () => {
                                     color="primary"
                                     fullWidth
                                 >
-                                    Создать
+                                    {t('create')}
                                 </Button>
                                 <Button
                                     variant="outlined"
@@ -58,7 +60,7 @@ export const CreateBoardPage: React.FC = () => {
                                     fullWidth
                                     onClick={() => navigate('/')}
                                 >
-                                    Отмена
+                                    {t('cancel')}
                                 </Button>
                             </Box>
                         </Box>

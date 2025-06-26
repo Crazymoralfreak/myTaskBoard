@@ -135,7 +135,7 @@ export const ProfilePage = () => {
       console.error('Ошибка загрузки профиля:', error);
       setSnackbar({
         open: true,
-        message: t('profile.loadProfileError'),
+        message: t('profileLoadProfileError'),
         severity: 'error'
       });
     } finally {
@@ -172,20 +172,20 @@ export const ProfilePage = () => {
         } catch (settingsError) {
           console.error('Ошибка при сохранении настроек:', settingsError);
           // Продолжаем выполнение, даже если настройки не сохранились
-          toast.error(t('profile.settingsUpdateError'));
+          toast.error(t('profileSettingsUpdateError'));
         }
       }
       
       setIsEditing(false);
       setOriginalProfile({...updatedProfile});
-      toast.success(t('profile.profileUpdated'));
+      toast.success(t('profileUpdated'));
     } catch (error: any) {
       console.error('Error saving profile:', error);
               if (error.response && error.response.status === 401) {
-        toast.error(t('profile.sessionExpired'));
+        toast.error(t('profileSessionExpired'));
         navigate('/login');
       } else {
-        toast.error(t('profile.profileUpdateError') + ': ' + (error.message || t('profile.unknownError')));
+        toast.error(t('profileUpdateError') + ': ' + (error.message || t('profileUnknownError')));
       }
     } finally {
       setSaving(false);
@@ -246,7 +246,7 @@ export const ProfilePage = () => {
       
     } catch (error: any) {
       // Показываем сообщение об ошибке
-      setSnackbarMessage(error.message || t('profile.passwordChangeError'));
+              setSnackbarMessage(error.message || t('profilePasswordChangeError'));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -320,7 +320,7 @@ export const ProfilePage = () => {
         
         setSnackbar({
           open: true,
-          message: t('profile.avatarUpdated'),
+          message: t('profileAvatarUpdated'),
           severity: 'success'
         });
       }
@@ -328,7 +328,7 @@ export const ProfilePage = () => {
       console.error('Ошибка обновления аватара:', error);
       setSnackbar({
         open: true,
-        message: t('profile.avatarUpdateError'),
+        message: t('profileAvatarUpdateError'),
         severity: 'error'
       });
     } finally {
@@ -358,14 +358,14 @@ export const ProfilePage = () => {
       setAvatarMenuAnchor(null); // Закрываем меню
       setSnackbar({
         open: true,
-        message: t('profile.avatarUpdated'),
+        message: t('profileAvatarUpdated'),
         severity: 'success'
       });
     } catch (error) {
       console.error('Ошибка обновления аватара:', error);
       setSnackbar({
         open: true,
-        message: t('profile.avatarUpdateError'),
+        message: t('profileAvatarUpdateError'),
         severity: 'error'
       });
     } finally {
@@ -403,7 +403,7 @@ export const ProfilePage = () => {
   const handleFileUpload = async (file: File) => {
     try {
       setUploading(true);
-      setSnackbarMessage(t('profile.avatarUploading'));
+      setSnackbarMessage(t('profileAvatarUploading'));
       setSnackbarSeverity('info');
       setSnackbarOpen(true);
       
@@ -423,7 +423,7 @@ export const ProfilePage = () => {
         setProfile(updatedProfile);
         
         // Показываем сообщение об успехе
-        setSnackbarMessage(t('profile.avatarUpdated'));
+        setSnackbarMessage(t('profileAvatarUpdated'));
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
       }
@@ -431,7 +431,7 @@ export const ProfilePage = () => {
       console.error('Ошибка при загрузке аватара:', error);
       
       // Показываем сообщение об ошибке
-      setSnackbarMessage(error.message || t('profile.avatarUpdateError'));
+      setSnackbarMessage(error.message || t('profileAvatarUpdateError'));
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -464,7 +464,7 @@ export const ProfilePage = () => {
     
     setSnackbar({
       open: true,
-      message: isDarkMode ? t('profile.darkThemeEnabled') : t('profile.lightThemeEnabled'),
+              message: isDarkMode ? t('profileDarkThemeEnabled') : t('profileLightThemeEnabled'),
       severity: 'info'
     });
   };
@@ -488,7 +488,7 @@ export const ProfilePage = () => {
   return (
     <Container maxWidth="md" sx={{ mt: 4, px: isMobile ? 2 : 3 }}>
       <Typography variant="h4" gutterBottom>
-        {t('profile.title')}
+        {t('profileTitle')}
       </Typography>
       
       <Paper sx={{ p: isMobile ? 2 : 3, mt: 3 }}>
@@ -535,7 +535,7 @@ export const ProfilePage = () => {
                   {profile.username || 'Пользователь'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {profile.position || t('profile.positionPlaceholder')}
+                  {profile.position || t('profilePositionPlaceholder')}
                 </Typography>
               </Box>
               
@@ -546,10 +546,10 @@ export const ProfilePage = () => {
                 onClose={handleAvatarMenuClose}
               >
                 <MenuItem onClick={handleOpenStandardAvatars}>
-                  {t('profile.selectFromStandard')}
-                </MenuItem>
-                <MenuItem onClick={handleOpenAvatarUploader}>
-                  {t('profile.uploadAndCrop')}
+                                {t('profileSelectFromStandard')}
+            </MenuItem>
+            <MenuItem onClick={handleOpenAvatarUploader}>
+              {t('profileUploadAndCrop')}
                 </MenuItem>
               </Menu>
             </Box>
@@ -560,7 +560,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label={t('profile.username')}
+                  label={t('profileUsername')}
                   value={profile.username || ''}
                   onChange={(e) => setProfile({ ...profile, username: e.target.value })}
                   variant="outlined"
@@ -570,7 +570,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label={t('profile.email')}
+                  label={t('profileEmail')}
                   value={profile.email || ''}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                   variant="outlined"
@@ -580,7 +580,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label={t('profile.phone')}
+                  label={t('profilePhone')}
                   value={profile.phone || profile.phoneNumber || ''}
                   onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                   variant="outlined"
@@ -590,7 +590,7 @@ export const ProfilePage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label={t('profile.position')}
+                  label={t('profilePosition')}
                   value={profile.position || ''}
                   onChange={(e) => setProfile({ ...profile, position: e.target.value })}
                   variant="outlined"
@@ -600,7 +600,7 @@ export const ProfilePage = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label={t('profile.bio')}
+                  label={t('profileBio')}
                   value={profile.bio || ''}
                   onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                   variant="outlined"
@@ -624,7 +624,7 @@ export const ProfilePage = () => {
                 onClick={() => setShowSecuritySection(!showSecuritySection)}
               >
                 <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
-                  <LockIcon sx={{ mr: 1 }} /> {t('profile.security')}
+                  <LockIcon sx={{ mr: 1 }} /> {t('profileSecurity')}
                 </Typography>
                 <IconButton>
                   {showSecuritySection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -634,10 +634,10 @@ export const ProfilePage = () => {
               <Collapse in={showSecuritySection}>
                 <Paper variant="outlined" sx={{ p: isMobile ? 2 : 3, mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                    {t('profile.changePassword')}
+                    {t('profileChangePassword')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    {t('profile.securityDescription')}
+                    {t('profileSecurityDescription')}
                   </Typography>
                   
                   <form onSubmit={handlePasswordChange}>
@@ -645,7 +645,7 @@ export const ProfilePage = () => {
                       <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
-                          label={t('profile.currentPassword')}
+                          label={t('profileCurrentPassword')}
                           type="password"
                           variant="outlined"
                           value={passwordData.currentPassword}
@@ -657,7 +657,7 @@ export const ProfilePage = () => {
                       <Grid item xs={12} sm={6}>
                         <TextField
                           fullWidth
-                          label={t('profile.newPassword')}
+                          label={t('profileNewPassword')}
                           type="password"
                           variant="outlined"
                           value={passwordData.newPassword}
@@ -668,7 +668,7 @@ export const ProfilePage = () => {
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
-                          label={t('profile.confirmPassword')}
+                          label={t('profileConfirmPassword')}
                           type="password"
                           variant="outlined"
                           value={passwordData.confirmPassword}
@@ -676,7 +676,7 @@ export const ProfilePage = () => {
                           error={passwordData.newPassword !== passwordData.confirmPassword && !!passwordData.confirmPassword}
                           helperText={
                             passwordData.newPassword !== passwordData.confirmPassword && !!passwordData.confirmPassword
-                              ? t('profile.passwordMismatch')
+                              ? t('profilePasswordMismatch')
                               : ''
                           }
                           required
@@ -697,7 +697,7 @@ export const ProfilePage = () => {
                             color="primary"
                             disabled={!isPasswordFormValid || changePasswordLoading}
                           >
-                            {changePasswordLoading ? <CircularProgress size={24} /> : t('profile.changePasswordButton')}
+                            {changePasswordLoading ? <CircularProgress size={24} /> : t('profileChangePasswordButton')}
                           </Button>
                         </Box>
                       </Grid>
@@ -716,7 +716,7 @@ export const ProfilePage = () => {
                     onClick={handleCancelEdit}
                     fullWidth={isMobile}
                   >
-                    {t('profile.cancel')}
+                    {t('profileCancel')}
                   </Button>
                   <Button 
                     variant="contained" 
@@ -725,7 +725,7 @@ export const ProfilePage = () => {
                     disabled={loading || saving}
                     fullWidth={isMobile}
                   >
-                    {loading || saving ? <CircularProgress size={24} /> : t('profile.saveChanges')}
+                    {loading || saving ? <CircularProgress size={24} /> : t('profileSaveChanges')}
                   </Button>
                 </>
               ) : (
@@ -736,7 +736,7 @@ export const ProfilePage = () => {
                   disabled={loading}
                   fullWidth={isMobile}
                 >
-                  {loading ? <CircularProgress size={24} /> : t('profile.editProfile')}
+                  {loading ? <CircularProgress size={24} /> : t('profileEditProfile')}
                 </Button>
               )}
             </Box>
@@ -750,7 +750,7 @@ export const ProfilePage = () => {
           </>
         ) : (
           <Typography>
-            {t('profile.profileNotFound')}
+            {t('profileNotFound')}
           </Typography>
         )}
       </Paper>
@@ -763,18 +763,18 @@ export const ProfilePage = () => {
         maxWidth="sm"
         fullScreen={isMobile}
       >
-        <DialogTitle>{t('profile.confirmPasswordChange')}</DialogTitle>
+        <DialogTitle>{t('profileConfirmPasswordChange')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {t('profile.passwordChangeWarning')}
+            {t('profilePasswordChangeWarning')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={closePasswordDialog} color="primary">
-            {t('profile.cancel')}
+            {t('profileCancel')}
           </Button>
           <Button onClick={confirmPasswordChange} color="primary" variant="contained">
-            {t('profile.confirm')}
+            {t('profileConfirm')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -795,8 +795,8 @@ export const ProfilePage = () => {
         }}>
           <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <CircularProgress />
-            <Typography sx={{ mt: 2 }}>{t('profile.changingPassword')}</Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>{t('profile.redirectMessage')}</Typography>
+            <Typography sx={{ mt: 2 }}>{t('profileChangingPassword')}</Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>{t('profileRedirectMessage')}</Typography>
           </Paper>
         </Box>
       )}
@@ -809,14 +809,14 @@ export const ProfilePage = () => {
         maxWidth="md"
         fullScreen={isMobile}
       >
-        <DialogTitle>{t('profile.selectAvatar')}</DialogTitle>
+        <DialogTitle>{t('profileSelectAvatar')}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} justifyContent="center">
             {AVATAR_OPTIONS.map((avatar, index) => (
               <Grid item key={index}>
                 <Avatar
                   src={processAvatarUrl(avatar)}
-                  alt={`${t('profile.avatarAlt')} ${index + 1}`}
+                  alt={`${t('profileAvatarAlt')} ${index + 1}`}
                   sx={{ 
                     width: 64, 
                     height: 64, 
@@ -835,7 +835,7 @@ export const ProfilePage = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAvatarDialogOpen(false)}>{t('profile.close')}</Button>
+          <Button onClick={() => setAvatarDialogOpen(false)}>{t('profileClose')}</Button>
         </DialogActions>
       </Dialog>
       

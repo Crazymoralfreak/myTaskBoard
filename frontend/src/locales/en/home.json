@@ -1,0 +1,9 @@
+{
+  "homeTitle": "My Boards",
+  "createBoard": "Create Board",
+  "createFirstBoard": "Create First Board",
+  "noBoardsTitle": "You don't have any boards yet",
+  "openBoard": "Open",
+  "loadingError": "Error loading boards",
+  "loading": "Loading..."
+} 

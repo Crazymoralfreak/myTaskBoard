@@ -1,0 +1,9 @@
+{
+  "homeTitle": "Мои доски",
+  "createBoard": "Создать доску",
+  "createFirstBoard": "Создать первую доску",
+  "noBoardsTitle": "У вас пока нет досок",
+  "openBoard": "Открыть",
+  "loadingError": "Ошибка загрузки досок",
+  "loading": "Загрузка..."
+} 

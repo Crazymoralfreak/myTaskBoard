@@ -44,7 +44,7 @@ function centerAspectCrop(
 }
 
 // Функция для получения обрезанного изображения
-function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): Promise<string> {
+function getCroppedImg(image: HTMLImageElement, crop: PixelCrop, t: (key: string) => string): Promise<string> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const scaleX = image.naturalWidth / image.width;
@@ -54,7 +54,7 @@ function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): Promise<string
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-      reject(new Error('Не удалось создать контекст canvas'));
+                  reject(new Error(t('profileCanvasContextError')));
       return;
     }
 
@@ -80,7 +80,7 @@ function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): Promise<string
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error('Не удалось создать изображение'));
+          reject(new Error(t('profileCreateImageError')));
           return;
         }
         const imageUrl = URL.createObjectURL(blob);
@@ -125,11 +125,11 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
     if (imgRef.current && completedCrop) {
       try {
         setIsLoading(true);
-        const croppedImageUrl = await getCroppedImg(imgRef.current, completedCrop);
+        const croppedImageUrl = await getCroppedImg(imgRef.current, completedCrop, t);
         onSave(croppedImageUrl);
         onClose();
       } catch (error) {
-        console.error(t('profile.cropImageError') + ':', error);
+        console.error(t('profileCropImageError') + ':', error);
       } finally {
         setIsLoading(false);
       }
@@ -151,18 +151,18 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
       fullWidth
       fullScreen={isMobile}
     >
-      <DialogTitle>{t('profile.uploadAvatarTitle')}</DialogTitle>
+      <DialogTitle>{t('profileUploadAvatarTitle')}</DialogTitle>
       <DialogContent>
         {!imgSrc ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" gutterBottom>
-              {t('profile.selectImagePrompt')}
+              {t('profileSelectImagePrompt')}
             </Typography>
             <Button
               variant="contained"
               component="label"
             >
-              {t('profile.chooseImage')}
+              {t('profileChooseImage')}
               <input
                 type="file"
                 hidden
@@ -201,7 +201,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
             </ReactCrop>
             
             <Box sx={{ width: '100%', maxWidth: 500, mt: 2 }}>
-              <Typography gutterBottom>{t('profile.scale')}</Typography>
+              <Typography gutterBottom>{t('profileScale')}</Typography>
               <Slider
                 value={scale}
                 min={0.5}
@@ -211,7 +211,7 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
                 onChange={(_, value) => setScale(value as number)}
               />
               
-              <Typography gutterBottom>{t('profile.rotation')}</Typography>
+              <Typography gutterBottom>{t('profileRotation')}</Typography>
               <Slider
                 value={rotate}
                 min={0}
@@ -225,14 +225,14 @@ export const AvatarUploader: React.FC<AvatarUploaderProps> = ({ open, onClose, o
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleCancel}>{t('profile.cancel')}</Button>
+        <Button onClick={handleCancel}>{t('profileCancel')}</Button>
         <Button 
           onClick={handleSave} 
           variant="contained" 
           color="primary" 
           disabled={!imgSrc || !completedCrop || isLoading}
         >
-          {isLoading ? <CircularProgress size={24} /> : t('profile.save')}
+          {isLoading ? <CircularProgress size={24} /> : t('profileSave')}
         </Button>
       </DialogActions>
     </Dialog>

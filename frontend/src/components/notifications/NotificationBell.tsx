@@ -16,6 +16,7 @@ import { NotificationsService } from '../../services/NotificationsService';
 import { Notification, NotificationType } from '../../types/Notification';
 import { useNavigate } from 'react-router-dom';
 import { useWebSocket } from '../../context/WebSocketContext';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface NotificationBellProps {
   token: string;
@@ -25,6 +26,7 @@ interface NotificationBellProps {
  * Компонент "колокольчик" для отображения уведомлений
  */
 const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
+  const { t } = useLocalization();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
         setNotifications(data);
       } catch (err) {
         console.error('Error fetching notifications:', err);
-        setError('Не удалось загрузить уведомления');
+        setError(t('errorsLoadFailed'));
       } finally {
         setLoading(false);
       }
@@ -193,11 +195,11 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
       >
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h6" component="div">
-            Уведомления
+            {t('notificationsTitle')}
           </Typography>
           {unreadCount > 0 && (
             <Typography variant="body2" color="text.secondary">
-              {unreadCount} непрочитанных
+              {unreadCount} {t('unread')}
             </Typography>
           )}
         </Box>
@@ -215,7 +217,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
         ) : notifications.length === 0 ? (
           <Box p={2}>
             <Typography variant="body2" color="text.secondary" align="center">
-              Нет новых уведомлений
+              {t('empty')}
             </Typography>
           </Box>
         ) : (
@@ -241,7 +243,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ token }) => {
             onClick={handleViewAll}
             size="small"
           >
-            Все уведомления
+            {t('viewAll')}
           </Button>
         </Box>
       </Popover>

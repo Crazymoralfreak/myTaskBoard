@@ -10,6 +10,7 @@ import {
     CircularProgress,
     Typography
 } from '@mui/material';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface EditColumnModalProps {
     open: boolean;
@@ -26,6 +27,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
     initialName,
     initialColor
 }) => {
+    const { t } = useLocalization();
     const [name, setName] = useState(initialName);
     const [color, setColor] = useState(initialColor);
     const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
 
     const handleSubmit = async () => {
         if (!name.trim()) {
-            setError('Название колонки обязательно');
+            setError(t('nameRequired'));
             return;
         }
 
@@ -63,11 +65,11 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
 
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Редактировать колонку</DialogTitle>
+            <DialogTitle>{t('editColumn')}</DialogTitle>
             <DialogContent>
                 <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
-                        label="Название"
+                        label={t('columnName')}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         fullWidth
@@ -78,7 +80,7 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                     />
                     <Box>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Цвет колонки
+                            {t('columnColor')}
                         </Typography>
                         <input
                             type="color"
@@ -97,14 +99,14 @@ export const EditColumnModal: React.FC<EditColumnModalProps> = ({
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleClose} disabled={loading}>Отмена</Button>
+                <Button onClick={handleClose} disabled={loading}>{t('cancel')}</Button>
                 <Button 
                     onClick={handleSubmit} 
                     variant="contained"
                     disabled={loading}
                     startIcon={loading ? <CircularProgress size={20} /> : null}
                 >
-                    {loading ? 'Сохранение...' : 'Сохранить'}
+                    {loading ? t('saving') : t('save')}
                 </Button>
             </DialogActions>
         </Dialog>

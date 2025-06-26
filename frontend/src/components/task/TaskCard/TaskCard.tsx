@@ -35,6 +35,7 @@ import { toast } from 'react-hot-toast';
 import { useTaskDelete } from '../../../hooks/useTaskDelete';
 import { useUserRole, Permission } from '../../../hooks/useUserRole';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
+import { useLocalization } from '../../../hooks/useLocalization';
 
 interface TaskCardProps {
     task: Task;
@@ -52,7 +53,8 @@ const SubtaskProgress: React.FC<{
     completed: number; 
     total: number;
     isCompact?: boolean;
-}> = ({ completed, total, isCompact = false }) => {
+    t: (key: string) => string;
+}> = ({ completed, total, isCompact = false, t }) => {
     const theme = useTheme();
     
     if (total === 0) return null;
@@ -61,7 +63,7 @@ const SubtaskProgress: React.FC<{
     const allCompleted = completed === total;
     
     return (
-        <Tooltip title={`Подзадачи: ${completed} из ${total} завершено`}>
+        <Tooltip title={`${t('subtasks')}: ${completed} ${t('of')} ${total} ${t('completed')}`}>
             <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -181,6 +183,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onTasksChange
 }) => {
     const theme = useTheme();
+    const { t } = useLocalization();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -558,19 +561,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                 completed={task.subtasks?.filter(st => st.completed).length || 0}
                                 total={(task.subtaskCount && task.subtaskCount > 0 ? task.subtaskCount : 0) || task.subtasks?.length || 0}
                                 isCompact={true}
+                                t={t}
                             />
                         )}
                         
                         {/* Иконка приоритета */}
                         {task.priority && task.priority !== 'NONE' && (
-                            <Tooltip title={`Приоритет: ${task.priority}`}>
+                            <Tooltip title={`${t('priority')}: ${task.priority}`}>
                                 {getPriorityIcon()}
                             </Tooltip>
                         )}
                         
                         {/* Иконка статуса */}
                         {shouldShowStatus && task.customStatus && (
-                            <Tooltip title={`Статус: ${task.customStatus.name}`}>
+                            <Tooltip title={`${t('status')}: ${task.customStatus.name}`}>
                                 <Box
                                     sx={{
                                         width: '14px',
@@ -584,7 +588,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         
                         {/* Иконка тегов */}
                         {task.tags && task.tags.length > 0 && (
-                            <Tooltip title={`Теги: ${task.tags.join(', ')}`}>
+                            <Tooltip title={`${t('tags')}: ${task.tags.join(', ')}`}>
                                 <LocalOfferIcon sx={{ fontSize: '14px', color: theme.palette.text.secondary }} />
                             </Tooltip>
                         )}
@@ -605,8 +609,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 {/* Диалог подтверждения удаления */}
                 <ConfirmDialog
                     open={isDeleteOpen}
-                    title="Удалить задачу"
-                    message={`Вы уверены, что хотите удалить задачу "${task.title}"?`}
+                    title={t('deleteTask')}
+                    message={`${t('confirmDeleteTaskNamed')}"${task.title}"?`}
                     onClose={() => setIsDeleteOpen(false)}
                     onConfirm={handleConfirmDelete}
                     actionType="delete"
@@ -791,7 +795,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                 
                                 {/* Индикатор комментариев */}
                                 {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
-                                    <Tooltip title={`${task.comments?.length || task.commentCount || 0} комментариев`}>
+                                    <Tooltip title={`${task.comments?.length || task.commentCount || 0} ${t('comments')}`}>
                                         <Box sx={{ 
                                             display: 'flex', 
                                             alignItems: 'center',
@@ -820,7 +824,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
                                 {/* Индикатор вложений */}
                                 {(task.attachmentCount > 0 || (task.attachments && task.attachments.length > 0)) && (
-                                    <Tooltip title={`${task.attachmentCount || task.attachments?.length || 0} вложений`}>
+                                    <Tooltip title={`${task.attachmentCount || task.attachments?.length || 0} ${t('attachments')}`}>
                                         <Box sx={{ 
                                             display: 'flex', 
                                             alignItems: 'center',
@@ -853,6 +857,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                                         completed={task.subtasks?.filter(st => st.completed).length || 0}
                                         total={(task.subtaskCount && task.subtaskCount > 0 ? task.subtaskCount : 0) || task.subtasks?.length || 0}
                                         isCompact={false}
+                                        t={t}
                                     />
                                 )}
                             </Box>

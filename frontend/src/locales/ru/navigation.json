@@ -1,0 +1,12 @@
+{
+  "boards": "Доски",
+  "notifications": "Уведомления",
+  "settings": "Настройки",
+  "profile": "Профиль",
+  "logout": "Выйти",
+  "menu": "Меню",
+  "logoutConfirm": "Вы уверены, что хотите выйти?",
+  "logoutDialogTitle": "Подтвердите выход",
+  "logoutError": "Ошибка при выходе",
+  "taskboard": "Доска задач"
+} 
