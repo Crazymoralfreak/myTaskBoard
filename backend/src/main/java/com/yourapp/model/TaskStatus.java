@@ -31,10 +31,12 @@ public class TaskStatus {
     private Integer position;
     
     @Column(name = "is_default")
-    private boolean isDefault;
+    @Builder.Default
+    private boolean isDefault = false;
     
     @Column(name = "is_custom")
-    private boolean isCustom;
+    @Builder.Default
+    private boolean isCustom = false;
     
     @JsonBackReference("board-statuses")
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,21 +46,4 @@ public class TaskStatus {
     @JsonManagedReference("task-status")
     @OneToMany(mappedBy = "customStatus")
     private List<Task> tasks;
-    
-    // Геттеры и сеттеры, которые могут не генерироваться Lombok
-    public Board getBoard() {
-        return this.board;
-    }
-    
-    public void setBoard(Board board) {
-        this.board = board;
-    }
-    
-    public Integer getPosition() {
-        return this.position;
-    }
-    
-    public void setPosition(Integer position) {
-        this.position = position;
-    }
 } 

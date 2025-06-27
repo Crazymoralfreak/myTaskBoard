@@ -32,10 +32,12 @@ public class TaskType {
     private String icon;
     
     @Column(name = "is_default")
-    private boolean isDefault;
+    @Builder.Default
+    private boolean isDefault = false;
     
     @Column(name = "is_custom")
-    private boolean isCustom;
+    @Builder.Default
+    private boolean isCustom = false;
     
     @Column(nullable = false)
     private Integer position;
@@ -52,21 +54,4 @@ public class TaskType {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Task> tasks;
-    
-    // Геттеры и сеттеры, которые могут не генерироваться Lombok
-    public Board getBoard() {
-        return this.board;
-    }
-    
-    public void setBoard(Board board) {
-        this.board = board;
-    }
-    
-    public Integer getPosition() {
-        return this.position;
-    }
-    
-    public void setPosition(Integer position) {
-        this.position = position;
-    }
 } 

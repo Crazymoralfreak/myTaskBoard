@@ -69,4 +69,11 @@ public class BoardColumn {
     public void setName(String name) {
         this.name = name;
     }
+    
+    public void setTasks(List<Task> tasks) {
+        this.tasks.clear();
+        if (tasks != null) {
+            this.tasks.addAll(tasks);
+        }
+    }
 } 

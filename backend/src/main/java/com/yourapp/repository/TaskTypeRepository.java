@@ -1,5 +1,6 @@
 package com.yourapp.repository;
 
+import com.yourapp.model.Board;
 import com.yourapp.model.TaskType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -9,4 +10,5 @@ import java.util.List;
 public interface TaskTypeRepository extends JpaRepository<TaskType, Long> {
     List<TaskType> findByBoardId(String boardId);
     List<TaskType> findByBoardIdOrderByPositionAsc(String boardId);
+    List<TaskType> findByBoardOrderByPosition(Board board);
 } 

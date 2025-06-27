@@ -16,31 +16,31 @@ public class NotificationPreferencesDTO {
     private Long id;
     
     // Глобальные настройки
-    private boolean globalNotificationsEnabled;
-    private boolean emailNotificationsEnabled;
-    private boolean telegramNotificationsEnabled;
-    private boolean browserNotificationsEnabled;
+    private Boolean globalNotificationsEnabled;
+    private Boolean emailNotificationsEnabled;
+    private Boolean telegramNotificationsEnabled;
+    private Boolean browserNotificationsEnabled;
     
     // Настройки по типам уведомлений
-    private boolean boardInviteNotifications;
-    private boolean taskAssignedNotifications;
-    private boolean taskStatusChangedNotifications;
-    private boolean taskCreatedNotifications;
-    private boolean taskUpdatedNotifications;
-    private boolean taskDeletedNotifications;
-    private boolean taskCommentAddedNotifications;
-    private boolean mentionNotifications;
-    private boolean subtaskCreatedNotifications;
-    private boolean subtaskCompletedNotifications;
-    private boolean boardMemberAddedNotifications;
-    private boolean boardMemberRemovedNotifications;
-    private boolean attachmentAddedNotifications;
-    private boolean deadlineReminderNotifications;
-    private boolean roleChangedNotifications;
-    private boolean taskDueSoonNotifications;
-    private boolean taskOverdueNotifications;
+    private Boolean boardInviteNotifications;
+    private Boolean taskAssignedNotifications;
+    private Boolean taskStatusChangedNotifications;
+    private Boolean taskCreatedNotifications;
+    private Boolean taskUpdatedNotifications;
+    private Boolean taskDeletedNotifications;
+    private Boolean taskCommentAddedNotifications;
+    private Boolean mentionNotifications;
+    private Boolean subtaskCreatedNotifications;
+    private Boolean subtaskCompletedNotifications;
+    private Boolean boardMemberAddedNotifications;
+    private Boolean boardMemberRemovedNotifications;
+    private Boolean attachmentAddedNotifications;
+    private Boolean deadlineReminderNotifications;
+    private Boolean roleChangedNotifications;
+    private Boolean taskDueSoonNotifications;
+    private Boolean taskOverdueNotifications;
     
     // Настройки приоритетов
-    private boolean onlyHighPriorityNotifications;
-    private boolean groupSimilarNotifications;
+    private Boolean onlyHighPriorityNotifications;
+    private Boolean groupSimilarNotifications;
 } 

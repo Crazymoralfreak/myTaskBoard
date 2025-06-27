@@ -16,72 +16,6 @@ public class TaskTemplateDTO {
     private Long createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    
-    // Геттеры
-    public Long getId() {
-        return this.id;
-    }
-    
-    public String getName() {
-        return this.name;
-    }
-    
-    public String getDescription() {
-        return this.description;
-    }
-    
-    public TaskDataDTO getTaskData() {
-        return this.taskData;
-    }
-    
-    public String getBoardId() {
-        return this.boardId;
-    }
-    
-    public Long getCreatedBy() {
-        return this.createdBy;
-    }
-    
-    public LocalDateTime getCreatedAt() {
-        return this.createdAt;
-    }
-    
-    public LocalDateTime getUpdatedAt() {
-        return this.updatedAt;
-    }
-    
-    // Сеттеры
-    public void setId(Long id) {
-        this.id = id;
-    }
-    
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public void setDescription(String description) {
-        this.description = description;
-    }
-    
-    public void setTaskData(TaskDataDTO taskData) {
-        this.taskData = taskData;
-    }
-    
-    public void setBoardId(String boardId) {
-        this.boardId = boardId;
-    }
-    
-    public void setCreatedBy(Long createdBy) {
-        this.createdBy = createdBy;
-    }
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 
     @Data
     public static class TaskDataDTO {
@@ -92,64 +26,6 @@ public class TaskTemplateDTO {
         private TaskPriority priority;
         private LocalDateTime dueDate;
         private Set<String> tags;
-        
-        // Геттеры
-        public String getTitle() {
-            return this.title;
-        }
-        
-        public String getDescription() {
-            return this.description;
-        }
-        
-        public Long getTypeId() {
-            return this.typeId;
-        }
-        
-        public Long getStatusId() {
-            return this.statusId;
-        }
-        
-        public TaskPriority getPriority() {
-            return this.priority;
-        }
-        
-        public LocalDateTime getDueDate() {
-            return this.dueDate;
-        }
-        
-        public Set<String> getTags() {
-            return this.tags;
-        }
-        
-        // Сеттеры
-        public void setTitle(String title) {
-            this.title = title;
-        }
-        
-        public void setDescription(String description) {
-            this.description = description;
-        }
-        
-        public void setTypeId(Long typeId) {
-            this.typeId = typeId;
-        }
-        
-        public void setStatusId(Long statusId) {
-            this.statusId = statusId;
-        }
-        
-        public void setPriority(TaskPriority priority) {
-            this.priority = priority;
-        }
-        
-        public void setDueDate(LocalDateTime dueDate) {
-            this.dueDate = dueDate;
-        }
-        
-        public void setTags(Set<String> tags) {
-            this.tags = tags;
-        }
     }
     
     public static TaskTemplateDTO fromEntity(TaskTemplate template) {
