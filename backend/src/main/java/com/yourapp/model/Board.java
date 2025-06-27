@@ -42,7 +42,7 @@ public class Board {
     private String description;
     
     @Column(name = "is_archived")
-    private boolean archived;
+    private Boolean archived;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;

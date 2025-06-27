@@ -49,7 +49,7 @@ public class NotificationPreferencesService {
                     return createDefaultPreferences(user);
                 });
         
-        log.debug("Настройки уведомлений получены: globalEnabled={}", preferences.isGlobalNotificationsEnabled());
+        log.debug("Настройки уведомлений получены: globalEnabled={}", preferences.getGlobalNotificationsEnabled());
         return mapToDTO(preferences);
     }
     
@@ -207,110 +207,135 @@ public class NotificationPreferencesService {
                 preferences.setGroupSimilarNotifications(value);
                 break;
             default:
+                log.warn("Неизвестная настройка уведомлений: {}", settingKey);
                 throw new IllegalArgumentException("Неизвестная настройка: " + settingKey);
         }
     }
     
     /**
-     * Создает настройки по умолчанию для пользователя
+     * Создает настройки уведомлений по умолчанию для пользователя
      * @param user пользователь
      * @return настройки по умолчанию
      */
     private NotificationPreferences createDefaultPreferences(User user) {
-        return NotificationPreferences.builder()
+        log.debug("Создание настроек уведомлений по умолчанию для пользователя: {}", user.getUsername());
+        
+        NotificationPreferences preferences = NotificationPreferences.builder()
                 .user(user)
-                .globalNotificationsEnabled(true)
-                .emailNotificationsEnabled(false)
-                .telegramNotificationsEnabled(false)
-                .browserNotificationsEnabled(true)
-                .boardInviteNotifications(true)
-                .taskAssignedNotifications(true)
-                .taskStatusChangedNotifications(true)
-                .taskCreatedNotifications(false)
-                .taskUpdatedNotifications(false)
-                .taskDeletedNotifications(true)
-                .taskCommentAddedNotifications(true)
-                .mentionNotifications(true)
-                .subtaskCreatedNotifications(false)
-                .subtaskCompletedNotifications(true)
-                .boardMemberAddedNotifications(true)
-                .boardMemberRemovedNotifications(true)
-                .attachmentAddedNotifications(false)
-                .deadlineReminderNotifications(true)
-                .roleChangedNotifications(true)
-                .taskDueSoonNotifications(true)
-                .taskOverdueNotifications(true)
-                .onlyHighPriorityNotifications(false)
-                .groupSimilarNotifications(true)
                 .build();
+        
+        log.debug("Настройки по умолчанию созданы для пользователя: {}", user.getUsername());
+        return preferences;
     }
     
     /**
-     * Обновляет объект настроек из DTO
+     * Обновляет настройки из DTO
      * @param preferences объект настроек
-     * @param dto DTO с новыми настройками
+     * @param dto DTO с новыми значениями
      */
     private void updatePreferencesFromDTO(NotificationPreferences preferences, NotificationPreferencesDTO dto) {
-        preferences.setGlobalNotificationsEnabled(dto.isGlobalNotificationsEnabled());
-        preferences.setEmailNotificationsEnabled(dto.isEmailNotificationsEnabled());
-        preferences.setTelegramNotificationsEnabled(dto.isTelegramNotificationsEnabled());
-        preferences.setBrowserNotificationsEnabled(dto.isBrowserNotificationsEnabled());
-        
-        preferences.setBoardInviteNotifications(dto.isBoardInviteNotifications());
-        preferences.setTaskAssignedNotifications(dto.isTaskAssignedNotifications());
-        preferences.setTaskStatusChangedNotifications(dto.isTaskStatusChangedNotifications());
-        preferences.setTaskCreatedNotifications(dto.isTaskCreatedNotifications());
-        preferences.setTaskUpdatedNotifications(dto.isTaskUpdatedNotifications());
-        preferences.setTaskDeletedNotifications(dto.isTaskDeletedNotifications());
-        preferences.setTaskCommentAddedNotifications(dto.isTaskCommentAddedNotifications());
-        preferences.setMentionNotifications(dto.isMentionNotifications());
-        preferences.setSubtaskCreatedNotifications(dto.isSubtaskCreatedNotifications());
-        preferences.setSubtaskCompletedNotifications(dto.isSubtaskCompletedNotifications());
-        preferences.setBoardMemberAddedNotifications(dto.isBoardMemberAddedNotifications());
-        preferences.setBoardMemberRemovedNotifications(dto.isBoardMemberRemovedNotifications());
-        preferences.setAttachmentAddedNotifications(dto.isAttachmentAddedNotifications());
-        preferences.setDeadlineReminderNotifications(dto.isDeadlineReminderNotifications());
-        preferences.setRoleChangedNotifications(dto.isRoleChangedNotifications());
-        preferences.setTaskDueSoonNotifications(dto.isTaskDueSoonNotifications());
-        preferences.setTaskOverdueNotifications(dto.isTaskOverdueNotifications());
-        
-        preferences.setOnlyHighPriorityNotifications(dto.isOnlyHighPriorityNotifications());
-        preferences.setGroupSimilarNotifications(dto.isGroupSimilarNotifications());
+        if (dto.getGlobalNotificationsEnabled() != null) {
+            preferences.setGlobalNotificationsEnabled(dto.getGlobalNotificationsEnabled());
+        }
+        if (dto.getEmailNotificationsEnabled() != null) {
+            preferences.setEmailNotificationsEnabled(dto.getEmailNotificationsEnabled());
+        }
+        if (dto.getTelegramNotificationsEnabled() != null) {
+            preferences.setTelegramNotificationsEnabled(dto.getTelegramNotificationsEnabled());
+        }
+        if (dto.getBrowserNotificationsEnabled() != null) {
+            preferences.setBrowserNotificationsEnabled(dto.getBrowserNotificationsEnabled());
+        }
+        if (dto.getBoardInviteNotifications() != null) {
+            preferences.setBoardInviteNotifications(dto.getBoardInviteNotifications());
+        }
+        if (dto.getTaskAssignedNotifications() != null) {
+            preferences.setTaskAssignedNotifications(dto.getTaskAssignedNotifications());
+        }
+        if (dto.getTaskStatusChangedNotifications() != null) {
+            preferences.setTaskStatusChangedNotifications(dto.getTaskStatusChangedNotifications());
+        }
+        if (dto.getTaskCreatedNotifications() != null) {
+            preferences.setTaskCreatedNotifications(dto.getTaskCreatedNotifications());
+        }
+        if (dto.getTaskUpdatedNotifications() != null) {
+            preferences.setTaskUpdatedNotifications(dto.getTaskUpdatedNotifications());
+        }
+        if (dto.getTaskDeletedNotifications() != null) {
+            preferences.setTaskDeletedNotifications(dto.getTaskDeletedNotifications());
+        }
+        if (dto.getTaskCommentAddedNotifications() != null) {
+            preferences.setTaskCommentAddedNotifications(dto.getTaskCommentAddedNotifications());
+        }
+        if (dto.getMentionNotifications() != null) {
+            preferences.setMentionNotifications(dto.getMentionNotifications());
+        }
+        if (dto.getSubtaskCreatedNotifications() != null) {
+            preferences.setSubtaskCreatedNotifications(dto.getSubtaskCreatedNotifications());
+        }
+        if (dto.getSubtaskCompletedNotifications() != null) {
+            preferences.setSubtaskCompletedNotifications(dto.getSubtaskCompletedNotifications());
+        }
+        if (dto.getBoardMemberAddedNotifications() != null) {
+            preferences.setBoardMemberAddedNotifications(dto.getBoardMemberAddedNotifications());
+        }
+        if (dto.getBoardMemberRemovedNotifications() != null) {
+            preferences.setBoardMemberRemovedNotifications(dto.getBoardMemberRemovedNotifications());
+        }
+        if (dto.getAttachmentAddedNotifications() != null) {
+            preferences.setAttachmentAddedNotifications(dto.getAttachmentAddedNotifications());
+        }
+        if (dto.getDeadlineReminderNotifications() != null) {
+            preferences.setDeadlineReminderNotifications(dto.getDeadlineReminderNotifications());
+        }
+        if (dto.getRoleChangedNotifications() != null) {
+            preferences.setRoleChangedNotifications(dto.getRoleChangedNotifications());
+        }
+        if (dto.getTaskDueSoonNotifications() != null) {
+            preferences.setTaskDueSoonNotifications(dto.getTaskDueSoonNotifications());
+        }
+        if (dto.getTaskOverdueNotifications() != null) {
+            preferences.setTaskOverdueNotifications(dto.getTaskOverdueNotifications());
+        }
+        if (dto.getOnlyHighPriorityNotifications() != null) {
+            preferences.setOnlyHighPriorityNotifications(dto.getOnlyHighPriorityNotifications());
+        }
+        if (dto.getGroupSimilarNotifications() != null) {
+            preferences.setGroupSimilarNotifications(dto.getGroupSimilarNotifications());
+        }
     }
     
     /**
-     * Преобразует объект настроек в DTO
-     * @param preferences объект настроек
-     * @return DTO настроек
+     * Преобразует сущность в DTO
+     * @param preferences сущность настроек
+     * @return DTO
      */
     private NotificationPreferencesDTO mapToDTO(NotificationPreferences preferences) {
         return NotificationPreferencesDTO.builder()
                 .id(preferences.getId())
-                .globalNotificationsEnabled(preferences.isGlobalNotificationsEnabled())
-                .emailNotificationsEnabled(preferences.isEmailNotificationsEnabled())
-                .telegramNotificationsEnabled(preferences.isTelegramNotificationsEnabled())
-                .browserNotificationsEnabled(preferences.isBrowserNotificationsEnabled())
-                
-                .boardInviteNotifications(preferences.isBoardInviteNotifications())
-                .taskAssignedNotifications(preferences.isTaskAssignedNotifications())
-                .taskStatusChangedNotifications(preferences.isTaskStatusChangedNotifications())
-                .taskCreatedNotifications(preferences.isTaskCreatedNotifications())
-                .taskUpdatedNotifications(preferences.isTaskUpdatedNotifications())
-                .taskDeletedNotifications(preferences.isTaskDeletedNotifications())
-                .taskCommentAddedNotifications(preferences.isTaskCommentAddedNotifications())
-                .mentionNotifications(preferences.isMentionNotifications())
-                .subtaskCreatedNotifications(preferences.isSubtaskCreatedNotifications())
-                .subtaskCompletedNotifications(preferences.isSubtaskCompletedNotifications())
-                .boardMemberAddedNotifications(preferences.isBoardMemberAddedNotifications())
-                .boardMemberRemovedNotifications(preferences.isBoardMemberRemovedNotifications())
-                .attachmentAddedNotifications(preferences.isAttachmentAddedNotifications())
-                .deadlineReminderNotifications(preferences.isDeadlineReminderNotifications())
-                .roleChangedNotifications(preferences.isRoleChangedNotifications())
-                .taskDueSoonNotifications(preferences.isTaskDueSoonNotifications())
-                .taskOverdueNotifications(preferences.isTaskOverdueNotifications())
-                
-                .onlyHighPriorityNotifications(preferences.isOnlyHighPriorityNotifications())
-                .groupSimilarNotifications(preferences.isGroupSimilarNotifications())
+                .globalNotificationsEnabled(preferences.getGlobalNotificationsEnabled())
+                .emailNotificationsEnabled(preferences.getEmailNotificationsEnabled())
+                .telegramNotificationsEnabled(preferences.getTelegramNotificationsEnabled())
+                .browserNotificationsEnabled(preferences.getBrowserNotificationsEnabled())
+                .boardInviteNotifications(preferences.getBoardInviteNotifications())
+                .taskAssignedNotifications(preferences.getTaskAssignedNotifications())
+                .taskStatusChangedNotifications(preferences.getTaskStatusChangedNotifications())
+                .taskCreatedNotifications(preferences.getTaskCreatedNotifications())
+                .taskUpdatedNotifications(preferences.getTaskUpdatedNotifications())
+                .taskDeletedNotifications(preferences.getTaskDeletedNotifications())
+                .taskCommentAddedNotifications(preferences.getTaskCommentAddedNotifications())
+                .mentionNotifications(preferences.getMentionNotifications())
+                .subtaskCreatedNotifications(preferences.getSubtaskCreatedNotifications())
+                .subtaskCompletedNotifications(preferences.getSubtaskCompletedNotifications())
+                .boardMemberAddedNotifications(preferences.getBoardMemberAddedNotifications())
+                .boardMemberRemovedNotifications(preferences.getBoardMemberRemovedNotifications())
+                .attachmentAddedNotifications(preferences.getAttachmentAddedNotifications())
+                .deadlineReminderNotifications(preferences.getDeadlineReminderNotifications())
+                .roleChangedNotifications(preferences.getRoleChangedNotifications())
+                .taskDueSoonNotifications(preferences.getTaskDueSoonNotifications())
+                .taskOverdueNotifications(preferences.getTaskOverdueNotifications())
+                .onlyHighPriorityNotifications(preferences.getOnlyHighPriorityNotifications())
+                .groupSimilarNotifications(preferences.getGroupSimilarNotifications())
                 .build();
     }
 } 

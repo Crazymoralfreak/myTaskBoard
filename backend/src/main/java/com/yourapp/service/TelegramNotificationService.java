@@ -85,34 +85,34 @@ public class TelegramNotificationService {
         try {
             var preferences = preferencesService.getUserPreferences(user.getId());
             
-            if (!preferences.isGlobalNotificationsEnabled()) {
+            if (!preferences.getGlobalNotificationsEnabled()) {
                 log.debug("Telegram уведомление не отправлено пользователю {}: глобальные уведомления отключены", user.getUsername());
                 return false;
             }
             
-            if (!preferences.isTelegramNotificationsEnabled()) {
+            if (!preferences.getTelegramNotificationsEnabled()) {
                 log.debug("Telegram уведомление не отправлено пользователю {}: Telegram уведомления отключены", user.getUsername());
                 return false;
             }
             
             boolean typeEnabled = switch (type) {
-                case TASK_ASSIGNED -> preferences.isTaskAssignedNotifications();
-                case TASK_UPDATED -> preferences.isTaskUpdatedNotifications();
-                case TASK_STATUS_CHANGED -> preferences.isTaskStatusChangedNotifications();
-                case NEW_COMMENT_MENTION -> preferences.isMentionNotifications();
-                case TASK_CREATED -> preferences.isTaskCreatedNotifications();
-                case TASK_DELETED -> preferences.isTaskDeletedNotifications();
-                case TASK_COMMENT_ADDED -> preferences.isTaskCommentAddedNotifications();
-                case SUBTASK_CREATED -> preferences.isSubtaskCreatedNotifications();
-                case SUBTASK_COMPLETED -> preferences.isSubtaskCompletedNotifications();
-                case BOARD_INVITE -> preferences.isBoardInviteNotifications();
-                case BOARD_MEMBER_ADDED -> preferences.isBoardMemberAddedNotifications();
-                case BOARD_MEMBER_REMOVED -> preferences.isBoardMemberRemovedNotifications();
-                case ATTACHMENT_ADDED -> preferences.isAttachmentAddedNotifications();
-                case DEADLINE_REMINDER -> preferences.isDeadlineReminderNotifications();
-                case ROLE_CHANGED -> preferences.isRoleChangedNotifications();
-                case TASK_DUE_SOON -> preferences.isTaskDueSoonNotifications();
-                case TASK_OVERDUE -> preferences.isTaskOverdueNotifications();
+                case TASK_ASSIGNED -> preferences.getTaskAssignedNotifications();
+                case TASK_UPDATED -> preferences.getTaskUpdatedNotifications();
+                case TASK_STATUS_CHANGED -> preferences.getTaskStatusChangedNotifications();
+                case NEW_COMMENT_MENTION -> preferences.getMentionNotifications();
+                case TASK_CREATED -> preferences.getTaskCreatedNotifications();
+                case TASK_DELETED -> preferences.getTaskDeletedNotifications();
+                case TASK_COMMENT_ADDED -> preferences.getTaskCommentAddedNotifications();
+                case SUBTASK_CREATED -> preferences.getSubtaskCreatedNotifications();
+                case SUBTASK_COMPLETED -> preferences.getSubtaskCompletedNotifications();
+                case BOARD_INVITE -> preferences.getBoardInviteNotifications();
+                case BOARD_MEMBER_ADDED -> preferences.getBoardMemberAddedNotifications();
+                case BOARD_MEMBER_REMOVED -> preferences.getBoardMemberRemovedNotifications();
+                case ATTACHMENT_ADDED -> preferences.getAttachmentAddedNotifications();
+                case DEADLINE_REMINDER -> preferences.getDeadlineReminderNotifications();
+                case ROLE_CHANGED -> preferences.getRoleChangedNotifications();
+                case TASK_DUE_SOON -> preferences.getTaskDueSoonNotifications();
+                case TASK_OVERDUE -> preferences.getTaskOverdueNotifications();
                 default -> false;
             };
             

@@ -168,7 +168,7 @@ public class BoardService {
         
         board.setName(boardDetails.getName());
         board.setDescription(boardDetails.getDescription());
-        board.setArchived(boardDetails.isArchived());
+        board.setArchived(boardDetails.getArchived());
         
         return boardRepository.save(board);
     }
@@ -198,57 +198,83 @@ public class BoardService {
     public Board getBoard(String id) {
         logger.debug("Начало загрузки доски с ID: {}", id);
         
-        // Загружаем доску с колонками
-        Board board = boardRepository.findByIdWithColumns(id)
-                .orElseThrow(() -> new RuntimeException("Board not found"));
-        logger.debug("Загружена доска с {} колонками", board.getColumns().size());
+        // Проверяем существование доски
+        boolean boardExists = boardRepository.existsById(id);
+        logger.debug("Доска с ID {} существует: {}", id, boardExists);
         
-        // Загружаем типы
-        Board boardWithTypes = boardRepository.findByIdWithTypes(id)
-                .orElseThrow(() -> new RuntimeException("Board not found"));
-        logger.debug("Загружены типы ({})", boardWithTypes.getTaskTypes().size());
-        
-        // Загружаем статусы
-        Board boardWithStatuses = boardRepository.findByIdWithStatuses(id)
-                .orElseThrow(() -> new RuntimeException("Board not found"));
-        logger.debug("Загружены статусы ({})", boardWithStatuses.getTaskStatuses().size());
-        
-        // Копируем типы и статусы
-        board.setTaskTypes(boardWithTypes.getTaskTypes());
-        board.setTaskStatuses(boardWithStatuses.getTaskStatuses());
-        
-        // Загружаем задачи с их типами и статусами
-        List<Task> tasks = boardRepository.findTasksByBoardId(id);
-        logger.debug("Загружено {} задач", tasks.size());
-        
-        // Логируем информацию о типах задач
-        tasks.forEach(task -> {
-            logger.debug("Задача ID:{} - тип:{}, статус:{}, назначенный:{}", 
-                task.getId(),
-                task.getType() != null ? task.getType().getId() + ":" + task.getType().getName() : "null",
-                task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null",
-                task.getAssignee() != null ? task.getAssignee().getId() + ":" + task.getAssignee().getUsername() : "null");
-        });
-        
-        // Обновляем задачи в колонках
-        for (BoardColumn column : board.getColumns()) {
-            List<Task> columnTasks = tasks.stream()
-                    .filter(task -> task.getColumn().getId().equals(column.getId()))
-                    .collect(Collectors.toList());
-            column.setTasks(columnTasks);
-            logger.debug("Колонка {} (ID:{}) содержит {} задач", 
-                column.getName(), column.getId(), columnTasks.size());
+        if (!boardExists) {
+            logger.error("Доска с ID {} не найдена в базе данных", id);
+            throw new RuntimeException("Board not found");
         }
         
-        logger.debug("Завершена загрузка доски. Типы задач: {}, Статусы: {}", 
-            board.getTaskTypes().stream()
-                .map(type -> type.getId() + ":" + type.getName())
-                .collect(Collectors.joining(", ")),
-            board.getTaskStatuses().stream()
-                .map(status -> status.getId() + ":" + status.getName())
-                .collect(Collectors.joining(", ")));
+        // Загружаем доску без связанных данных
+        Board board = boardRepository.findById(id)
+                .orElseThrow(() -> {
+                    logger.error("Не удалось загрузить доску для ID: {}", id);
+                    return new RuntimeException("Board not found");
+                });
+        logger.debug("Загружена базовая доска: {}", board.getName());
         
-        return board;
+        try {
+            // Загружаем колонки отдельно
+            List<BoardColumn> columns = boardColumnRepository.findByBoardOrderByPosition(board);
+            logger.debug("Загружено {} колонок", columns.size());
+            
+            // Загружаем типы задач отдельно
+            List<TaskType> taskTypes = taskTypeRepository.findByBoardOrderByPosition(board);
+            logger.debug("Загружено {} типов задач", taskTypes.size());
+            
+            // Загружаем статусы задач отдельно
+            List<TaskStatus> taskStatuses = taskStatusRepository.findByBoardOrderByPosition(board);
+            logger.debug("Загружено {} статусов задач", taskStatuses.size());
+            
+            // Загружаем задачи с их типами и статусами
+            List<Task> tasks = boardRepository.findTasksByBoardId(id);
+            logger.debug("Загружено {} задач", tasks.size());
+            
+            // Логируем информацию о типах задач
+            tasks.forEach(task -> {
+                logger.debug("Задача ID:{} - тип:{}, статус:{}, назначенный:{}", 
+                    task.getId(),
+                    task.getType() != null ? task.getType().getId() + ":" + task.getType().getName() : "null",
+                    task.getCustomStatus() != null ? task.getCustomStatus().getId() + ":" + task.getCustomStatus().getName() : "null",
+                    task.getAssignee() != null ? task.getAssignee().getId() + ":" + task.getAssignee().getUsername() : "null");
+            });
+            
+            // Обновляем задачи в колонках
+            for (BoardColumn column : board.getColumns()) {
+                List<Task> columnTasks = tasks.stream()
+                        .filter(task -> task.getColumn().getId().equals(column.getId()))
+                        .collect(Collectors.toList());
+                column.getTasks().clear();
+                column.getTasks().addAll(columnTasks);
+                logger.debug("Колонка {} (ID:{}) содержит {} задач", 
+                    column.getName(), column.getId(), columnTasks.size());
+            }
+            
+            logger.debug("Завершена загрузка доски. Типы задач: {}, Статусы: {}", 
+                board.getTaskTypes().stream()
+                    .map(type -> type.getId() + ":" + type.getName())
+                    .collect(Collectors.joining(", ")),
+                board.getTaskStatuses().stream()
+                    .map(status -> status.getId() + ":" + status.getName())
+                    .collect(Collectors.joining(", ")));
+            
+            // Загрузка колонок
+            board.getColumns().clear();
+            board.getColumns().addAll(columns);
+            // Загрузка типов задач
+            board.getTaskTypes().clear();
+            board.getTaskTypes().addAll(taskTypes);
+            // Загрузка статусов задач
+            board.getTaskStatuses().clear();
+            board.getTaskStatuses().addAll(taskStatuses);
+            
+            return board;
+        } catch (Exception e) {
+            logger.error("Ошибка при загрузке связанных данных для доски ID: {}", id, e);
+            throw new RuntimeException("Board not found", e);
+        }
     }
     
     public List<Board> getAllBoards() {

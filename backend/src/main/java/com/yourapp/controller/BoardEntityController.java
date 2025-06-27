@@ -57,8 +57,8 @@ public class BoardEntityController {
             TaskStatus status = new TaskStatus();
             status.setName(statusDto.getName());
             status.setColor(statusDto.getColor() != null ? statusDto.getColor() : "#808080");
-            status.setCustom(true);
-            status.setDefault(false);
+            status.setCustom(statusDto.isCustom());
+            status.setDefault(statusDto.isDefault());
             
             // Сохраняем статус
             TaskStatus createdStatus = boardService.createTaskStatus(boardId, status);
@@ -165,8 +165,8 @@ public class BoardEntityController {
             type.setName(typeDto.getName());
             type.setColor(typeDto.getColor() != null ? typeDto.getColor() : "#808080");
             type.setIcon(typeDto.getIcon() != null ? typeDto.getIcon() : "task_alt");
-            type.setCustom(true);
-            type.setDefault(false);
+            type.setCustom(typeDto.isCustom());
+            type.setDefault(typeDto.isDefault());
             
             // Сохраняем тип
             TaskType createdType = boardService.createTaskType(boardId, type);
