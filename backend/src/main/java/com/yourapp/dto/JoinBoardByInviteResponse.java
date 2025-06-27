@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.yourapp.dto.UserDTO;
+import com.yourapp.dto.UserDto;
 
 /**
  * DTO для ответа на запрос присоединения к доске по ссылке-приглашению
@@ -16,7 +16,7 @@ import com.yourapp.dto.UserDTO;
 public class JoinBoardByInviteResponse {
     private String boardId;
     private String boardName;
-    private UserDTO invitedBy;
+    private UserDto invitedBy;
     private RoleDTO assignedRole;
     private boolean requiresAuthentication;
     private boolean alreadyMember;

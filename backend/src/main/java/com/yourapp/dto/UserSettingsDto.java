@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserSettingsDTO {
+public class UserSettingsDto {
     private Boolean darkMode;
     private Boolean compactMode;
     private Boolean enableAnimations;

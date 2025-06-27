@@ -3,7 +3,7 @@ package com.yourapp.controller;
 import com.yourapp.model.User;
 import com.yourapp.service.UserService;
 import com.yourapp.dto.UserProfileUpdateDto;
-import com.yourapp.dto.UserDTO;
+import com.yourapp.dto.UserDto;
 import com.yourapp.dto.AvatarUpdateDto;
 import com.yourapp.security.JwtTokenProvider;
 import com.yourapp.dto.ChangePasswordRequest;

@@ -4,7 +4,7 @@ import com.yourapp.dto.BoardInviteLinkDTO;
 import com.yourapp.dto.CreateInviteLinkRequest;
 import com.yourapp.dto.JoinBoardByInviteResponse;
 import com.yourapp.dto.RoleDTO;
-import com.yourapp.dto.UserDTO;
+import com.yourapp.dto.UserDto;
 import com.yourapp.exception.EntityNotFoundException;
 import com.yourapp.exception.InvalidInviteLinkException;
 import com.yourapp.exception.BoardMemberExistsException;
@@ -229,8 +229,8 @@ public class InviteLinkService {
      * @param user модель пользователя
      * @return DTO пользователя
      */
-    private UserDTO mapUserToDTO(User user) {
-        return UserDTO.builder()
+    private UserDto mapUserToDTO(User user) {
+        return UserDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
