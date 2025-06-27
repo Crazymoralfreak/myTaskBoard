@@ -1,6 +1,6 @@
 package com.yourapp.service;
 
-import com.yourapp.dto.UserSettingsDTO;
+import com.yourapp.dto.UserSettingsDto;
 import com.yourapp.model.User;
 import com.yourapp.model.UserSettings;
 import com.yourapp.repository.UserSettingsRepository;
@@ -38,13 +38,13 @@ public class UserSettingsService {
     );
 
     @Transactional(readOnly = true)
-    public UserSettingsDTO getUserSettings(User user) {
+    public UserSettingsDto getUserSettings(User user) {
         Optional<UserSettings> settingsOpt = userSettingsRepository.findByUser(user);
         
         if (settingsOpt.isPresent()) {
             UserSettings settings = settingsOpt.get();
             // Применяем значения по умолчанию для null полей
-            return UserSettingsDTO.builder()
+            return UserSettingsDto.builder()
                     .darkMode(settings.getDarkMode() != null ? settings.getDarkMode() : false)
                     .compactMode(settings.getCompactMode() != null ? settings.getCompactMode() : false)
                     .enableAnimations(settings.getEnableAnimations() != null ? settings.getEnableAnimations() : true)
@@ -62,7 +62,7 @@ public class UserSettingsService {
         }
         
         // Возвращаем настройки по умолчанию, если пользователь не найден
-        return UserSettingsDTO.builder()
+        return UserSettingsDto.builder()
                 .darkMode(false)
                 .compactMode(false)
                 .enableAnimations(true)
@@ -80,7 +80,7 @@ public class UserSettingsService {
     }
 
     @Transactional
-    public UserSettingsDTO updateUserSettings(User user, UserSettingsDTO settingsDto) {
+    public UserSettingsDto updateUserSettings(User user, UserSettingsDto settingsDto) {
         logger.info("Обновление настроек для пользователя ID: {}, username: {}", user.getId(), user.getUsername());
         logger.debug("Входящие данные DTO: darkMode={}, compactMode={}, enableAnimations={}, language={}, timezone={}", 
             settingsDto.getDarkMode(), settingsDto.getCompactMode(), settingsDto.getEnableAnimations(), 
@@ -131,7 +131,7 @@ public class UserSettingsService {
                 .orElseThrow(() -> new RuntimeException("Settings not found after update"));
         
         // Маппим обновленный объект обратно в DTO
-        UserSettingsDTO resultDto = UserSettingsDTO.builder()
+        UserSettingsDto resultDto = UserSettingsDto.builder()
                 .darkMode(updatedSettings.getDarkMode())
                 .compactMode(updatedSettings.getCompactMode())
                 .enableAnimations(updatedSettings.getEnableAnimations())
@@ -173,7 +173,7 @@ public class UserSettingsService {
      * @return обновленные настройки
      */
     @Transactional
-    public UserSettingsDTO updateUserSetting(User user, String settingKey, Object value) {
+    public UserSettingsDto updateUserSetting(User user, String settingKey, Object value) {
         logger.info("Обновление настройки '{}' для пользователя ID: {}, значение: {}", 
                 settingKey, user.getId(), value);
         

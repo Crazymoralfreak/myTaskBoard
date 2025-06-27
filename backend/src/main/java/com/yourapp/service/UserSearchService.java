@@ -1,7 +1,7 @@
 package com.yourapp.service;
 
 import com.yourapp.model.User;
-import com.yourapp.dto.UserDTO;
+import com.yourapp.dto.UserDto;
 import com.yourapp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class UserSearchService {
      * @return список пользователей, соответствующих запросу
      */
     @Transactional(readOnly = true)
-    public List<UserDTO> findByQuery(String query, String searchType, int limit) {
+    public List<UserDto> findByQuery(String query, String searchType, int limit) {
         if (query == null || query.trim().isEmpty()) {
             return List.of();
         }
@@ -92,7 +92,7 @@ public class UserSearchService {
      * @return список пользователей
      */
     @Transactional(readOnly = true)
-    public List<UserDTO> findByUsername(String username, int limit) {
+    public List<UserDto> findByUsername(String username, int limit) {
         return findByQuery(username, "username", limit);
     }
     
@@ -103,7 +103,7 @@ public class UserSearchService {
      * @return список пользователей
      */
     @Transactional(readOnly = true)
-    public List<UserDTO> findByEmail(String email, int limit) {
+    public List<UserDto> findByEmail(String email, int limit) {
         return findByQuery(email, "email", limit);
     }
 } 

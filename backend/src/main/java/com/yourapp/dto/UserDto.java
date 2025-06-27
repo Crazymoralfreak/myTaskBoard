@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserDTO {
+public class UserDto {
     private Long id;
     private String email;
     private String username;
@@ -21,5 +21,5 @@ public class UserDTO {
     private String phoneNumber;
     private String position;
     private String bio;
-    private UserSettingsDTO settings;
+    private UserSettingsDto settings;
 } 

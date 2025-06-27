@@ -1,6 +1,6 @@
 package com.yourapp.controller;
 
-import com.yourapp.dto.UserSettingsDTO;
+import com.yourapp.dto.UserSettingsDto;
 import com.yourapp.service.UserSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,26 +19,26 @@ public class UserSettingsController {
     private static final Logger log = LoggerFactory.getLogger(UserSettingsController.class);
 
     @GetMapping("/settings")
-    public ResponseEntity<UserSettingsDTO> getUserSettings(@AuthenticationPrincipal User user) {
+    public ResponseEntity<UserSettingsDto> getUserSettings(@AuthenticationPrincipal User user) {
         log.info("Получен запрос на получение настроек пользователя: id={}, username={}", user.getId(), user.getUsername());
         return ResponseEntity.ok(userSettingsService.getUserSettings(user));
     }
 
     @PutMapping("/settings")
-    public ResponseEntity<UserSettingsDTO> updateUserSettings(
+    public ResponseEntity<UserSettingsDto> updateUserSettings(
             @AuthenticationPrincipal User user,
-            @RequestBody UserSettingsDTO settings) {
+            @RequestBody UserSettingsDto settings) {
         log.info("Получен запрос на обновление настроек пользователя: id={}, username={}", user.getId(), user.getUsername());
         log.debug("Данные для обновления настроек: {}", settings);
         
-        UserSettingsDTO updatedSettings = userSettingsService.updateUserSettings(user, settings);
+        UserSettingsDto updatedSettings = userSettingsService.updateUserSettings(user, settings);
         
         log.info("Настройки пользователя успешно обновлены");
         return ResponseEntity.ok(updatedSettings);
     }
 
     @PatchMapping("/settings/{settingKey}")
-    public ResponseEntity<UserSettingsDTO> updateUserSetting(
+    public ResponseEntity<UserSettingsDto> updateUserSetting(
             @AuthenticationPrincipal User user,
             @PathVariable String settingKey,
             @RequestBody java.util.Map<String, Object> request) {
@@ -48,7 +48,7 @@ public class UserSettingsController {
         Object value = request.get("value");
         log.debug("Значение для настройки '{}': {}", settingKey, value);
         
-        UserSettingsDTO updatedSettings = userSettingsService.updateUserSetting(user, settingKey, value);
+        UserSettingsDto updatedSettings = userSettingsService.updateUserSetting(user, settingKey, value);
         
         log.info("Настройка '{}' пользователя успешно обновлена", settingKey);
         return ResponseEntity.ok(updatedSettings);

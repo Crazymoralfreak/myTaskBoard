@@ -15,7 +15,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import com.yourapp.dto.UserDTO;
+import com.yourapp.dto.UserDto;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -284,8 +284,8 @@ public class User implements UserDetails {
         this.userSettings = userSettings;
     }
 
-    public UserDTO toDto() {
-        return UserDTO.builder()
+    public UserDto toDto() {
+        return UserDto.builder()
                 .id(this.id)
                 .email(this.email)
                 .username(this.username)

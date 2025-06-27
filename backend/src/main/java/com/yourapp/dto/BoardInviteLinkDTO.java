@@ -18,7 +18,7 @@ public class BoardInviteLinkDTO {
     private Long id;
     private String token;
     private String inviteUrl;
-    private UserDTO createdBy;
+    private UserDto createdBy;
     private String boardId;
     private String boardName;
     private RoleDTO defaultRole;
