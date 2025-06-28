@@ -867,9 +867,13 @@ const renderValue = (value: string | undefined, item: TaskHistoryType, t: (key: 
                                     {t('historyTaskCreatedPriority')}: {taskDetails.priority}
                                 </Typography>
                             )}
-                            {taskDetails.dates && (
+                            {(taskDetails.startDate || taskDetails.endDate) && (
                                 <Typography component="li" variant="body2">
-                                    {t('historyTaskCreatedDates')}: {taskDetails.dates}
+                                    {t('historyTaskCreatedDates')}: {taskDetails.startDate && taskDetails.endDate
+                                        ? `${t('from')} ${taskDetails.startDate} ${t('to')} ${taskDetails.endDate}`
+                                        : taskDetails.startDate
+                                            ? `${t('start')}: ${taskDetails.startDate}`
+                                            : `${t('end')}: ${taskDetails.endDate}`}
                                 </Typography>
                             )}
                             {taskDetails.tags && taskDetails.tags.length > 0 && (

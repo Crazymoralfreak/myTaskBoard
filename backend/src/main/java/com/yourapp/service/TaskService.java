@@ -184,17 +184,11 @@ public class TaskService {
                     detailsJson.append(",\"priority\":\"").append(savedTask.getPriority().toString()).append("\"");
                 }
                 
-                if (savedTask.getStartDate() != null || savedTask.getEndDate() != null) {
-                    detailsJson.append(",\"dates\":\"");
-                    if (savedTask.getStartDate() != null && savedTask.getEndDate() != null) {
-                        detailsJson.append("с ").append(savedTask.getStartDate().toLocalDate())
-                                  .append(" по ").append(savedTask.getEndDate().toLocalDate());
-                    } else if (savedTask.getStartDate() != null) {
-                        detailsJson.append("начало: ").append(savedTask.getStartDate().toLocalDate());
-                    } else {
-                        detailsJson.append("конец: ").append(savedTask.getEndDate().toLocalDate());
-                    }
-                    detailsJson.append("\"");
+                if (savedTask.getStartDate() != null) {
+                    detailsJson.append(",\"startDate\":\"").append(savedTask.getStartDate().toLocalDate()).append("\"");
+                }
+                if (savedTask.getEndDate() != null) {
+                    detailsJson.append(",\"endDate\":\"").append(savedTask.getEndDate().toLocalDate()).append("\"");
                 }
                 
                 if (savedTask.getTags() != null && !savedTask.getTags().isEmpty()) {

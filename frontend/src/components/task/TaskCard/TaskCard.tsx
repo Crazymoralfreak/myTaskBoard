@@ -292,6 +292,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         return format(new Date(date), 'dd MMM', { locale: getDateFnsLocale(language) });
     };
     
+    // Функция для подстановки переменных в шаблон
+    const formatWithVars = (template: string, vars: Record<string, string | number>) => {
+        let result = template;
+        Object.entries(vars).forEach(([key, value]) => {
+            result = result.replace(new RegExp(`{${key}}`, 'g'), String(value));
+        });
+        return result;
+    };
+
     // Функция для расчета оставшегося времени до дедлайна
     const getRemainingTime = () => {
         if (!task.endDate) return null;
@@ -303,15 +312,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         if (isPast(endDate)) {
             const overdueDays = Math.abs(differenceInDays(now, endDate));
             const overdueHours = Math.abs(differenceInHours(now, endDate) % 24);
-            
             if (overdueDays > 0) {
                 return { 
-                    text: `Просрочено на ${overdueDays} ${getDayText(overdueDays)}`, 
+                    text: formatWithVars(t('taskOverdueByDays'), { value: overdueDays, days: getDayText(overdueDays) }),
                     isOverdue: true 
                 };
             } else {
                 return { 
-                    text: `Просрочено на ${overdueHours} ${getHourText(overdueHours)}`, 
+                    text: formatWithVars(t('taskOverdueByHours'), { value: overdueHours, hours: getHourText(overdueHours) }),
                     isOverdue: true 
                 };
             }
@@ -319,32 +327,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             // Осталось времени
             const remainingDays = differenceInDays(endDate, now);
             const remainingHours = differenceInHours(endDate, now) % 24;
-            
             if (remainingDays > 0) {
                 return { 
-                    text: `Осталось ${remainingDays} ${getDayText(remainingDays)}`, 
+                    text: formatWithVars(t('taskDueInDays'), { value: remainingDays, days: getDayText(remainingDays) }),
                     isOverdue: false 
                 };
             } else {
                 return { 
-                    text: `Осталось ${remainingHours} ${getHourText(remainingHours)}`, 
+                    text: formatWithVars(t('taskDueInHours'), { value: remainingHours, hours: getHourText(remainingHours) }),
                     isOverdue: false 
                 };
             }
         }
     };
     
-    // Вспомогательные функции для правильного склонения
+    // Вспомогательные функции для правильного склонения с учетом языка
     const getDayText = (days: number) => {
-        if (days % 10 === 1 && days % 100 !== 11) return 'день';
-        if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) return 'дня';
-        return 'дней';
+        if (language === 'ru') {
+            if (days % 10 === 1 && days % 100 !== 11) return t('days_one');
+            if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) return t('days_few');
+            return t('days_many');
+        } else {
+            return days === 1 ? t('days_one') : t('days_many');
+        }
     };
     
     const getHourText = (hours: number) => {
-        if (hours % 10 === 1 && hours % 100 !== 11) return 'час';
-        if ([2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100)) return 'часа';
-        return 'часов';
+        if (language === 'ru') {
+            if (hours % 10 === 1 && hours % 100 !== 11) return t('hours_one');
+            if ([2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100)) return t('hours_few');
+            return t('hours_many');
+        } else {
+            return hours === 1 ? t('hours_one') : t('hours_many');
+        }
     };
     
     // Получаем информацию об оставшемся времени

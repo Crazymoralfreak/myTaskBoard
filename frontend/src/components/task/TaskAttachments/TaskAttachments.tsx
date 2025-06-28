@@ -1387,7 +1387,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                         
                         {/* Быстрые фильтры */}
                         <Chip
-                            label={`${filter === 'all' ? 'Все' : filter} (${
+                            label={`${filter === 'all' ? t('attachmentsAllFiles') : t('attachments' + filter.charAt(0).toUpperCase() + filter.slice(1))} (${
                                 filter === 'all' ? fileStats.all : 
                                 filter === 'images' ? fileStats.images :
                                 filter === 'videos' ? fileStats.videos :
@@ -1535,7 +1535,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     {/* Режим отображения и доп. действия */}
                     {attachments.length > 0 && (
                         <>
-                            <Tooltip title={viewMode === 'grid' ? "Список" : "Сетка"}>
+                            <Tooltip title={viewMode === 'grid' ? t('attachmentsList') : t('attachmentsGrid')}>
                                 <IconButton
                                     size="small"
                                     onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
@@ -1545,7 +1545,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 </IconButton>
                             </Tooltip>
                             
-                            <Tooltip title="Статистика">
+                            <Tooltip title={t('attachmentsStats')}>
                                 <IconButton
                                     size="small"
                                     onClick={() => setShowInfoPanel(!showInfoPanel)}
@@ -1555,7 +1555,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 </IconButton>
                             </Tooltip>
                             
-                            <Tooltip title="Дополнительно">
+                            <Tooltip title={t('attachmentsMore')}>
                                 <IconButton
                                     size="small"
                                     onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
@@ -1665,7 +1665,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 
                                 {!isMobile && attachments.length > 1 && (
                                     <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                                        Средний: {formatFileSizeHelper(getTotalSize() / attachments.length)}
+                                        {t('attachmentsAverage')}: {formatFileSizeHelper(getTotalSize() / attachments.length)}
                                     </Typography>
                                 )}
                             </Box>
@@ -1675,11 +1675,11 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 {(() => {
                                     const stats = getFileTypeStats();
                                     const types = [
-                                        { key: 'images', label: 'Изображения', shortLabel: 'Изобр', color: theme.palette.success.main },
-                                        { key: 'videos', label: 'Видео', shortLabel: 'Видео', color: theme.palette.secondary.main },
-                                        { key: 'documents', label: 'Документы', shortLabel: 'Док', color: theme.palette.error.main },
-                                        { key: 'text', label: 'Текст', shortLabel: 'Текст', color: theme.palette.info.main },
-                                        { key: 'other', label: 'Прочие', shortLabel: 'Прочие', color: theme.palette.grey[500] }
+                                        { key: 'images', label: t('attachmentsImages'), shortLabel: t('attachmentsImagesShort'), color: theme.palette.success.main },
+                                        { key: 'videos', label: t('attachmentsVideos'), shortLabel: t('attachmentsVideosShort'), color: theme.palette.secondary.main },
+                                        { key: 'documents', label: t('attachmentsDocuments'), shortLabel: t('attachmentsDocumentsShort'), color: theme.palette.error.main },
+                                        { key: 'text', label: t('attachmentsTextFiles'), shortLabel: t('attachmentsTextShort'), color: theme.palette.info.main },
+                                        { key: 'other', label: t('attachmentsOtherFiles'), shortLabel: t('attachmentsOtherShort'), color: theme.palette.grey[500] }
                                     ];
                                     
                                     return types
