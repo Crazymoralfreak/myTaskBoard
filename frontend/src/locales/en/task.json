@@ -381,5 +381,6 @@
   "days_many": "days",
   "enterComment": "Enter comment...",
   "enterYourComment": "Enter your comment...",
-  "replyTo": "Reply to"
+  "replyTo": "Reply to",
+  "selectTimezone": "Select timezone..."
 } 

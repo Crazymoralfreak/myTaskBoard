@@ -1,5 +1,7 @@
 import React from 'react';
-import TimezoneSelect from 'react-timezone-select';
+import { MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { useLocalization } from '../../../hooks/useLocalization';
+import { SUPPORTED_TIMEZONES } from '../../../utils/constants';
 
 interface Props {
   value: string;
@@ -8,20 +10,24 @@ interface Props {
 }
 
 const TimezoneSelector: React.FC<Props> = ({ value, onChange, disabled }) => {
+  const { t } = useLocalization();
+
   return (
-    <TimezoneSelect
-      value={value}
-      onChange={(tz) => {
-        if (typeof tz === 'string') {
-          onChange(tz);
-        } else if (tz && typeof tz === 'object' && 'value' in tz) {
-          onChange(tz.value);
-        }
-      }}
-      labelStyle="original"
-      displayValue="GMT"
-      isDisabled={disabled}
-    />
+    <FormControl fullWidth>
+      <InputLabel>{t('selectTimezone')}</InputLabel>
+      <Select
+        value={value}
+        label={t('selectTimezone')}
+        onChange={e => onChange(e.target.value as string)}
+        disabled={disabled}
+      >
+        {SUPPORTED_TIMEZONES.map(tz => (
+          <MenuItem key={tz.value} value={tz.value}>
+            {`${tz.label} — ${tz.value.replace('_', ' ')}`}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
   );
 };
 

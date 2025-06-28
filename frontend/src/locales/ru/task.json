@@ -381,5 +381,6 @@
   "days_many": "дней",
   "enterComment": "Введите комментарий...",
   "enterYourComment": "Введите ваш комментарий...",
-  "replyTo": "Ответить"
+  "replyTo": "Ответить",
+  "selectTimezone": "Выберите часовой пояс..."
 } 
