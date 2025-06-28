@@ -51,7 +51,7 @@ public class BoardMemberService {
         
         // Проверяем, не является ли пользователь уже участником доски
         if (boardMemberRepository.existsByUserAndBoard(user, board)) {
-            throw new BoardMemberExistsException(userId, boardId);
+            throw new BoardMemberExistsException(user.getUsername(), board.getName());
         }
         
         Role role = roleService.getRoleById(roleId);

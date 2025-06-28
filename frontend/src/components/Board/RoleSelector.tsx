@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Role, SystemRoles } from '../../types/Role';
 import { RolesService } from '../../services/RolesService';
+import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
 import { 
   MenuItem, 
   Select, 
@@ -48,6 +50,7 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({ boardId, value, onChange, d
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
+  const { t } = useLocalization();
   const isDarkMode = theme.palette.mode === 'dark';
   
   useEffect(() => {
@@ -61,14 +64,14 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({ boardId, value, onChange, d
         setRoles(boardRoles);
       } catch (err) {
         console.error('Ошибка при загрузке ролей:', err);
-        setError('Не удалось загрузить роли. Пожалуйста, попробуйте еще раз.');
+        setError(t('errorLoadData'));
       } finally {
         setLoading(false);
       }
     };
     
     loadRoles();
-  }, [boardId]);
+  }, [boardId, t]);
   
   const handleChange = (event: SelectChangeEvent<number>) => {
     onChange(event.target.value as number);
@@ -84,27 +87,27 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({ boardId, value, onChange, d
   
   return (
     <FormControl fullWidth disabled={disabled}>
-      <InputLabel id="role-select-label">Роль</InputLabel>
+      <InputLabel id="role-select-label">{t('role')}</InputLabel>
       <Select
         labelId="role-select-label"
         id="role-select"
         value={value}
-        label="Роль"
+        label={t('role')}
         onChange={handleChange}
       >
         {roles.map((role) => {
           const roleColor = getRoleColor(role.name, isDarkMode);
+          const roleDescription = getRoleDescription(role.name, t);
+          const roleDisplayName = getRoleDisplayName(role.name, t);
           return (
             <MenuItem key={role.id} value={role.id}>
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 <Typography sx={{ fontWeight: 'bold', color: roleColor }}>
-                  {role.name}
+                  {roleDisplayName}
                 </Typography>
-                {role.description && (
-                  <Typography variant="caption" color="text.secondary">
-                    {role.description}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary">
+                  {roleDescription}
+                </Typography>
               </Box>
             </MenuItem>
           );

@@ -51,4 +51,62 @@ export const reportError = (error: Error, contextData?: ContextData): void => {
     });
     */
   }
+};
+
+// Утилиты для логирования ошибок
+export const logError = (error: any, context?: string) => {
+  console.error(`Error${context ? ` in ${context}` : ''}:`, error);
+};
+
+// Утилиты для локализации ошибок с сервера
+export const localizeServerError = (errorMessage: string, t: (key: string) => string): string => {
+  // Словарь распространенных ошибок сервера
+  const serverErrorTranslations: Record<string, string> = {
+    // Английские ошибки
+    'User not found': t('errorUserNotFound'),
+    'Board not found': t('errorBoardNotFound'),
+    'Task not found': t('errorTaskNotFound'),
+    'Access denied': t('errorAccessDenied'),
+    'Invalid credentials': t('errorInvalidCredentials'),
+    'Token expired': t('errorTokenExpired'),
+    'Validation failed': t('errorValidationFailed'),
+    'Server error': t('errorServerError'),
+    'Network error': t('errorNetworkError'),
+    'Member already exists': t('errorMemberExists'),
+    'Permission denied': t('errorPermissionDenied'),
+    'Invalid input': t('errorInvalidInput'),
+    'File too large': t('errorFileTooLarge'),
+    'Unsupported file type': t('errorUnsupportedFileType'),
+    
+    // Русские ошибки
+    'Пользователь не найден': t('errorUserNotFound'),
+    'Доска не найдена': t('errorBoardNotFound'),
+    'Задача не найдена': t('errorTaskNotFound'),
+    'Доступ запрещен': t('errorAccessDenied'),
+    'Неверные учетные данные': t('errorInvalidCredentials'),
+    'Токен истек': t('errorTokenExpired'),
+    'Ошибка валидации': t('errorValidationFailed'),
+    'Ошибка сервера': t('errorServerError'),
+    'Ошибка сети': t('errorNetworkError'),
+    'Участник уже существует': t('errorMemberExists'),
+    'Отказано в доступе': t('errorPermissionDenied'),
+    'Некорректные данные': t('errorInvalidInput'),
+    'Файл слишком большой': t('errorFileTooLarge'),
+    'Неподдерживаемый тип файла': t('errorUnsupportedFileType')
+  };
+
+  // Проверяем точное совпадение
+  if (serverErrorTranslations[errorMessage]) {
+    return serverErrorTranslations[errorMessage];
+  }
+
+  // Проверяем частичные совпадения
+  for (const [serverText, localizedText] of Object.entries(serverErrorTranslations)) {
+    if (errorMessage.includes(serverText)) {
+      return errorMessage.replace(serverText, localizedText);
+    }
+  }
+
+  // Если перевод не найден, возвращаем исходное сообщение
+  return errorMessage;
 }; 

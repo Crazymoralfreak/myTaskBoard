@@ -50,6 +50,7 @@ import UserSearch from './UserSearch';
 import { User } from '../../types/user';
 import { debounce } from 'lodash';
 import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
 
 // Внешний URL сайта из переменных окружения
 const OUTER_URL = process.env.OUTER_URL || 'mytaskboard.online';
@@ -543,12 +544,12 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
                     {getRoleIcon(role)}
                   </Box>
                   <Typography variant="subtitle1" fontWeight="medium">
-                    {role.name}
+                    {getRoleDisplayName(role.name, t)}
                   </Typography>
                 </Box>
                 
                 <Typography variant="body2" color="text.secondary" paragraph>
-                  {role.description}
+                  {getRoleDescription(role.name, t)}
                 </Typography>
                 
                 {selectedRoleId === role.id.toString() && (

@@ -63,7 +63,7 @@ const SubtaskProgress: React.FC<{
     const allCompleted = completed === total;
     
     return (
-        <Tooltip title={`${t('subtasks')}: ${completed} ${t('of')} ${total} ${t('completed')}`}>
+        <Tooltip title={`${t('subtasks')}: ${completed} ${t('taskOf')} ${total} ${t('taskCompleted')}`}>
             <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 

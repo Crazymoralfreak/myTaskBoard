@@ -24,6 +24,8 @@ import { format, addDays } from 'date-fns';
 import { Role } from '../../types/Role';
 import { CreateInviteLinkRequest } from '../../types/inviteLink';
 import { InviteLinkService } from '../../services/InviteLinkService';
+import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
 
 interface InviteLinkGeneratorProps {
   boardId: string;
@@ -46,6 +48,8 @@ const InviteLinkGenerator: React.FC<InviteLinkGeneratorProps> = ({
   const [useExpiration, setUseExpiration] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { t } = useLocalization();
   
   // Устанавливаем роль VIEWER по умолчанию при монтировании компонента
   useEffect(() => {
@@ -125,7 +129,7 @@ const InviteLinkGenerator: React.FC<InviteLinkGeneratorProps> = ({
             >
               {roles.map((role) => (
                 <MenuItem key={role.id} value={role.id}>
-                  {role.name} - {role.description}
+                  {getRoleDisplayName(role.name, t)} - {getRoleDescription(role.name, t)}
                 </MenuItem>
               ))}
             </Select>

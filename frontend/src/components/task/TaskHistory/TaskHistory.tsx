@@ -378,8 +378,34 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
     const formatAction = (action: string): string => {
         if (!action) return t('historyUnknownAction');
         
-        // Проверяем, есть ли перевод для этого действия
-        const translationKey = `historyActions${action.charAt(0).toUpperCase() + action.slice(1).replace(/([A-Z])/g, '$1')}`;
+        // Преобразуем действие с подчеркиваниями в camelCase
+        const toCamelCase = (str: string) => {
+            return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+        };
+        
+        const camelCaseAction = toCamelCase(action);
+        
+        // Сначала пробуем V2 ключи для действий с дублями
+        const duplicateActionsV2 = [
+            'taskCreated', 'statusChanged', 'priorityChanged', 'typeChanged',
+            'movedBetweenColumns', 'columnChanged', 'titleChanged', 'descriptionChanged',
+            'startDateChanged', 'endDateChanged', 'datesChanged', 'attachmentAdded',
+            'attachmentDeleted', 'commentAdded', 'commentUpdated', 'commentDeleted',
+            'tagsChanged', 'tagsUpdated', 'tagAdded', 'subtaskCreated', 'subtaskUpdated',
+            'subtaskCompleted', 'subtaskDeleted', 'subtaskAssigned', 'subtasksReordered'
+        ];
+        
+        if (duplicateActionsV2.includes(camelCaseAction)) {
+            const translationKeyV2 = `historyActions${camelCaseAction.charAt(0).toUpperCase() + camelCaseAction.slice(1)}V2`;
+            const translationV2 = t(translationKeyV2);
+            
+            if (translationV2 !== translationKeyV2) {
+                return translationV2;
+            }
+        }
+        
+        // Проверяем, есть ли перевод для этого действия (обычные ключи)
+        const translationKey = `historyActions${camelCaseAction.charAt(0).toUpperCase() + camelCaseAction.slice(1)}`;
         const translation = t(translationKey);
         
         // Если перевод найден (не равен ключу), возвращаем его

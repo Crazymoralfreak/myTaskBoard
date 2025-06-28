@@ -53,6 +53,7 @@ import { boardService } from '../../services/boardService';
 import { useUserRole, Permission } from '../../hooks/useUserRole';
 import { getAvatarUrl } from '../../utils/avatarUtils';
 import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
 
 interface BoardMembersModalProps {
   open: boolean;
@@ -370,6 +371,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   const handleAddMember = async (request: AddBoardMemberRequest) => {
     try {
       setLoading(true);
+      setError(null);
       const newMember = await BoardMembersService.addMemberToBoard(boardId, request);
       setMembers((prev) => [...prev, newMember]);
       setFilteredMembers((prev) => [...prev, newMember]);
@@ -377,8 +379,17 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       // Переключаемся на вкладку со списком участников
       setActiveTab(0);
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Ошибка при добавлении участника:', err);
+      
+      // Проверяем тип ошибки
+      if (err?.response?.status === 409 || err?.response?.data?.code === 'BOARD_MEMBER_EXISTS') {
+        // Используем локализованное сообщение
+        setError(t('memberAlreadyExists'));
+      } else {
+        // Общая ошибка
+        setError(err?.response?.data?.message || t('errorAddMember'));
+      }
       return false;
     } finally {
       setLoading(false);
@@ -466,7 +477,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   const renderMemberItem = (member: BoardMember) => {
     const isCurrentUser = member.userId === currentUserId;
     const isOwner = member.userId === ownerId;
-    const roleName = member.role?.name || 'Без роли';
+    const roleName = member.role?.name || t('noRoleLabel');
     
     return (
       <ListItem
@@ -499,7 +510,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
               )}
               {isCurrentUser && (
                 <Chip 
-                  label="Вы" 
+                  label={t('youLabel')} 
                   size="small" 
                   variant="outlined" 
                   sx={{ ml: 1, height: 20 }} 
@@ -521,7 +532,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                 icon={getRoleIcon(roleName)}
               />
               <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-                Присоединился {new Date(member.joinedAt).toLocaleDateString()}
+                {t('joinedDate')} {new Date(member.joinedAt).toLocaleDateString()}
               </Typography>
             </Box>
           }
@@ -632,8 +643,8 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText 
-                    primary={role.name} 
-                    secondary={role.description}
+                    primary={getRoleDisplayName(role.name, t)} 
+                    secondary={getRoleDescription(role.name, t)}
                   />
                   {selectedRoleId === role.id && (
                     <Chip label="Выбрано" size="small" color="primary" />

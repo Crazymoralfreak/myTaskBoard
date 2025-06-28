@@ -151,7 +151,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     disableBackdropClick = false,
     boardId
 }) => {
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
+    
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -354,10 +355,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 // Если задача не найдена (была удалена), закрываем модальное окно
                                 if (error.response && error.response.status === 404) {
                                     console.log('Задача не найдена или была удалена');
-                                    toast.error('Задача не найдена или была удалена');
+                                    toast.error(t('taskNotFoundOrDeleted'));
                                     onClose();
                                 } else {
-                                    setError(t('errorsLoadTaskData'));
+                                    setError(t('errorsLoadFailed'));
                                 }
                             }
                         };
@@ -380,7 +381,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 setAvailableTags(tags);
             } catch (error) {
                 console.error('Ошибка при загрузке тегов:', error);
-                setError(t('errorsLoadTags'));
+                setError(t('errorsLoadFailed'));
             }
         };
         
@@ -442,7 +443,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     // Выносим проверку дат в отдельную функцию
     const validateDates = (start: Date | null, end: Date | null): string | undefined => {
         if (start && end && start > end) {
-            return 'Дата окончания не может быть раньше даты начала';
+            return t('taskModalDateError');
         }
         return undefined; // Нет ошибки
     };
@@ -461,7 +462,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         const newErrors: { title?: string; dates?: string } = {};
         
         if (!title.trim()) {
-            newErrors.title = 'Название задачи обязательно';
+            newErrors.title = t('taskModalTitleRequired');
             valid = false;
         }
         
@@ -503,10 +504,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             console.error('Ошибка при создании задачи:', error);
             // Оставляем обработку ошибки от бэкенда как запасной вариант
             if (error.response && error.response.status === 400 && error.response.data?.error?.includes('End date must be after start date')) {
-                setErrors(prev => ({ ...prev, dates: 'Дата окончания не может быть раньше даты начала' }));
+                setErrors(prev => ({ ...prev, dates: t('taskModalDateError') }));
                 setError(null); 
             } else {
-                setError(error.response?.data?.message || error.message || 'Не удалось создать задачу');
+                setError(error.response?.data?.message || error.message || t('taskModalCreateError'));
             }
         } finally {
             setIsSubmitting(false);
@@ -565,7 +566,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         
         // Проверяем, есть ли вообще изменения
         if (Object.keys(updatedTaskData).length === 0) {
-                            setError(t('errorsNoChanges'));
+            setError(t('errorsSaveFailed'));
             setIsSubmitting(false);
             // Можно просто закрыть окно или остаться в режиме редактирования
             // onClose(); // Закрываем, если нет изменений
@@ -608,10 +609,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         } catch (error: any) {
             console.error('Ошибка при обновлении задачи:', error);
             if (error.response && error.response.status === 400 && error.response.data?.error?.includes('End date must be after start date')) {
-                setErrors(prev => ({ ...prev, dates: 'Дата окончания не может быть раньше даты начала' }));
+                setErrors(prev => ({ ...prev, dates: t('taskModalDateError') }));
                 setError(null); 
             } else {
-                setError(error.response?.data?.message || error.message || 'Не удалось обновить задачу');
+                setError(error.response?.data?.message || error.message || t('taskModalUpdateError'));
             }
         } finally {
             setIsSubmitting(false);
@@ -691,12 +692,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 window.dispatchEvent(taskListUpdateEvent);
                 
                 // Показываем уведомление об успешном удалении
-                toast.success('Задача успешно удалена');
+                toast.success(t('taskModalDeleteSuccess'));
             }
             
         } catch (error) {
             console.error('Ошибка при удалении задачи:', error);
-                            setError(t('errorsDeleteTask'));
+                            setError(t('errorsDeleteFailed'));
             setIsSubmitting(false);
         }
     }, [task, onTaskDelete, onClose, setIsSubmitting, setError, boardId]);
@@ -755,7 +756,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             }
         } catch (error) {
             console.error('Ошибка при копировании задачи:', error);
-                            setError(t('errorsCopyTask'));
+            setError(t('errorsCopyFailed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -779,7 +780,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     
     const handleSaveAsTemplate = () => {
         if (!title.trim()) {
-            setError(t('errorsTemplateRequiresTitle'));
+            setError(t('taskModalTitleRequired'));
             return;
         }
         
@@ -810,11 +811,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 setSaveTemplateDialogOpen(false);
             } else {
                 console.error('Не удалось сохранить шаблон: boardId не указан');
-                setTemplateError('Не удалось сохранить шаблон');
+                setTemplateError(t('taskModalTemplateError'));
             }
         } catch (error) {
             console.error('Ошибка при сохранении шаблона:', error);
-            setTemplateError('Ошибка при сохранении шаблона');
+            setTemplateError(t('taskModalTemplateSaveError'));
         } finally {
             setIsSavingTemplate(false);
         }
@@ -1002,10 +1003,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 )}
                 <Chip
                     label={
-                                task.priority === 'HIGH' ? t('priorityHigh') :
-        task.priority === 'MEDIUM' ? t('priorityMedium') :
-        task.priority === 'LOW' ? t('priorityLow') :
-        t('priorityNone')
+                                task.priority === 'HIGH' ? t('taskPriorityHigh') :
+        task.priority === 'MEDIUM' ? t('taskPriorityMedium') :
+        task.priority === 'LOW' ? t('taskPriorityLow') :
+        t('taskPriorityNone')
                     }
                     color={
                         task.priority === 'HIGH' ? 'error' :
@@ -1079,8 +1080,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     const renderTagsSelector = () => (
         <Box sx={{ mt: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
-                Теги
-                <Tooltip title="Теги помогают категоризировать задачи и быстро их находить">
+                {t('taskModalTagsTitle')}
+                <Tooltip title={t('taskModalTagsTooltip')}>
                     <IconButton size="small" sx={{ ml: 1 }}>
                         <HelpOutlineIcon fontSize="small" />
                     </IconButton>
@@ -1101,7 +1102,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         ))
                     ) : (
                         <Typography variant="body2" color="text.secondary">
-                            Нет тегов
+                            {t('taskModalNoTags')}
                         </Typography>
                     )}
                 </Box>
@@ -1142,7 +1143,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             <TextField
                                 {...params}
                                 variant="outlined"
-                                placeholder="Добавить тег..."
+                                placeholder={t('taskModalAddTag')}
                                 size="small"
                                 fullWidth
                                 disabled={!isEditable}
@@ -1151,7 +1152,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         disabled={!isEditable}
                     />
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        Введите текст и нажмите Enter для добавления нового тега
+                        {t('taskModalTagsHelp')}
                     </Typography>
                 </>
             )}
@@ -1264,9 +1265,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     {showTemplateSelector ? (
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                <Typography variant="h6">Выберите шаблон задачи</Typography>
+                                <Typography variant="h6">{t('taskModalTemplateSelector')}</Typography>
                                 <Button onClick={() => setShowTemplateSelector(false)}>
-                                    Вернуться к созданию задачи
+                                    {t('taskModalBackToCreation')}
                                 </Button>
                             </Box>
                             <TaskTemplateList 
@@ -1280,11 +1281,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             {mode !== 'create' && task && (
                                 <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                                     <Tabs value={selectedTab} onChange={handleTabChange}>
-                                        <Tab label="Основное" />
+                                        <Tab label={t('taskModalMainTab')} />
                                         <Tab 
                                             label={
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <span>Подзадачи</span>
+                                                    <span>{t('taskModalSubtasksTab')}</span>
                                                     {task.subtasks && task.subtasks.length > 0 && (
                                                         <Chip 
                                                             label={task.subtasks.length} 
@@ -1307,7 +1308,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                         <Tab 
                                             label={
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <span>Комментарии</span>
+                                                    <span>{t('taskModalCommentsTab')}</span>
                                                     {((task.comments && task.comments.length > 0) || task.commentCount > 0) && (
                                                         <Chip 
                                                             label={task.comments?.length || task.commentCount || 0} 
@@ -1327,11 +1328,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                 </Box>
                                             }
                                         />
-                                        <Tab label="История" />
+                                        <Tab label={t('taskModalHistoryTab')} />
                                         <Tab 
                                             label={
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <span>Вложения</span>
+                                                    <span>{t('taskModalAttachmentsTab')}</span>
                                                     {task.attachmentCount !== undefined && task.attachmentCount > 0 && (
                                                         <Chip 
                                                             label={task.attachmentCount} 
@@ -1361,7 +1362,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                         // Используем общие поля для режима просмотра, но делаем их неактивными
                                         <>
                                             <TextField
-                                                label="Название"
+                                                label={t('taskModalTitle')}
                                                 value={title}
                                                 fullWidth
                                                 InputProps={{
@@ -1377,7 +1378,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                 }}
                                             />
                                             <Box sx={{ mb: 2 }}>
-                                                <Typography variant="subtitle2" gutterBottom>Описание</Typography>
+                                                <Typography variant="subtitle2" gutterBottom>{t('taskModalDescription')}</Typography>
                                                 {description ? (
                                                     <TextRenderer 
                                                         content={description} 
@@ -1397,7 +1398,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                             fontStyle: 'italic'
                                                         }}
                                                     >
-                                                        Описание отсутствует
+                                                        {t('taskModalNoDescription')}
                                                     </Paper>
                                                 )}
                                             </Box>
@@ -1405,10 +1406,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Box sx={{ flex: 1 }}>
                                                     <FormControl fullWidth disabled>
-                                                        <InputLabel>Тип задачи</InputLabel>
+                                                        <InputLabel>{t('taskModalTaskType')}</InputLabel>
                                                         <Select
                                                             value={selectedTypeId || ''}
-                                                            label="Тип задачи"
+                                                            label={t('taskModalTaskType')}
                                                             readOnly
                                                             sx={{
                                                                 '.MuiSelect-select.Mui-disabled': {
@@ -1417,7 +1418,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                             }}
                                                         >
                                                             <MenuItem value="">
-                                                                <em>Не выбран</em>
+                                                                <em>{t('taskModalNotSelected')}</em>
                                                             </MenuItem>
                                                             {taskTypes.map((type) => (
                                                                 <MenuItem key={type.id} value={type.id}>
@@ -1438,10 +1439,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                 
                                                 <Box sx={{ flex: 1 }}>
                                                     <FormControl fullWidth disabled>
-                                                        <InputLabel>Статус</InputLabel>
+                                                        <InputLabel>{t('taskModalStatus')}</InputLabel>
                                                         <Select
                                                             value={selectedStatusId || ''}
-                                                            label="Статус"
+                                                            label={t('taskModalStatus')}
                                                             readOnly
                                                             sx={{
                                                                 '.MuiSelect-select.Mui-disabled': {
@@ -1450,7 +1451,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                             }}
                                                         >
                                                             <MenuItem value="">
-                                                                <em>Не выбран</em>
+                                                                <em>{t('taskModalNotSelected')}</em>
                                                             </MenuItem>
                                                             {boardStatuses.map((status) => (
                                                                 <MenuItem key={status.id} value={status.id}>
@@ -1475,46 +1476,46 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                                 <Box sx={{ display: 'flex', gap: 2 }}>
                                                     <DateTimePicker
-                                                        label="Дата начала"
+                                                        label={t('taskModalStartDate')}
                                                         value={startDate}
-                                                        onChange={(newValue) => {}}
-                                                        readOnly
+                                                        onChange={(newValue) => {
+                                                            setStartDate(newValue);
+                                                            if (errors.dates) {
+                                                                setErrors(prev => ({ ...prev, dates: undefined }));
+                                                            }
+                                                        }}
                                                         slotProps={{
                                                             textField: { 
                                                                 fullWidth: true,
-                                                                InputProps: { readOnly: true },
-                                                                sx: {
-                                                                    '& .MuiInputBase-input.Mui-readOnly': {
-                                                                        WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
-                                                                    }
-                                                                }
+                                                                error: !!errors.dates,
+                                                                disabled: !isEditable
                                                             }
                                                         }}
                                                     />
                                                     <DateTimePicker
-                                                        label="Дата окончания"
+                                                        label={t('taskModalEndDate')}
                                                         value={endDate}
-                                                        onChange={(newValue) => {}}
-                                                        readOnly
+                                                        onChange={(newValue) => {
+                                                            setEndDate(newValue);
+                                                            if (errors.dates) {
+                                                                setErrors(prev => ({ ...prev, dates: undefined }));
+                                                            }
+                                                        }}
                                                         slotProps={{
                                                             textField: { 
                                                                 fullWidth: true,
-                                                                InputProps: { readOnly: true },
-                                                                sx: {
-                                                                    '& .MuiInputBase-input.Mui-readOnly': {
-                                                                        WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
-                                                                    }
-                                                                }
+                                                                error: !!errors.dates,
+                                                                disabled: !isEditable
                                                             }
                                                         }}
                                                     />
                                                 </Box>
                                             </Box>
                                             <FormControl fullWidth disabled>
-                                                <InputLabel>Приоритет</InputLabel>
+                                                <InputLabel>{t('taskModalPriority')}</InputLabel>
                                                 <Select
                                                     value={priority}
-                                                    label="Приоритет"
+                                                    label={t('taskModalPriority')}
                                                     readOnly
                                                     sx={{
                                                         '.MuiSelect-select.Mui-disabled': {
@@ -1522,23 +1523,23 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                         }
                                                     }}
                                                 >
-                                                    <MenuItem value="NONE">Без приоритета</MenuItem>
-                                                    <MenuItem value="LOW">Низкий</MenuItem>
-                                                    <MenuItem value="MEDIUM">Средний</MenuItem>
-                                                    <MenuItem value="HIGH">Высокий</MenuItem>
+                                                    <MenuItem value="NONE">{t('taskModalNoPriority')}</MenuItem>
+                                                    <MenuItem value="LOW">{t('taskModalLowPriority')}</MenuItem>
+                                                    <MenuItem value="MEDIUM">{t('taskModalMediumPriority')}</MenuItem>
+                                                    <MenuItem value="HIGH">{t('taskModalHighPriority')}</MenuItem>
                                                 </Select>
                                             </FormControl>
                                             
                                             {/* Поле "Назначена на" в режиме просмотра */}
                                             <FormControl fullWidth disabled>
-                                                <InputLabel>Назначена на</InputLabel>
+                                                <InputLabel>{t('taskModalAssignedTo')}</InputLabel>
                                                 <Select
                                                     value={assignedUserId || ''}
-                                                    label="Назначена на"
+                                                    label={t('taskModalAssignedTo')}
                                                     readOnly
                                                     renderValue={(selected) => {
                                                         if (!selected) {
-                                                            return <em>Не назначена</em>;
+                                                            return <em>{t('taskModalNotAssigned')}</em>;
                                                         }
                                                         // Ищем участника в списке boardMembers
                                                         const selectedMember = boardMembers.find(member => member.userId === Number(selected));
@@ -1564,7 +1565,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                                 </Box>
                                                             );
                                                         }
-                                                        return `Пользователь ${selected}`;
+                                                        return `${t('taskModalUserNotFound')} ${selected}`;
                                                     }}
                                                     sx={{
                                                         '.MuiSelect-select.Mui-disabled': {
@@ -1573,7 +1574,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                     }}
                                                 >
                                                     <MenuItem value="">
-                                                        <em>Не назначена</em>
+                                                        <em>{t('taskModalNotAssigned')}</em>
                                                     </MenuItem>
                                                 </Select>
                                             </FormControl>
@@ -1587,7 +1588,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                         onClick={() => setShowTemplateSelector(true)}
                                                         color="primary"
                                                     >
-                                                        Использовать шаблон
+                                                        {t('taskModalUseTemplate')}
                                                     </Button>
                                                     <Button 
                                                         startIcon={<SaveAltIcon />} 
@@ -1596,13 +1597,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                         sx={{ ml: 2 }}
                                                         disabled={!title.trim()}
                                                     >
-                                                        Сохранить как шаблон
+                                                        {t('taskModalSaveAsTemplate')}
                                                     </Button>
                                                 </Box>
                                             )}
                                             
                                             <TextField
-                                                label="Название"
+                                                label={t('taskModalTitle')}
                                                 value={title}
                                                 onChange={(e) => {
                                                     setTitle(e.target.value);
@@ -1618,20 +1619,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             />
                                             {isEditable ? (
                                                 <Box sx={{ mb: 2 }}>
-                                                    <Typography variant="subtitle2" gutterBottom>Описание</Typography>
+                                                    <Typography variant="subtitle2" gutterBottom>{t('taskModalDescription')}</Typography>
                                                     <ReactQuill
                                                         value={description}
                                                         onChange={setDescription}
                                                         modules={quillModules}
                                                         formats={quillFormats}
-                                                        placeholder="Добавьте описание задачи..."
+                                                        placeholder={t('taskModalDescriptionPlaceholder')}
                                                         theme="snow"
                                                         style={{ height: '200px', marginBottom: '40px' }}
                                                     />
                                                 </Box>
                                             ) : (
                                                 <TextField
-                                                    label="Описание"
+                                                    label={t('taskModalDescription')}
                                                     value={description}
                                                     onChange={(e) => setDescription(e.target.value)}
                                                     fullWidth
@@ -1644,18 +1645,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Box sx={{ flex: 1 }}>
                                                     <FormControl fullWidth disabled={!isEditable}>
-                                                        <InputLabel>Тип задачи</InputLabel>
+                                                        <InputLabel>{t('taskModalTaskType')}</InputLabel>
                                                         <Select
                                                             value={selectedTypeId || ''}
-                                                            label="Тип задачи"
+                                                            label={t('taskModalTaskType')}
                                                             onChange={(e) => {
                                                                 const value = e.target.value;
                                                                 setSelectedTypeId(value === '' ? null : Number(value));
                                                             }}
                                                             renderValue={(selected) => {
-                                                                if (!selected) return <em>Не выбран</em>;
-                                                                const selectedType = taskTypes.find(t => t.id === selected);
-                                                                if (!selectedType) return <em>Не выбран</em>;
+                                                                if (!selected) return <em>{t('taskModalNotSelected')}</em>;
+                                                                const selectedType = taskTypes.find(type => type.id === selected);
+                                                                if (!selectedType) return <em>{t('taskModalNotSelected')}</em>;
                                                                 
                                                                 return (
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1679,7 +1680,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                             }}
                                                         >
                                                             <MenuItem value="">
-                                                                <em>Не выбран</em>
+                                                                <em>{t('taskModalNotSelected')}</em>
                                                             </MenuItem>
                                                             {taskTypes.map((type) => (
                                                                 <MenuItem key={type.id} value={type.id}>
@@ -1700,18 +1701,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                 
                                                 <Box sx={{ flex: 1 }}>
                                                     <FormControl fullWidth disabled={!isEditable}>
-                                                        <InputLabel>Статус</InputLabel>
+                                                        <InputLabel>{t('taskModalStatus')}</InputLabel>
                                                         <Select
                                                             value={selectedStatusId || ''}
-                                                            label="Статус"
+                                                            label={t('taskModalStatus')}
                                                             onChange={(e) => {
                                                                 const value = e.target.value;
                                                                 setSelectedStatusId(value === '' ? null : Number(value));
                                                             }}
                                                             renderValue={(selected) => {
-                                                                if (!selected) return <em>Не выбран</em>;
-                                                                const selectedStatus = boardStatuses.find(s => s.id === selected);
-                                                                if (!selectedStatus) return <em>Не выбран</em>;
+                                                                if (!selected) return <em>{t('taskModalNotSelected')}</em>;
+                                                                const selectedStatus = boardStatuses.find(status => status.id === selected);
+                                                                if (!selectedStatus) return <em>{t('taskModalNotSelected')}</em>;
                                                                 
                                                                 return (
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1737,7 +1738,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                             }}
                                                         >
                                                             <MenuItem value="">
-                                                                <em>Не выбран</em>
+                                                                <em>{t('taskModalNotSelected')}</em>
                                                             </MenuItem>
                                                             {boardStatuses.map((status) => (
                                                                 <MenuItem key={status.id} value={status.id}>
@@ -1762,7 +1763,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                                 <Box sx={{ display: 'flex', gap: 2 }}>
                                                     <DateTimePicker
-                                                        label="Дата начала"
+                                                        label={t('taskModalStartDate')}
                                                         value={startDate}
                                                         onChange={(newValue) => {
                                                             setStartDate(newValue);
@@ -1779,7 +1780,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                         }}
                                                     />
                                                     <DateTimePicker
-                                                        label="Дата окончания"
+                                                        label={t('taskModalEndDate')}
                                                         value={endDate}
                                                         onChange={(newValue) => {
                                                             setEndDate(newValue);
@@ -1803,31 +1804,31 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                             
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <FormControl fullWidth disabled={!isEditable}>
-                                                    <InputLabel>Приоритет</InputLabel>
+                                                    <InputLabel>{t('taskModalPriority')}</InputLabel>
                                                     <Select
                                                         value={priority}
-                                                        label="Приоритет"
+                                                        label={t('taskModalPriority')}
                                                         onChange={(e) => setPriority(e.target.value as TaskPriority)}
                                                     >
-                                                        <MenuItem value="NONE">Без приоритета</MenuItem>
-                                                        <MenuItem value="LOW">Низкий</MenuItem>
-                                                        <MenuItem value="MEDIUM">Средний</MenuItem>
-                                                        <MenuItem value="HIGH">Высокий</MenuItem>
+                                                        <MenuItem value="NONE">{t('taskModalNoPriority')}</MenuItem>
+                                                        <MenuItem value="LOW">{t('taskModalLowPriority')}</MenuItem>
+                                                        <MenuItem value="MEDIUM">{t('taskModalMediumPriority')}</MenuItem>
+                                                        <MenuItem value="HIGH">{t('taskModalHighPriority')}</MenuItem>
                                                     </Select>
                                                 </FormControl>
                                                 
                                                 <FormControl fullWidth disabled={!isEditable}>
-                                                    <InputLabel>Назначена на</InputLabel>
+                                                    <InputLabel>{t('taskModalAssignedTo')}</InputLabel>
                                                     <Select
                                                         value={assignedUserId || ''}
-                                                        label="Назначена на"
+                                                        label={t('taskModalAssignedTo')}
                                                         onChange={(e) => {
                                                             const value = e.target.value;
                                                             setAssignedUserId(value === '' ? null : Number(value));
                                                         }}
                                                         renderValue={(selected) => {
                                                             if (!selected) {
-                                                                return <em>Не назначена</em>;
+                                                                return <em>{t('taskModalNotAssigned')}</em>;
                                                             }
                                                             // Ищем участника в списке boardMembers
                                                             const selectedMember = boardMembers.find(member => member.userId === Number(selected));
@@ -1853,11 +1854,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                                     </Box>
                                                                 );
                                                             }
-                                                            return `Пользователь ${selected}`;
+                                                            return `${t('taskModalUserNotFound')} ${selected}`;
                                                         }}
                                                     >
                                                         <MenuItem value="">
-                                                            <em>Не назначена</em>
+                                                            <em>{t('taskModalNotAssigned')}</em>
                                                         </MenuItem>
                                                         {boardMembers.length > 0 ? boardMembers.map((member) => (
                                                             <MenuItem key={member.userId} value={member.userId}>
@@ -1899,7 +1900,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                                             </MenuItem>
                                                         )) : (
                                                             <MenuItem disabled>
-                                                                <Typography color="text.secondary">Нет участников доски</Typography>
+                                                                <Typography color="text.secondary">{t('taskModalNoBoardMembers')}</Typography>
                                                             </MenuItem>
                                                         )}
                                                     </Select>
@@ -2008,44 +2009,44 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </Dialog>
 
             <Dialog open={saveTemplateDialogOpen} onClose={() => setSaveTemplateDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Сохранить задачу как шаблон</DialogTitle>
+                <DialogTitle>{t('taskModalSaveTemplateTitle')}</DialogTitle>
                 <DialogContent>
                     <TextField
-                        label="Название шаблона"
+                        label={t('taskModalTemplateName')}
                         value={templateName}
                         onChange={(e) => setTemplateName(e.target.value)}
                         fullWidth
                         required
                         margin="normal"
-                        helperText="Укажите имя шаблона для быстрого создания похожих задач в будущем"
+                        helperText={t('taskModalTemplateNameHelp')}
                     />
                     <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2">Шаблон будет включать:</Typography>
+                        <Typography variant="subtitle2">{t('taskModalTemplateWillInclude')}</Typography>
                         <ul>
-                            <li>Название: {title}</li>
-                            <li>Описание{description ? '' : ' (пусто)'}</li>
-                            <li>Тип: {taskTypes.find(t => t.id === selectedTypeId)?.name || 'Не выбран'}</li>
-                            <li>Статус: {boardStatuses.find(s => s.id === selectedStatusId)?.name || 'Не выбран'}</li>
-                            <li>Приоритет: {
-                                priority === 'HIGH' ? 'Высокий' :
-                                priority === 'MEDIUM' ? 'Средний' :
-                                priority === 'LOW' ? 'Низкий' :
-                                'Без приоритета'
+                            <li>{t('taskModalTemplateTitle')} {title}</li>
+                            <li>{t('taskModalTemplateDescription')}{description ? '' : t('taskModalTemplateDescriptionEmpty')}</li>
+                                                                            <li>{t('taskModalTemplateType')} {taskTypes.find(type => type.id === selectedTypeId)?.name || t('taskModalNotSelected')}</li>
+                                                          <li>{t('taskModalTemplateStatus')} {boardStatuses.find(status => status.id === selectedStatusId)?.name || t('taskModalNotSelected')}</li>
+                            <li>{t('taskModalTemplatePriority')} {
+                                priority === 'HIGH' ? t('taskModalHighPriority') :
+                                priority === 'MEDIUM' ? t('taskModalMediumPriority') :
+                                priority === 'LOW' ? t('taskModalLowPriority') :
+                                t('taskModalNoPriority')
                             }</li>
                         </ul>
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setSaveTemplateDialogOpen(false)}>Отмена</Button>
+                    <Button onClick={() => setSaveTemplateDialogOpen(false)}>{t('taskModalTemplateCancel')}</Button>
                     <Button 
                         onClick={saveTemplate} 
                         variant="contained"
                         disabled={!templateName.trim()}
                     >
-                        Сохранить шаблон
+                        {t('taskModalTemplateSave')}
                     </Button>
                 </DialogActions>
             </Dialog>
         </LocalizationProvider>
     );
-}; 
+};

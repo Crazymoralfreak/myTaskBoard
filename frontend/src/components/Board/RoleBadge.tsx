@@ -1,6 +1,8 @@
 import React from 'react';
 import { Chip, Tooltip, useTheme } from '@mui/material';
 import { Role, SystemRoles } from '../../types/Role';
+import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
 
 interface RoleBadgeProps {
   role: Role;
@@ -39,13 +41,16 @@ const getRoleColor = (roleName: string, isDarkMode: boolean): { bg: string, text
  */
 const RoleBadge: React.FC<RoleBadgeProps> = ({ role, size = 'medium' }) => {
   const theme = useTheme();
+  const { t } = useLocalization();
   const isDarkMode = theme.palette.mode === 'dark';
   const { bg, text } = getRoleColor(role.name, isDarkMode);
+  const roleDescription = getRoleDescription(role.name, t);
+  const roleDisplayName = getRoleDisplayName(role.name, t);
   
   return (
-    <Tooltip title={role.description || role.name} arrow>
+    <Tooltip title={roleDescription} arrow>
       <Chip
-        label={role.name}
+        label={roleDisplayName}
         size={size}
         sx={{
           backgroundColor: bg,

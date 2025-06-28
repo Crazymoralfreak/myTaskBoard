@@ -49,7 +49,8 @@ import { BoardMembersService } from '../../services/BoardMembersService';
 import { RolesService } from '../../services/RolesService';
 import { Role, SystemRoles } from '../../types/Role';
 import { getAvatarUrl } from '../../utils/avatarUtils';
-
+import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
 interface MembersListProps {
   boardId: string;
   members: BoardMember[];
@@ -78,6 +79,7 @@ const MembersList: React.FC<MembersListProps> = ({
   onAddMemberClick,
   roles
 }) => {
+  const { t } = useLocalization();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
   const [memberToDelete, setMemberToDelete] = useState<BoardMember | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -183,7 +185,7 @@ const MembersList: React.FC<MembersListProps> = ({
       setLoading(true);
       await BoardMembersService.removeMemberFromBoard(boardId, memberToDelete.userId);
       onMemberRemoved(memberToDelete.userId);
-      setSuccessMessage(`Участник ${memberToDelete.displayName || memberToDelete.username} успешно удален`);
+      setSuccessMessage(`${t('memberRemovedSuccess')} ${memberToDelete.displayName || memberToDelete.username}`);
     } catch (err) {
       console.error('Ошибка при удалении участника:', err);
     } finally {
@@ -211,6 +213,9 @@ const MembersList: React.FC<MembersListProps> = ({
         roleId: selectedRoleId
       };
       
+      // Находим выбранную роль для отображения в сообщении
+      const selectedRole = roles.find(r => r.id === selectedRoleId);
+      
       console.log('Отправляем запрос:', request);
       const updatedMember = await BoardMembersService.updateMemberRole(
         boardId, 
@@ -226,14 +231,13 @@ const MembersList: React.FC<MembersListProps> = ({
           updatedMember.role?.id, '!=', selectedRoleId);
         
         // Исправляем роль вручную, если она не была обновлена на сервере
-        const selectedRole = roles.find(r => r.id === selectedRoleId);
         if (selectedRole) {
           updatedMember.role = selectedRole;
         }
       }
       
       onMemberRoleChanged(updatedMember);
-      setSuccessMessage(`Роль пользователя ${editingRoleMember.displayName || editingRoleMember.username} успешно обновлена`);
+      setSuccessMessage(`${t('memberRoleChanged')} ${editingRoleMember.displayName || editingRoleMember.username} ${t('to')} "${selectedRole?.name || t('newRole')}"`);
       
       // Закрываем диалог
       setEditRoleDialogOpen(false);
@@ -241,7 +245,7 @@ const MembersList: React.FC<MembersListProps> = ({
       setSelectedRoleId(null);
     } catch (err) {
       console.error('Ошибка при обновлении роли участника:', err);
-      setError(`Не удалось обновить роль: ${err instanceof Error ? err.message : 'неизвестная ошибка'}`);
+      setError(`${t('errorChangeRole')}: ${err instanceof Error ? err.message : t('unknownError')}`);
     } finally {
       setRoleChangeLoading(false);
     }
@@ -321,7 +325,7 @@ const MembersList: React.FC<MembersListProps> = ({
     
     if (sortOrder === 'role') {
       return sortedMembers.reduce<Record<string, BoardMember[]>>((groups, member) => {
-        const roleName = member.role?.name || 'Без роли';
+        const roleName = member.role?.name || t('noRoleLabel');
         if (!groups[roleName]) {
           groups[roleName] = [];
         }
@@ -352,6 +356,12 @@ const MembersList: React.FC<MembersListProps> = ({
       обработанный: processedUrl
     });
     return processedUrl;
+  };
+  
+  // Получает локализованное описание роли
+  const getRoleDescriptionLocal = (roleName?: string, t?: (key: string) => string): string => {
+    if (!t || !roleName) return '';
+    return getRoleDescription(roleName, t);
   };
   
   // Рендер списка участников с учетом группировки
@@ -409,6 +419,10 @@ const MembersList: React.FC<MembersListProps> = ({
   
   // Рендер элемента списка участников
   const renderMemberItem = (member: BoardMember): JSX.Element => {
+    // Проверяем принадлежность к владельцу доски
+    const isOwner = member.userId === ownerId;
+    const roleName = member.role?.name || t('noRoleLabel');
+    
     // Подготавливаем URL аватарки заранее
     const avatarSrc = processAvatarUrl(member.avatarUrl);
     
@@ -427,7 +441,7 @@ const MembersList: React.FC<MembersListProps> = ({
         secondaryAction={
           isAdmin && member.userId !== ownerId && member.userId !== currentUserId ? (
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Tooltip title="Изменить роль пользователя">
+              <Tooltip title={t('membersListEditRole')}>
                 <IconButton
                   edge="end"
                   aria-label="изменить роль"
@@ -475,7 +489,7 @@ const MembersList: React.FC<MembersListProps> = ({
               
               {member.userId === currentUserId && (
                 <Chip 
-                  label="Вы" 
+                  label={t('youLabel')} 
                   size="small" 
                   variant="outlined"
                   color="info"
@@ -485,7 +499,7 @@ const MembersList: React.FC<MembersListProps> = ({
               
               {member.userId === ownerId && (
                 <Chip 
-                  label="Владелец" 
+                  label={t('ownerLabel')} 
                   size="small"
                   color="primary"
                   variant="outlined"
@@ -503,9 +517,9 @@ const MembersList: React.FC<MembersListProps> = ({
               <Box display="flex" alignItems="center" mt={1}>
                 {isAdmin && member.userId !== ownerId ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Tooltip title="Нажмите для изменения роли" arrow placement="top">
+                    <Tooltip title={t('clickToChangeRoleTooltip')} arrow placement="top">
                       <Chip 
-                        label={member.role?.name || 'Без роли'} 
+                        label={roleName} 
                         size="small"
                         variant="outlined"
                         sx={{ 
@@ -529,11 +543,11 @@ const MembersList: React.FC<MembersListProps> = ({
                     {/* Быстрые действия для смены роли */}
                     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
                       <Typography variant="caption" color="text.secondary" sx={{ mr: 1, mb: 0.5 }}>
-                        Быстрая смена:
+                        {t('quickRoleChange')}
                       </Typography>
                       
                       {roles.filter(role => role.id !== member.role?.id).map(role => (
-                        <Tooltip key={role.id} title={`Изменить на ${role.name}`} arrow>
+                        <Tooltip key={role.id} title={`${t('changeToRole')} ${role.name}`} arrow>
                           <Chip
                             label={role.name}
                             size="small"
@@ -561,12 +575,12 @@ const MembersList: React.FC<MembersListProps> = ({
                   </Box>
                 ) : (
                   <Tooltip 
-                    title={member.role?.description || 'Описание роли отсутствует'} 
+                    title={member.role?.description || t('roleDescriptionMissing')} 
                     arrow
                     placement="top"
                   >
                     <Chip 
-                      label={member.role?.name || 'Без роли'} 
+                      label={roleName} 
                       size="small"
                       variant="outlined"
                       sx={{ 
@@ -593,9 +607,9 @@ const MembersList: React.FC<MembersListProps> = ({
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box display="flex" alignItems="center">
             <Typography variant="subtitle1" fontWeight="medium">
-              Список участников ({members.length})
+              {t('membersListTitle')} ({members.length})
             </Typography>
-            <Tooltip title="Участники могут просматривать и взаимодействовать с доской в соответствии со своими ролями">
+            <Tooltip title={t('membersListTooltip')}>
               <IconButton size="small" color="info">
                 <InfoOutlinedIcon fontSize="small" />
               </IconButton>
@@ -603,7 +617,7 @@ const MembersList: React.FC<MembersListProps> = ({
           </Box>
           
           <Box display="flex" gap={1}>
-            <Tooltip title="Сортировка">
+            <Tooltip title={t('sortingTooltip')}>
               <Button
                 size="small"
                 startIcon={<SortIcon />}
@@ -611,8 +625,8 @@ const MembersList: React.FC<MembersListProps> = ({
                 color="inherit"
                 onClick={handleSortMenuClick}
               >
-                {sortOrder === 'name' ? 'По имени' : 
-                 sortOrder === 'role' ? 'По роли' : 'По дате'}
+                {sortOrder === 'name' ? t('sortByName') : 
+                 sortOrder === 'role' ? t('sortByRole') : t('sortByDate')}
               </Button>
             </Tooltip>
             
@@ -624,7 +638,7 @@ const MembersList: React.FC<MembersListProps> = ({
                 onClick={onAddMemberClick}
                 color="primary"
               >
-                Добавить участника
+                {t('addMemberButton')}
               </Button>
             )}
           </Box>
@@ -635,7 +649,7 @@ const MembersList: React.FC<MembersListProps> = ({
         {members.length === 0 ? (
           <Box textAlign="center" py={4}>
             <Typography variant="body1" color="text.secondary" gutterBottom>
-              Нет участников для отображения
+              {t('noMembersToDisplay')}
             </Typography>
             {isAdmin && onAddMemberClick && (
               <Button 
@@ -644,7 +658,7 @@ const MembersList: React.FC<MembersListProps> = ({
                 onClick={onAddMemberClick}
                 sx={{ mt: 1 }}
               >
-                Добавить первого участника
+                {t('addFirstMember')}
               </Button>
             )}
           </Box>
@@ -671,19 +685,19 @@ const MembersList: React.FC<MembersListProps> = ({
           selected={sortOrder === 'name'}
           onClick={(e) => handleSortChange(e, 'name')}
         >
-          По имени
+          {t('sortByName')}
         </MenuItem>
         <MenuItem
           selected={sortOrder === 'role'}
           onClick={(e) => handleSortChange(e, 'role')}
         >
-          По роли
+          {t('sortByRole')}
         </MenuItem>
         <MenuItem
           selected={sortOrder === 'joined'}
           onClick={(e) => handleSortChange(e, 'joined')}
         >
-          По дате добавления
+          {t('sortByDate')}
         </MenuItem>
       </Menu>
       
@@ -697,13 +711,13 @@ const MembersList: React.FC<MembersListProps> = ({
           <ListItemIcon>
             <EditIcon fontSize="small" color="primary" />
           </ListItemIcon>
-          Изменить роль
+          {t('editRoleMenuItem')}
         </MenuItem>
         <MenuItem onClick={() => menuMember && handleDeleteClick(menuMember)}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" color="error" />
           </ListItemIcon>
-          <Typography color="error">Удалить участника</Typography>
+          <Typography color="error">{t('deleteParticipantMenuItem')}</Typography>
         </MenuItem>
       </Menu>
       
@@ -713,23 +727,23 @@ const MembersList: React.FC<MembersListProps> = ({
         onClose={() => setConfirmDeleteOpen(false)}
         TransitionComponent={Fade}
       >
-        <DialogTitle>Удаление участника</DialogTitle>
+        <DialogTitle>{t('deleteMemberDialogTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Вы уверены, что хотите удалить пользователя 
+            {t('deleteMemberConfirmMessage')} 
             {memberToDelete && ` ${memberToDelete.displayName || memberToDelete.username}`} 
-            из этой доски?
+            {t('fromThisBoard')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Это действие нельзя отменить.
+            {t('actionCannotBeUndone')}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDeleteOpen(false)} disabled={loading}>
-            Отмена
+            {t('cancelButton')}
           </Button>
           <Button onClick={handleRemoveMember} color="error" disabled={loading} autoFocus>
-            {loading ? 'Удаление...' : 'Удалить'}
+            {loading ? t('deletingButton') : t('deleteButton')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -743,7 +757,7 @@ const MembersList: React.FC<MembersListProps> = ({
         fullWidth
       >
         <DialogTitle sx={{ borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}>
-          <Typography variant="h6">Изменение роли участника</Typography>
+          <Typography variant="h6">{t('changeMemberRoleDialogTitle')}</Typography>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           {editingRoleMember && (
@@ -775,8 +789,8 @@ const MembersList: React.FC<MembersListProps> = ({
               )}
               
               <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
-                Текущая роль: <Chip 
-                  label={editingRoleMember.role?.name || "Не указана"} 
+                {t('currentRole')} <Chip 
+                  label={editingRoleMember.role?.name || t('notSpecifiedRole')} 
                   size="small"
                   variant="outlined"
                   sx={{ 
@@ -790,13 +804,13 @@ const MembersList: React.FC<MembersListProps> = ({
               </Typography>
               
               <Typography variant="subtitle1" fontWeight="medium" sx={{ mb: 2 }}>
-                Выберите новую роль:
+                {t('selectNewRole')}
               </Typography>
               
               {loadingRoles ? (
                 <Box display="flex" justifyContent="center" py={2}>
                   <CircularProgress size={24} sx={{ mr: 1 }} />
-                  <Typography>Загрузка ролей...</Typography>
+                  <Typography>{t('loadingRoles')}</Typography>
                 </Box>
               ) : (
                 <Box sx={{ mt: 2 }}>
@@ -828,7 +842,7 @@ const MembersList: React.FC<MembersListProps> = ({
                             </Typography>
                             {selectedRoleId === role.id && (
                               <Chip 
-                                label="Выбрано" 
+                                label={t('membersListRoleSelected')} 
                                 size="small" 
                                 color="primary" 
                                 sx={{ mt: 1 }} 
@@ -852,7 +866,7 @@ const MembersList: React.FC<MembersListProps> = ({
             variant="outlined"
             color="inherit"
           >
-            Отмена
+            {t('cancelButton')}
           </Button>
           <Button 
             onClick={handleRoleChange} 
@@ -862,7 +876,7 @@ const MembersList: React.FC<MembersListProps> = ({
             autoFocus
             startIcon={roleChangeLoading && <CircularProgress size={20} />}
           >
-            {roleChangeLoading ? 'Сохранение...' : 'Сохранить изменения'}
+            {roleChangeLoading ? t('membersListSaving') : t('membersListSaveChanges')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -15,4 +15,9 @@ public class BoardMemberExistsException extends RuntimeException {
     public BoardMemberExistsException(Long userId, String boardId) {
         super(String.format("Пользователь с ID %d уже является участником доски %s", userId, boardId));
     }
+    
+    // Новый конструктор с именем пользователя
+    public BoardMemberExistsException(String userName, String boardName) {
+        super(String.format("Пользователь %s уже является участником доски %s", userName, boardName));
+    }
 } 

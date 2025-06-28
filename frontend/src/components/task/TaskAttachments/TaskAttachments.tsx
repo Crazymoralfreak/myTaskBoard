@@ -126,7 +126,7 @@ const TextFilePreview: React.FC<TextFilePreviewProps> = ({ url, filename }) => {
             <Box sx={{ textAlign: 'center', p: 3 }}>
                 <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
                 <Button variant="outlined" onClick={() => window.location.reload()}>
-                    {t('tryAgain')}
+                    {t('taskTryAgain')}
                 </Button>
             </Box>
         );
@@ -1800,7 +1800,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     sx={{ mb: 2 }} 
                     action={
                         <Button color="inherit" size="small" onClick={loadTaskAttachments}>
-                            {t('tryAgain')}
+                            {t('taskTryAgain')}
                         </Button>
                     }
                 >

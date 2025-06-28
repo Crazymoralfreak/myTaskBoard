@@ -34,7 +34,7 @@ export enum NotificationPriority {
 }
 
 /**
- * Интерфейс уведомления
+ * Интерфейс уведомления (соответствует backend DTO)
  */
 export interface Notification {
   id: number;
@@ -46,8 +46,8 @@ export interface Notification {
   relatedEntityId?: string;
   relatedEntityType?: string;
   groupKey?: string;
-  isRead: boolean;
-  isArchived: boolean;
+  read: boolean;
+  archived: boolean;
   createdAt: string;
   updatedAt?: string;
   readAt?: string;

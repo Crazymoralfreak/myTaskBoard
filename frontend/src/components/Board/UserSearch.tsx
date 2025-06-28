@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Autocomplete, TextField, CircularProgress, Avatar, Box, Typography } from '@mui/material';
 import { User } from '../../types/user';
 import { UserSearchService } from '../../services/UserSearchService';
+import { useLocalization } from '../../hooks/useLocalization';
 import debounce from 'lodash/debounce';
 
 interface UserSearchProps {
@@ -16,12 +17,13 @@ interface UserSearchProps {
  * Компонент для поиска пользователей с автодополнением
  */
 const UserSearch: React.FC<UserSearchProps> = ({
-  label = 'Поиск пользователя',
-  placeholder = 'Введите имя пользователя или email',
+  label,
+  placeholder,
   onChange,
   value,
   disabled = false
 }) => {
+  const { t } = useLocalization();
   const [inputValue, setInputValue] = useState<string>('');
   const [options, setOptions] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -73,8 +75,8 @@ const UserSearch: React.FC<UserSearchProps> = ({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
-          placeholder={placeholder}
+          label={label || t('userSearchLabel')}
+          placeholder={placeholder || t('userSearchPlaceholder')}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
@@ -95,8 +97,8 @@ const UserSearch: React.FC<UserSearchProps> = ({
           </Box>
         </Box>
       )}
-      noOptionsText="Пользователи не найдены"
-      loadingText="Поиск..."
+      noOptionsText={t('userSearchNoResults')}
+      loadingText={t('userSearchLoading')}
     />
   );
 };

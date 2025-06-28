@@ -161,13 +161,13 @@ const NotificationsPage: React.FC = () => {
         return;
       }
       
-      // Обновляем уведомление в списке с принудительным обновлением isRead
+      // Обновляем уведомление в списке с принудительным обновлением read
       setNotifications(prevNotifications => {
         const updatedList = prevNotifications.map(notification => 
           notification.id === id ? {
             ...notification,
             ...updatedNotification,
-            isRead: true, // Принудительно устанавливаем как прочитанное
+            read: true, // Принудительно устанавливаем как прочитанное
             readAt: updatedNotification.readAt || new Date().toISOString()
           } : notification
         );
@@ -209,7 +209,7 @@ const NotificationsPage: React.FC = () => {
   // Обработчик навигации по уведомлению
   const handleNotificationNavigate = (notification: Notification) => {
     // Отмечаем уведомление как прочитанное если оно не прочитано
-    if (!notification.isRead) {
+    if (!notification.read) {
       handleMarkAsRead(notification.id);
     }
     
@@ -267,7 +267,7 @@ const NotificationsPage: React.FC = () => {
         setNotifications(prevNotifications => 
           prevNotifications.map(notification => ({
             ...notification,
-            isRead: true
+            read: true
           }))
         );
         
@@ -400,7 +400,7 @@ const NotificationsPage: React.FC = () => {
       setNotifications(prevNotifications => 
         prevNotifications.map(notification => 
           selectedNotifications.has(notification.id) 
-            ? { ...notification, isRead: true }
+            ? { ...notification, read: true }
             : notification
         )
       );
@@ -442,7 +442,7 @@ const NotificationsPage: React.FC = () => {
               <Button
                 variant="outlined"
                 onClick={handleMarkAllAsRead}
-                disabled={loading || markingAsRead || notifications.every(n => n.isRead)}
+                disabled={loading || markingAsRead || notifications.every(n => n.read)}
               >
                 {markingAsRead ? (
                   <CircularProgress size={24} sx={{ mr: 1 }} />
@@ -525,7 +525,7 @@ const NotificationsPage: React.FC = () => {
                   variant="outlined"
                   onClick={handleBulkMarkAsRead}
                   disabled={Array.from(selectedNotifications).every(id => 
-                    notifications.find(n => n.id === id)?.isRead
+                    notifications.find(n => n.id === id)?.read
                   )}
                 >
                                       {t('bulkActionsMarkAsRead')}
