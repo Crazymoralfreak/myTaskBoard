@@ -378,5 +378,8 @@
   "hours_many": "hours",
   "days_one": "day",
   "days_few": "days",
-  "days_many": "days"
+  "days_many": "days",
+  "enterComment": "Enter comment...",
+  "enterYourComment": "Enter your comment...",
+  "replyTo": "Reply to"
 } 

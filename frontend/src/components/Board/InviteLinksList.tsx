@@ -26,7 +26,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import { InviteLink } from '../../types/inviteLink';
 import { InviteLinkService } from '../../services/InviteLinkService';
 import { formatDistanceToNow, formatRelative, isAfter } from 'date-fns';
-import { getDateFnsLocale } from '../../utils/formatters';
+import { formatDateWithTZ } from '../../utils/formatters';
 import { useLocalization } from '../../hooks/useLocalization';
 
 interface InviteLinksListProps {
@@ -45,7 +45,7 @@ const InviteLinksList: React.FC<InviteLinksListProps> = ({
   loading,
   onDelete
 }) => {
-  const { language } = useLocalization();
+  const { language, timezone, t } = useLocalization();
   const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
   const [deletingLinkId, setDeletingLinkId] = useState<number | null>(null);
   const [copyError, setCopyError] = useState<boolean>(false);
@@ -130,7 +130,7 @@ const InviteLinksList: React.FC<InviteLinksListProps> = ({
     <Box>
       {copyError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Не удалось скопировать ссылку. Попробуйте скопировать вручную.
+          {t('copyError') || 'Не удалось скопировать ссылку. Попробуйте скопировать вручную.'}
         </Alert>
       )}
       
@@ -142,13 +142,13 @@ const InviteLinksList: React.FC<InviteLinksListProps> = ({
           const isInactive = !link.isActive || isExpired || isMaxUsesExceeded;
           
           // Форматируем даты
-          const createdAt = formatRelative(new Date(link.createdAt), new Date(), { locale: getDateFnsLocale(language) });
-          let expiresAtText = 'Бессрочная';
+          const createdAt = formatDateWithTZ(link.createdAt, timezone, 'dd.MM.yyyy HH:mm', language);
+          let expiresAtText = t('perpetual') || 'Бессрочная';
           if (link.expiresAt) {
-            const expiresAtDate = new Date(link.expiresAt);
-            expiresAtText = isExpired 
-              ? `Истекла ${formatRelative(expiresAtDate, new Date(), { locale: getDateFnsLocale(language) })}`
-              : `Истекает ${formatDistanceToNow(expiresAtDate, { addSuffix: true, locale: getDateFnsLocale(language) })}`;
+            const expiresAtDate = link.expiresAt;
+            expiresAtText = isExpired
+              ? `${t('expired') || 'Истекла'} ${formatDateWithTZ(expiresAtDate, timezone, 'dd.MM.yyyy HH:mm', language)}`
+              : `${t('expires') || 'Истекает'} ${formatDateWithTZ(expiresAtDate, timezone, 'dd.MM.yyyy HH:mm', language)}`;
           }
           
           return (

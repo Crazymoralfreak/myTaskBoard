@@ -38,6 +38,7 @@ import { updateNotificationSetting } from '../services/notificationPreferencesSe
 import { useLocalization } from '../hooks/useLocalization';
 import FlagRU from '../components/shared/LanguageSelector/FlagRU';
 import FlagUS from '../components/shared/LanguageSelector/FlagUS';
+import TimezoneSelector from '../components/shared/TimezoneSelector/TimezoneSelector';
 
 interface UserSettings {
   darkMode: boolean;
@@ -51,7 +52,7 @@ interface UserSettings {
 }
 
 export const SettingsPage: React.FC = () => {
-  const { t, setLanguage } = useLocalization();
+  const { t, setLanguage, updateUserSettings } = useLocalization();
   const [tabValue, setTabValue] = useState(0);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
@@ -129,6 +130,9 @@ export const SettingsPage: React.FC = () => {
       // Обновляем все настройки с сервера
       setSettings(updatedSettings);
       
+      // Уведомляем LocalizationContext об изменениях
+      updateUserSettings(updatedSettings);
+      
       enqueueSnackbar(`Настройка "${getInterfaceSettingDisplayName(setting)}" сохранена`, { 
         variant: 'success' 
       });
@@ -189,6 +193,9 @@ export const SettingsPage: React.FC = () => {
       
       // Обновляем все настройки с сервера
       setSettings(updatedSettings);
+      
+      // Уведомляем LocalizationContext об изменениях
+      updateUserSettings(updatedSettings);
       
       enqueueSnackbar(`Настройка "${getInterfaceSettingDisplayName(setting)}" сохранена`, { 
         variant: 'success' 
@@ -354,6 +361,34 @@ export const SettingsPage: React.FC = () => {
     return displayNames[key] || key as string;
   };
 
+  const handleTimezoneChange = async (tz: string) => {
+    if (!settings) return;
+    const newValue = tz;
+    const settingName = 'timezone';
+    try {
+      setSavingSettings(prev => ({ ...prev, [settingName]: true }));
+      const newSettings = { ...settings, timezone: newValue };
+      setSettings(newSettings);
+      const updatedSettings = await userService.updateUserSetting('timezone', newValue);
+      if (updatedSettings.timezone !== newValue) {
+        throw new Error(`Сервер вернул неожиданное значение для timezone: ожидали ${newValue}, получили ${updatedSettings.timezone}`);
+      }
+      setSettings(updatedSettings);
+      
+      // Уведомляем LocalizationContext об изменениях
+      updateUserSettings(updatedSettings);
+      
+      enqueueSnackbar(`Настройка "${getInterfaceSettingDisplayName('timezone')}" сохранена`, { variant: 'success' });
+      localStorage.setItem('timezone', newValue);
+    } catch (error) {
+      console.error('Ошибка при сохранении настройки:', error);
+      enqueueSnackbar(`Не удалось сохранить настройку "${getInterfaceSettingDisplayName('timezone')}"`, { variant: 'error' });
+      setSettings(prev => prev ? { ...prev, timezone: settings.timezone } : null);
+    } finally {
+      setSavingSettings(prev => ({ ...prev, [settingName]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -494,26 +529,11 @@ export const SettingsPage: React.FC = () => {
 
                 <Box sx={{ mt: 2 }}>
                   <FormControl fullWidth disabled={savingSettings.timezone}>
-                    <InputLabel id="timezone-label">{t('timezone')}</InputLabel>
-                    <Select
-                      labelId="timezone-label"
+                    <TimezoneSelector
                       value={settings.timezone}
-                      label={t('timezone')}
-                      onChange={handleSelectSettingChange('timezone')}
-                      endAdornment={
-                        savingSettings.timezone && (
-                          <Box sx={{ position: 'absolute', right: 40 }}>
-                            <CircularProgress size={20} />
-                          </Box>
-                        )
-                      }
-                    >
-                      {SUPPORTED_TIMEZONES.map((timezone) => (
-                        <MenuItem key={timezone.value} value={timezone.value}>
-                          {timezone.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                      onChange={handleTimezoneChange}
+                      disabled={savingSettings.timezone}
+                    />
                   </FormControl>
                 </Box>
               </Box>

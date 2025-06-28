@@ -25,7 +25,7 @@ import { Task, TaskHistory as TaskHistoryType } from '../../../types/task';
 import { format, isToday, isYesterday, isThisWeek, isSameDay } from 'date-fns';
 import { taskService } from '../../../services/taskService';
 import { useLocalization } from '../../../hooks/useLocalization';
-import { getDateFnsLocale } from '../../../utils/formatters';
+import { getDateFnsLocale, formatDateWithTZ } from '../../../utils/formatters';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import InfoIcon from '@mui/icons-material/Info';
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt';
@@ -196,7 +196,7 @@ const getActionColor = (action: string): "default" | "primary" | "secondary" | "
 };
 
 export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
-    const { t, language } = useLocalization();
+    const { t, language, timezone } = useLocalization();
     const [history, setHistory] = useState<TaskHistoryType[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -358,18 +358,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
     // Форматирование временной метки с учетом часового пояса пользователя
     const formatTimestamp = (timestamp: string) => {
         try {
-            const date = new Date(timestamp);
-            const locale = language === 'ru' ? 'ru-RU' : 'en-US';
-            
-            // Используем toLocaleString для правильного отображения времени с учетом часового пояса пользователя
-            return date.toLocaleString(locale, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            });
+            return formatDateWithTZ(timestamp, timezone, 'd MMMM yyyy, HH:mm', language);
         } catch (e) {
             return timestamp;
         }
@@ -701,7 +690,7 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
                                                                 variant={compactMode ? "caption" : "body2"}
                                                                 color="text.secondary"
                                                             >
-                                                                {formatTimestamp(item.timestamp)}
+                                                                {formatDateWithTZ(item.timestamp, timezone, 'dd.MM.yyyy HH:mm', language)}
                                                             </Typography>
                                                         </Box>
                                                     }

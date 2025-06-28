@@ -36,6 +36,7 @@ import { getAvatarUrl } from '../../../utils/avatarUtils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useLocalization } from '../../../hooks/useLocalization';
+import { formatDateWithTZ } from '../../../utils/formatters';
 
 // Расширяем интерфейс TaskComment для поддержки вложенных комментариев в UI
 interface CommentWithReplies extends TaskComment {
@@ -53,7 +54,7 @@ interface TaskCommentsProps {
 export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate, canComment = true }) => {
     const { user } = useAuth();
     const theme = useTheme();
-    const { t } = useLocalization();
+    const { t, language, timezone } = useLocalization();
     const commentsEndRef = useRef<HTMLDivElement>(null);
     
     // Состояния для работы с комментариями
@@ -352,14 +353,7 @@ export const TaskComments: React.FC<TaskCommentsProps> = ({ taskId, onTaskUpdate
     
     // Форматирование даты
     const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return formatDateWithTZ(dateString, timezone, 'dd.MM.yyyy HH:mm', language);
     };
     
     // Проверка, может ли пользователь редактировать комментарий

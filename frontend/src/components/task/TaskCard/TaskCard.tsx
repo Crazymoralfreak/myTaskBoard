@@ -28,7 +28,7 @@ import { Task } from '../../../types/task';
 import { format, formatDistance, differenceInDays, differenceInHours, isPast, addDays } from 'date-fns';
 import { TaskModal } from '../TaskModal/TaskModal';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
-import { getDateFnsLocale } from '../../../utils/formatters';
+import { getDateFnsLocale, formatDateWithTZ } from '../../../utils/formatters';
 import { TaskType, BoardStatus } from '../../../types/board';
 import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
 import { toast } from 'react-hot-toast';
@@ -183,7 +183,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onTasksChange
 }) => {
     const theme = useTheme();
-    const { t, language } = useLocalization();
+    const { t, language, timezone } = useLocalization();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -289,7 +289,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     
     const formatDate = (date: string) => {
         if (!date) return '';
-        return format(new Date(date), 'dd MMM', { locale: getDateFnsLocale(language) });
+        return formatDateWithTZ(date, timezone, 'dd MMM', language);
     };
     
     // Функция для подстановки переменных в шаблон
@@ -516,7 +516,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     }}>
                         {/* Иконка срока */}
                         {task.endDate && (
-                            <Tooltip title={`Срок: ${formatDate(task.endDate)}`}>
+                            <Tooltip title={`Срок: ${formatDateWithTZ(task.endDate, timezone, 'dd.MM.yyyy HH:mm', language)}`}>
                                 <CalendarTodayIcon 
                                     sx={{ 
                                         fontSize: '14px', 

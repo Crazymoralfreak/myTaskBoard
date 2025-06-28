@@ -1,4 +1,5 @@
 import { ru, enUS } from 'date-fns/locale';
+import { formatInTimeZone } from 'date-fns-tz';
 
 export function formatDuration(minutes: number): string {
     if (minutes < 60) {
@@ -37,4 +38,38 @@ export function getDateFnsLocale(language: string) {
         default:
             return enUS;
     }
+}
+
+/**
+ * Форматирует дату с учетом таймзоны пользователя
+ * @param date - дата (Date или строка)
+ * @param timeZone - таймзона (например, 'Europe/Moscow')
+ * @param formatStr - строка формата date-fns (например, 'dd.MM.yyyy HH:mm')
+ * @param language - язык ('ru' | 'en')
+ */
+export function formatDateWithTZ(date: Date | string, timeZone: string, formatStr: string, language: string) {
+  // Создаем дату и интерпретируем её как UTC, если она не содержит информацию о часовом поясе
+  let dateObj = new Date(date);
+  
+  // Если дата приходит без информации о часовом поясе (например, "2025-06-28T18:12:56.122465"),
+  // то интерпретируем её как UTC
+  if (typeof date === 'string' && !date.includes('Z') && !date.includes('+') && !date.includes('-', 10)) {
+    dateObj = new Date(date + 'Z'); // Добавляем Z чтобы интерпретировать как UTC
+  }
+  
+  const result = formatInTimeZone(dateObj, timeZone, formatStr, { locale: getDateFnsLocale(language) });
+  
+  // Отладочная информация
+  if (process.env.NODE_ENV === 'development') {
+    console.log('formatDateWithTZ:', {
+      originalDate: date,
+      parsedDate: dateObj.toISOString(),
+      timeZone,
+      formatStr,
+      language,
+      result
+    });
+  }
+  
+  return result;
 } 

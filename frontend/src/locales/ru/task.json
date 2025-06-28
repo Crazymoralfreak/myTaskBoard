@@ -378,5 +378,8 @@
   "hours_many": "часов",
   "days_one": "день",
   "days_few": "дня",
-  "days_many": "дней"
+  "days_many": "дней",
+  "enterComment": "Введите комментарий...",
+  "enterYourComment": "Введите ваш комментарий...",
+  "replyTo": "Ответить"
 } 

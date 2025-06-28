@@ -34,6 +34,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { formatDistanceToNow } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { useLocalization } from '../../hooks/useLocalization';
+import { formatDateWithTZ } from '../../utils/formatters';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -287,7 +288,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onSelect,
   showCheckbox = true
 }) => {
-  const { t, language } = useLocalization();
+  const { t, language, timezone } = useLocalization();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   // ИСПРАВЛЕНИЕ: Локальное состояние для отслеживания статуса прочтения
   const [isRead, setIsRead] = React.useState(notification.read);
@@ -353,11 +354,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     }
   };
   
-  const locale = language === 'ru' ? ru : enUS;
-  const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { 
-    addSuffix: true,
-    locale
-  });
+  const timeAgo = formatDateWithTZ(notification.createdAt, timezone, 'dd.MM.yyyy HH:mm', language);
 
   const textInfo = getBestNotificationText(notification, t);
   

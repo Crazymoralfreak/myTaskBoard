@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
@@ -18,6 +18,7 @@ import { migrateLocalStorageToApi } from './utils/localStorageMigration';
 import { getDateFnsLocale } from './utils/formatters';
 import { useLocalization } from './hooks/useLocalization';
 import { authService } from './services/authService';
+import { userService } from './services/userService';
 import { Layout } from './components/layout/Layout';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { RoleProvider } from './contexts/RoleContext';
@@ -105,21 +106,39 @@ const AppContent: React.FC = () => {
 };
 
 function App() {
-    // Запуск миграции данных при инициализации приложения
+    const [userSettings, setUserSettings] = useState<any>(null);
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+    // Загрузка настроек пользователя при инициализации приложения
     useEffect(() => {
-        // Проверяем, авторизован ли пользователь
-        if (authService.isAuthenticated()) {
-            // Выполняем миграцию из localStorage в API
-            migrateLocalStorageToApi().catch(error => {
-                console.error('Ошибка при миграции данных:', error);
-            });
-        }
+        const loadUserSettings = async () => {
+            try {
+                // Проверяем, авторизован ли пользователь
+                if (authService.isAuthenticated()) {
+                    // Загружаем настройки пользователя
+                    const settings = await userService.getUserSettings();
+                    console.log('Настройки пользователя загружены:', settings);
+                    setUserSettings(settings);
+                    
+                    // Выполняем миграцию из localStorage в API
+                    migrateLocalStorageToApi().catch(error => {
+                        console.error('Ошибка при миграции данных:', error);
+                    });
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке настроек пользователя:', error);
+            } finally {
+                setSettingsLoaded(true);
+            }
+        };
+
+        loadUserSettings();
     }, []);
 
     return (
         <RoleProvider>
             <CustomThemeProvider>
-                <AppLocalizationProvider>
+                <AppLocalizationProvider userSettings={settingsLoaded ? userSettings : undefined}>
                     <CssBaseline />
                     <SnackbarProvider maxSnack={3}>
                         <AppContent />

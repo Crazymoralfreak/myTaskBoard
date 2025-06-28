@@ -15,6 +15,8 @@ interface LocalizationContextType {
   language: SupportedLanguage;
   setLanguage: (language: SupportedLanguage) => void;
   t: (key: string) => string;
+  timezone: string;
+  updateUserSettings: (settings: any) => void;
 }
 
 // Все переводы
@@ -29,7 +31,7 @@ const LocalizationContext = createContext<LocalizationContextType | undefined>(u
 // Провайдер
 interface LocalizationProviderProps {
   children: ReactNode;
-  userSettings?: { language?: string };
+  userSettings?: { language?: string; timezone?: string };
 }
 
 export const AppLocalizationProvider: React.FC<LocalizationProviderProps> = ({ 
@@ -37,23 +39,20 @@ export const AppLocalizationProvider: React.FC<LocalizationProviderProps> = ({
   userSettings 
 }) => {
   const [language, setLanguageState] = useState<SupportedLanguage>('ru');
+  const [timezone, setTimezone] = useState<string>('Europe/Moscow');
 
-  // Инициализация языка при монтировании
+  // Инициализация языка и таймзоны при монтировании
   useEffect(() => {
-    const initLanguage = () => {
-      // Приоритет: настройки пользователя -> localStorage -> браузер -> по умолчанию
+    const initLanguageAndTimezone = () => {
+      // Язык
       let initialLanguage: SupportedLanguage = 'ru';
-
       if (userSettings?.language) {
-        // Из настроек пользователя
         initialLanguage = userSettings.language as SupportedLanguage;
       } else {
-        // Из localStorage
         const savedLanguage = localStorage.getItem('language');
         if (savedLanguage && (savedLanguage === 'ru' || savedLanguage === 'en')) {
           initialLanguage = savedLanguage as SupportedLanguage;
         } else {
-          // Из настроек браузера
           const browserLanguage = navigator.language.toLowerCase();
           if (browserLanguage.startsWith('ru')) {
             initialLanguage = 'ru';
@@ -62,12 +61,29 @@ export const AppLocalizationProvider: React.FC<LocalizationProviderProps> = ({
           }
         }
       }
-
       setLanguageState(initialLanguage);
       localStorage.setItem('language', initialLanguage);
-    };
 
-    initLanguage();
+      // Таймзона
+      let initialTimezone = 'Europe/Moscow';
+      if (userSettings?.timezone) {
+        initialTimezone = userSettings.timezone;
+      } else {
+        const savedTimezone = localStorage.getItem('timezone');
+        if (savedTimezone) {
+          initialTimezone = savedTimezone;
+        } else {
+          try {
+            initialTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow';
+          } catch {
+            initialTimezone = 'Europe/Moscow';
+          }
+        }
+      }
+      setTimezone(initialTimezone);
+      localStorage.setItem('timezone', initialTimezone);
+    };
+    initLanguageAndTimezone();
   }, [userSettings]);
 
   // Функция перевода для плоской структуры
@@ -106,8 +122,23 @@ export const AppLocalizationProvider: React.FC<LocalizationProviderProps> = ({
     }
   };
 
+  // Функция для обновления настроек пользователя
+  const updateUserSettings = (settings: any) => {
+    if (settings) {
+      if (settings.language && (settings.language === 'ru' || settings.language === 'en')) {
+        setLanguageState(settings.language as SupportedLanguage);
+        localStorage.setItem('language', settings.language);
+      }
+      
+      if (settings.timezone) {
+        setTimezone(settings.timezone);
+        localStorage.setItem('timezone', settings.timezone);
+      }
+    }
+  };
+
   return (
-    <LocalizationContext.Provider value={{ language, setLanguage, t }}>
+    <LocalizationContext.Provider value={{ language, setLanguage, t, timezone, updateUserSettings }}>
       {children}
     </LocalizationContext.Provider>
   );

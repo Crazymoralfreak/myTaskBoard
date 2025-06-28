@@ -76,6 +76,7 @@ import { taskService } from '../../../services/taskService';
 import { formatFileSize } from '../../../utils/fileUtils';
 import { getAttachmentUrl } from '../../../utils/attachmentUtils';
 import { useLocalization } from '../../../hooks/useLocalization';
+import { formatDateWithTZ } from '../../../utils/formatters';
 
 interface TextFilePreviewProps {
     url: string;
@@ -170,7 +171,7 @@ interface TaskAttachmentsProps {
  * Компонент для работы с вложениями задачи
  */
 export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTaskUpdate }) => {
-    const { t } = useLocalization();
+    const { t, language, timezone } = useLocalization();
     const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -751,14 +752,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
     // Форматирование даты
     const formatDate = (dateString: string) => {
         try {
-            const date = new Date(dateString);
-            return date.toLocaleString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            return formatDateWithTZ(dateString, timezone, 'dd.MM.yyyy HH:mm', language);
         } catch (e) {
             return dateString;
         }
