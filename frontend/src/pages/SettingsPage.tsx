@@ -36,6 +36,8 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import NotificationChannelSettingsComponent from '../components/notifications/NotificationChannelSettings';
 import { updateNotificationSetting } from '../services/notificationPreferencesService';
 import { useLocalization } from '../hooks/useLocalization';
+import FlagRU from '../components/shared/LanguageSelector/FlagRU';
+import FlagUS from '../components/shared/LanguageSelector/FlagUS';
 
 interface UserSettings {
   darkMode: boolean;
@@ -481,7 +483,7 @@ export const SettingsPage: React.FC = () => {
                       {SUPPORTED_LANGUAGES.map((language) => (
                         <MenuItem key={language.code} value={language.code}>
                           <Box display="flex" alignItems="center" gap={1}>
-                            <span>{language.flag}</span>
+                            {language.code === 'ru' ? <FlagRU size={24} /> : <FlagUS size={24} />}
                             <span>{language.name}</span>
                           </Box>
                         </MenuItem>
