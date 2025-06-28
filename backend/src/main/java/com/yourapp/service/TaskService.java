@@ -158,6 +158,72 @@ public class TaskService {
             Task savedTask = taskRepository.save(task);
             logger.debug("Задача успешно сохранена с id: {}", savedTask.getId());
             
+            // Создаем запись в истории о создании задачи с деталями
+            try {
+                TaskHistory history = new TaskHistory();
+                history.setTask(savedTask);
+                history.setChangedBy(user);
+                history.setUsername(user.getUsername());
+                history.setAvatarUrl(user.getAvatarUrl());
+                history.setAction("task_created");
+                
+                // Создаем JSON с деталями создания задачи
+                StringBuilder detailsJson = new StringBuilder();
+                detailsJson.append("{");
+                detailsJson.append("\"title\":\"").append(savedTask.getTitle().replace("\"", "\\\"")).append("\"");
+                
+                if (savedTask.getType() != null) {
+                    detailsJson.append(",\"type\":\"").append(savedTask.getType().getName().replace("\"", "\\\"")).append("\"");
+                }
+                
+                if (savedTask.getCustomStatus() != null) {
+                    detailsJson.append(",\"status\":\"").append(savedTask.getCustomStatus().getName().replace("\"", "\\\"")).append("\"");
+                }
+                
+                if (savedTask.getPriority() != null) {
+                    detailsJson.append(",\"priority\":\"").append(savedTask.getPriority().toString()).append("\"");
+                }
+                
+                if (savedTask.getStartDate() != null || savedTask.getEndDate() != null) {
+                    detailsJson.append(",\"dates\":\"");
+                    if (savedTask.getStartDate() != null && savedTask.getEndDate() != null) {
+                        detailsJson.append("с ").append(savedTask.getStartDate().toLocalDate())
+                                  .append(" по ").append(savedTask.getEndDate().toLocalDate());
+                    } else if (savedTask.getStartDate() != null) {
+                        detailsJson.append("начало: ").append(savedTask.getStartDate().toLocalDate());
+                    } else {
+                        detailsJson.append("конец: ").append(savedTask.getEndDate().toLocalDate());
+                    }
+                    detailsJson.append("\"");
+                }
+                
+                if (savedTask.getTags() != null && !savedTask.getTags().isEmpty()) {
+                    detailsJson.append(",\"tags\":[");
+                    boolean first = true;
+                    for (String tag : savedTask.getTags()) {
+                        if (!first) detailsJson.append(",");
+                        detailsJson.append("\"").append(tag.replace("\"", "\\\"")).append("\"");
+                        first = false;
+                    }
+                    detailsJson.append("]");
+                }
+                
+                if (savedTask.getAssignee() != null) {
+                    detailsJson.append(",\"assignee\":\"").append(savedTask.getAssignee().getUsername().replace("\"", "\\\"")).append("\"");
+                }
+                
+                detailsJson.append("}");
+                
+                history.setNewValue(detailsJson.toString());
+                history.setTimestamp(now);
+                
+                taskHistoryRepository.save(history);
+                logger.debug("Добавлена запись в историю о создании задачи");
+            } catch (Exception e) {
+                logger.error("Ошибка при записи истории создания задачи: {}", e.getMessage(), e);
+                // Не прерываем создание задачи из-за ошибки истории
+            }
+            
             // Создаем уведомление о создании задачи
             notificationUtil.notifyTaskCreated(savedTask);
             

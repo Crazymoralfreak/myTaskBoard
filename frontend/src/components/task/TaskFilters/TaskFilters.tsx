@@ -20,9 +20,9 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { ru } from 'date-fns/locale';
 import { TaskType, BoardStatus } from '../../../types/board';
 import { useLocalization } from '../../../hooks/useLocalization';
+import { getDateFnsLocale } from '../../../utils/formatters';
 
 interface TaskFiltersProps {
   taskTypes: TaskType[];
@@ -45,7 +45,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
   onReset,
   onSort
 }) => {
-  const { t } = useLocalization();
+  const { t, language } = useLocalization();
   const [statusFilters, setStatusFilters] = useState<number[]>([]);
   const [typeFilters, setTypeFilters] = useState<number[]>([]);
   const [dueDateFilter, setDueDateFilter] = useState<Date | null>(null);
@@ -96,7 +96,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={getDateFnsLocale(language)}>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
           {t('filtersTitle')}

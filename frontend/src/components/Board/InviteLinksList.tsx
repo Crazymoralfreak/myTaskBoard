@@ -26,7 +26,8 @@ import WarningIcon from '@mui/icons-material/Warning';
 import { InviteLink } from '../../types/inviteLink';
 import { InviteLinkService } from '../../services/InviteLinkService';
 import { formatDistanceToNow, formatRelative, isAfter } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { getDateFnsLocale } from '../../utils/formatters';
+import { useLocalization } from '../../hooks/useLocalization';
 
 interface InviteLinksListProps {
   boardId: string;
@@ -44,6 +45,7 @@ const InviteLinksList: React.FC<InviteLinksListProps> = ({
   loading,
   onDelete
 }) => {
+  const { language } = useLocalization();
   const [copiedLinkId, setCopiedLinkId] = useState<number | null>(null);
   const [deletingLinkId, setDeletingLinkId] = useState<number | null>(null);
   const [copyError, setCopyError] = useState<boolean>(false);
@@ -140,13 +142,13 @@ const InviteLinksList: React.FC<InviteLinksListProps> = ({
           const isInactive = !link.isActive || isExpired || isMaxUsesExceeded;
           
           // Форматируем даты
-          const createdAt = formatRelative(new Date(link.createdAt), new Date(), { locale: ru });
+          const createdAt = formatRelative(new Date(link.createdAt), new Date(), { locale: getDateFnsLocale(language) });
           let expiresAtText = 'Бессрочная';
           if (link.expiresAt) {
             const expiresAtDate = new Date(link.expiresAt);
             expiresAtText = isExpired 
-              ? `Истекла ${formatRelative(expiresAtDate, new Date(), { locale: ru })}`
-              : `Истекает ${formatDistanceToNow(expiresAtDate, { addSuffix: true, locale: ru })}`;
+              ? `Истекла ${formatRelative(expiresAtDate, new Date(), { locale: getDateFnsLocale(language) })}`
+              : `Истекает ${formatDistanceToNow(expiresAtDate, { addSuffix: true, locale: getDateFnsLocale(language) })}`;
           }
           
           return (

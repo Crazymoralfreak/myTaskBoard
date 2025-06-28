@@ -1,3 +1,5 @@
+import { ru, enUS } from 'date-fns/locale';
+
 export function formatDuration(minutes: number): string {
     if (minutes < 60) {
         return `${minutes} мин`;
@@ -24,4 +26,15 @@ export function formatFileSize(bytes: number): string {
     }
 
     return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+export function getDateFnsLocale(language: string) {
+    switch (language) {
+        case 'ru':
+            return ru;
+        case 'en':
+            return enUS;
+        default:
+            return enUS;
+    }
 } 

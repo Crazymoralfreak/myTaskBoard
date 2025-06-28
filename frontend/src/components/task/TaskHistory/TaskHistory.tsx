@@ -23,9 +23,9 @@ import {
 } from '@mui/material';
 import { Task, TaskHistory as TaskHistoryType } from '../../../types/task';
 import { format, isToday, isYesterday, isThisWeek, isSameDay } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { taskService } from '../../../services/taskService';
 import { useLocalization } from '../../../hooks/useLocalization';
+import { getDateFnsLocale } from '../../../utils/formatters';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import InfoIcon from '@mui/icons-material/Info';
 import ArrowRightAltIcon from '@mui/icons-material/ArrowRightAlt';
@@ -196,7 +196,7 @@ const getActionColor = (action: string): "default" | "primary" | "secondary" | "
 };
 
 export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const [history, setHistory] = useState<TaskHistoryType[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -359,9 +359,10 @@ export const TaskHistory: React.FC<TaskHistoryProps> = ({ task }) => {
     const formatTimestamp = (timestamp: string) => {
         try {
             const date = new Date(timestamp);
+            const locale = language === 'ru' ? 'ru-RU' : 'en-US';
             
             // Используем toLocaleString для правильного отображения времени с учетом часового пояса пользователя
-            return date.toLocaleString('ru-RU', {
+            return date.toLocaleString(locale, {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
@@ -876,6 +877,11 @@ const renderValue = (value: string | undefined, item: TaskHistoryType, t: (key: 
                                     {t('historyTaskCreatedTags')}: {taskDetails.tags.join(', ')}
                                 </Typography>
                             )}
+                            {taskDetails.assignee && (
+                                <Typography component="li" variant="body2">
+                                    {t('historyTaskCreatedAssignee')}: {taskDetails.assignee}
+                                </Typography>
+                            )}
                         </Box>
                     </Box>
                 );
@@ -1003,6 +1009,168 @@ const renderValue = (value: string | undefined, item: TaskHistoryType, t: (key: 
                 }}
             >
                 {processedText}
+            </Typography>
+        );
+    }
+    
+    // Если это события с подзадачами от backend
+    if (item.action === 'subtask_created' || item.action === 'subtask_assigned' || item.action === 'subtasks_reordered' || 
+        item.action === 'subtask_completed' || item.action === 'subtask_deleted' || item.action === 'subtask_updated') {
+        
+        // Русские паттерны
+        if (value.includes('Создана подзадача:')) {
+            const subtaskName = value.replace('Создана подзадача: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskCreatedWithDetails')} {subtaskName}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Завершена подзадача:')) {
+            const subtaskName = value.replace('Завершена подзадача: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskCompletedMessage')} {subtaskName}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Удалена подзадача:')) {
+            const subtaskName = value.replace('Удалена подзадача: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskDeletedMessage')} {subtaskName}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Старое название:')) {
+            const title = value.replace('Старое название: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskOldTitle')} {title}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Новое название:')) {
+            const title = value.replace('Новое название: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskNewTitle')} {title}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Старый ответственный:')) {
+            const username = value.replace('Старый ответственный: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskOldAssignee')} {username}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Назначен ответственный за подзадачу')) {
+            const match = value.match(/Назначен ответственный за подзадачу "([^"]+)": (.+)/);
+            if (match) {
+                const [, subtaskName, username] = match;
+                return (
+                    <Typography variant="body2">
+                        {t('historySubtaskAssignedWithDetails')}{subtaskName}{t('historySubtaskAssignedTo')} {username}
+                    </Typography>
+                );
+            }
+        }
+        
+        if (value === 'Изменен порядок подзадач') {
+            return (
+                <Typography variant="body2">
+                    {t('historySubtasksReorderedMessage')}
+                </Typography>
+            );
+        }
+        
+        // Английские паттерны (на случай если backend настроен на английский)
+        if (value.includes('Subtask created:')) {
+            const subtaskName = value.replace('Subtask created: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskCreatedWithDetails')} {subtaskName}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Subtask completed:')) {
+            const subtaskName = value.replace('Subtask completed: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskCompletedMessage')} {subtaskName}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Subtask deleted:')) {
+            const subtaskName = value.replace('Subtask deleted: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskDeletedMessage')} {subtaskName}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Old title:')) {
+            const title = value.replace('Old title: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskOldTitle')} {title}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('New title:')) {
+            const title = value.replace('New title: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskNewTitle')} {title}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Old assignee:')) {
+            const username = value.replace('Old assignee: ', '');
+            return (
+                <Typography variant="body2">
+                    {t('historySubtaskOldAssignee')} {username}
+                </Typography>
+            );
+        }
+        
+        if (value.includes('Assignee set for subtask')) {
+            const match = value.match(/Assignee set for subtask "([^"]+)": (.+)/);
+            if (match) {
+                const [, subtaskName, username] = match;
+                return (
+                    <Typography variant="body2">
+                        {t('historySubtaskAssignedWithDetails')}{subtaskName}{t('historySubtaskAssignedTo')} {username}
+                    </Typography>
+                );
+            }
+        }
+        
+        if (value === 'Subtasks order changed' || value === 'Subtasks reordered') {
+            return (
+                <Typography variant="body2">
+                    {t('historySubtasksReorderedMessage')}
+                </Typography>
+            );
+        }
+        
+        // Если не подошел ни один паттерн, возвращаем как есть
+        return (
+            <Typography variant="body2">
+                {value}
             </Typography>
         );
     }

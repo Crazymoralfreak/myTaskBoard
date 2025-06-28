@@ -26,9 +26,9 @@ import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import ChecklistIcon from '@mui/icons-material/Checklist';
 import { Task } from '../../../types/task';
 import { format, formatDistance, differenceInDays, differenceInHours, isPast, addDays } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { TaskModal } from '../TaskModal/TaskModal';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
+import { getDateFnsLocale } from '../../../utils/formatters';
 import { TaskType, BoardStatus } from '../../../types/board';
 import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
 import { toast } from 'react-hot-toast';
@@ -183,7 +183,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onTasksChange
 }) => {
     const theme = useTheme();
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -289,7 +289,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     
     const formatDate = (date: string) => {
         if (!date) return '';
-        return format(new Date(date), 'dd MMM', { locale: ru });
+        return format(new Date(date), 'dd MMM', { locale: getDateFnsLocale(language) });
     };
     
     // Функция для расчета оставшегося времени до дедлайна

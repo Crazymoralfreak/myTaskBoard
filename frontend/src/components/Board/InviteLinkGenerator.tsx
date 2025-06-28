@@ -19,9 +19,9 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { ru } from 'date-fns/locale';
 import { format, addDays } from 'date-fns';
 import { Role } from '../../types/Role';
+import { getDateFnsLocale } from '../../utils/formatters';
 import { CreateInviteLinkRequest } from '../../types/inviteLink';
 import { InviteLinkService } from '../../services/InviteLinkService';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -49,7 +49,7 @@ const InviteLinkGenerator: React.FC<InviteLinkGeneratorProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { t } = useLocalization();
+  const { t, language } = useLocalization();
   
   // Устанавливаем роль VIEWER по умолчанию при монтировании компонента
   useEffect(() => {
@@ -185,7 +185,7 @@ const InviteLinkGenerator: React.FC<InviteLinkGeneratorProps> = ({
           />
           
           {useExpiration && (
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={getDateFnsLocale(language)}>
               <DateTimePicker
                 label="Срок действия"
                 value={expiresAt}

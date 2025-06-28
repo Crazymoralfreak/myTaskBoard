@@ -38,9 +38,9 @@ import { Task } from '../../../types/task';
 import { taskService } from '../../../services/taskService';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
 import { BoardMembersService } from '../../../services/BoardMembersService';
+import { getDateFnsLocale } from '../../../utils/formatters';
 import { BoardMember } from '../../../types/BoardMember';
 import { useTheme } from '@mui/material/styles';
 import ReactQuill from 'react-quill';
@@ -56,7 +56,7 @@ interface SubtaskListProps {
 
 export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, onLocalUpdate }) => {
     const theme = useTheme();
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [newSubtaskDescription, setNewSubtaskDescription] = useState('');
     const [editingSubtask, setEditingSubtask] = useState<number | null>(null);
@@ -111,7 +111,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
     }, [task.subtasks]);
 
     const formatDate = (date: string) => {
-        return format(new Date(date), 'dd MMM yyyy HH:mm', { locale: ru });
+        return format(new Date(date), 'dd MMM yyyy HH:mm', { locale: getDateFnsLocale(language) });
     };
 
     // Загружаем участников доски
@@ -706,7 +706,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                                                     {subtask.dueDate && (
                                                                         <Chip
                                                                             size="small"
-                                                                            label={`${t('subtasksDueDate')}: ${format(new Date(subtask.dueDate), 'dd MMM yyyy', { locale: ru })}`}
+                                                                            label={`${t('subtasksDueDate')}: ${format(new Date(subtask.dueDate), 'dd MMM yyyy', { locale: getDateFnsLocale(language) })}`}
                                                                             variant="outlined"
                                                                             sx={{ height: 24, fontSize: '0.75rem' }}
                                                                         />

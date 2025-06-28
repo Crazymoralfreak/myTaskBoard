@@ -822,7 +822,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
         const fileExtension = filename.toLowerCase().split('.').pop();
         
         if (!url) return (
-            <Typography color="error">Не удалось получить URL вложения</Typography>
+            <Typography color="error">{t('attachmentsFailedGetUrl')}</Typography>
         );
         
         // Предпросмотр изображений
@@ -853,7 +853,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                     >
                         <source src={url} type={mimeType} />
                         <Typography>
-                            Ваш браузер не поддерживает воспроизведение видео.
+                            {t('attachmentsBrowserNotSupported')}
                         </Typography>
                     </video>
                 </Box>
@@ -876,11 +876,11 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
             <Box sx={{ textAlign: 'center', p: 3 }}>
                 <InsertDriveFileIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" sx={{ mb: 2 }}>
-                    Предпросмотр недоступен
+                    {t('attachmentsPreviewUnavailable')}
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
-                    Для этого типа файла предпросмотр не поддерживается.<br />
-                    Скачайте файл для просмотра.
+                    {t('attachmentsPreviewNotSupported')}<br />
+                    {t('attachmentsDownloadToView')}
                 </Typography>
                 <Button 
                     variant="contained" 
@@ -1400,7 +1400,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                             color={filter !== 'all' ? 'primary' : 'default'}
                         />
                         
-                        <Tooltip title="Расширенные фильтры">
+                        <Tooltip title={t('attachmentsAdvancedFilters')}>
                             <IconButton
                                 size="small"
                                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -1426,40 +1426,40 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                         label={t('attachmentsFileType')}
                                         onChange={(e) => setFilter(e.target.value as FileFilter)}
                                     >
-                                        <MenuItem value="all">Все файлы ({fileStats.all})</MenuItem>
-                                        {fileStats.images > 0 && (
-                                            <MenuItem value="images">Изображения ({fileStats.images})</MenuItem>
-                                        )}
-                                        {fileStats.videos > 0 && (
-                                            <MenuItem value="videos">Видео ({fileStats.videos})</MenuItem>
-                                        )}
-                                        {fileStats.documents > 0 && (
-                                            <MenuItem value="documents">Документы ({fileStats.documents})</MenuItem>
-                                        )}
-                                        {fileStats.text > 0 && (
-                                            <MenuItem value="text">Текстовые ({fileStats.text})</MenuItem>
-                                        )}
-                                        {fileStats.other > 0 && (
-                                            <MenuItem value="other">Прочие ({fileStats.other})</MenuItem>
-                                        )}
+                                                                <MenuItem value="all">{t('attachmentsAllFiles')} ({fileStats.all})</MenuItem>
+                        {fileStats.images > 0 && (
+                            <MenuItem value="images">{t('attachmentsImages')} ({fileStats.images})</MenuItem>
+                        )}
+                        {fileStats.videos > 0 && (
+                            <MenuItem value="videos">{t('attachmentsVideos')} ({fileStats.videos})</MenuItem>
+                        )}
+                        {fileStats.documents > 0 && (
+                            <MenuItem value="documents">{t('attachmentsDocuments')} ({fileStats.documents})</MenuItem>
+                        )}
+                        {fileStats.text > 0 && (
+                            <MenuItem value="text">{t('attachmentsTextFiles')} ({fileStats.text})</MenuItem>
+                        )}
+                        {fileStats.other > 0 && (
+                            <MenuItem value="other">{t('attachmentsOtherFiles')} ({fileStats.other})</MenuItem>
+                        )}
                                     </Select>
                                 </FormControl>
                                 
                                 <FormControl size="small" sx={{ minWidth: 120 }}>
-                                    <InputLabel>Сортировка</InputLabel>
+                                    <InputLabel>{t('attachmentsSorting')}</InputLabel>
                                     <Select
                                         value={sortBy}
-                                        label="Сортировка"
+                                        label={t('attachmentsSorting')}
                                         onChange={(e) => setSortBy(e.target.value as SortBy)}
                                     >
-                                        <MenuItem value="date">По дате</MenuItem>
-                                        <MenuItem value="name">По имени</MenuItem>
-                                        <MenuItem value="size">По размеру</MenuItem>
-                                        <MenuItem value="type">По типу</MenuItem>
+                                        <MenuItem value="date">{t('attachmentsSortByDate')}</MenuItem>
+                                        <MenuItem value="name">{t('attachmentsSortByName')}</MenuItem>
+                                        <MenuItem value="size">{t('attachmentsSortBySize')}</MenuItem>
+                                        <MenuItem value="type">{t('attachmentsSortByType')}</MenuItem>
                                     </Select>
                                 </FormControl>
                                 
-                                <Tooltip title={`Сортировать по ${sortOrder === 'asc' ? 'убыванию' : 'возрастанию'}`}>
+                                <Tooltip title={`Сортировать по ${sortOrder === 'asc' ? t('attachmentsSortDescending') : t('attachmentsSortAscending')}`}>
                                     <IconButton
                                         size="small"
                                         onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
@@ -1511,7 +1511,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                 onClick={toggleSelectionMode}
                                 disabled={loading}
                             >
-                                {isSelectionMode ? 'Выбор' : 'Выбрать'}
+                                {isSelectionMode ? t('attachmentsSelection') : t('attachmentsSelect')}
                             </Button>
                             
                             {selectedFiles.size > 0 && (
@@ -1577,7 +1577,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                     setActionsMenuAnchor(null);
                                 }}>
                                     <RefreshIcon fontSize="small" sx={{ mr: 1 }} />
-                                    Обновить
+                                    {t('attachmentsRefresh')}
                                 </MenuItem>
                                 
                                 {isSelectionMode && selectedFiles.size > 0 && (
@@ -1587,7 +1587,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                             setActionsMenuAnchor(null);
                                         }}>
                                             <SelectAllIcon fontSize="small" sx={{ mr: 1 }} />
-                                            {selectedFiles.size === processedAttachments.length ? 'Снять все' : 'Выбрать все'}
+                                            {selectedFiles.size === processedAttachments.length ? t('attachmentsDeselectAll') : t('attachmentsSelectAll')}
                                         </MenuItem>
                                         
                                         <MenuItem onClick={() => {
@@ -1607,7 +1607,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                             setActionsMenuAnchor(null);
                                         }}>
                                             <CompressIcon fontSize="small" sx={{ mr: 1 }} />
-                                            {compactMode ? 'Полный режим' : 'Компактный режим'}
+                                            {compactMode ? t('attachmentsFullMode') : t('attachmentsCompactMode')}
                                         </MenuItem>
                                         
                                         <MenuItem onClick={() => {
@@ -1618,7 +1618,7 @@ export const TaskAttachments: React.FC<TaskAttachmentsProps> = ({ taskId, onTask
                                             setActionsMenuAnchor(null);
                                         }}>
                                             <PhotoSizeSelectLargeIcon fontSize="small" sx={{ mr: 1 }} />
-                                            Размер: {thumbnailSize === 'small' ? 'Малый' : thumbnailSize === 'medium' ? 'Средний' : 'Большой'}
+                                            {t('attachmentsSizeLabel')} {thumbnailSize === 'small' ? t('attachmentsSizeSmall') : thumbnailSize === 'medium' ? t('attachmentsSizeMedium') : t('attachmentsSizeLarge')}
                                         </MenuItem>
                                     </>
                                 )}

@@ -45,7 +45,7 @@ import { BoardStatus, TaskType } from '../../../types/board';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { ru } from 'date-fns/locale';
+import { getDateFnsLocale } from '../../../utils/formatters';
 import { taskService } from '../../../services/taskService';
 import { SubtaskList } from '../SubtaskList';
 import { ConfirmDialog } from '../../shared/ConfirmDialog';
@@ -1185,7 +1185,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     console.log('Права на комментирование при рендеринге вкладки комментариев:', hasCommentsPermission);
     
     return (
-        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={getDateFnsLocale(language)}>
             <Dialog 
                 open={open} 
                 onClose={handleClose} 
