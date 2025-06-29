@@ -74,6 +74,8 @@ import { BoardMembersService } from '../../../services/BoardMembersService';
 import { getAvatarUrl } from '../../../utils/avatarUtils';
 import { TextRenderer } from '../../../utils/textUtils';
 import { useLocalization } from '../../../hooks/useLocalization';
+import { showTaskNotification, showGeneralNotification } from '../../../utils/notifications';
+import { useSnackbar } from 'notistack';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -152,6 +154,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     boardId
 }) => {
     const { t, language } = useLocalization();
+    const { enqueueSnackbar } = useSnackbar();
     
     const theme = useTheme();
     const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -355,7 +358,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                                 // Если задача не найдена (была удалена), закрываем модальное окно
                                 if (error.response && error.response.status === 404) {
                                     console.log('Задача не найдена или была удалена');
-                                    toast.error(t('taskNotFoundOrDeleted'));
+                                    showTaskNotification(t, enqueueSnackbar, 'taskNotFound', {}, 'error');
                                     onClose();
                                 } else {
                                     setError(t('errorsLoadFailed'));
@@ -692,7 +695,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 window.dispatchEvent(taskListUpdateEvent);
                 
                 // Показываем уведомление об успешном удалении
-                toast.success(t('taskModalDeleteSuccess'));
+                showTaskNotification(t, enqueueSnackbar, 'taskDeleted', {}, 'success');
             }
             
         } catch (error) {

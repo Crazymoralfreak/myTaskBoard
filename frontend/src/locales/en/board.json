@@ -320,5 +320,20 @@
   "inviteAcceptError": "Error accepting invite",
   "inviteDeclineError": "Error declining invite",
   "inviteLoadError": "Error loading invite",
-  "inviteInvalid": "Invalid invite"
+  "inviteInvalid": "Invalid invite",
+  "changeMemberRoleTitle": "Change Member Role",
+  "currentRole": "Current role:",
+  "selectNewRole": "Select new role:",
+  "roleSelected": "Selected",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving...",
+  "noRole": "No role",
+  "inviteLinkInvalid": "Invalid invite link",
+  "inviteLoadFailed": "Failed to load invite information. The link may be invalid or expired.",
+  "inviteJoinFailed": "Failed to join the board. Please try again later.",
+  "inviteServerError": "Server error while processing invite",
+  "inviteAcceptFailed": "Failed to accept invite",
+  "inviteInvalidData": "Invalid invite",
+  "inviteLoginRequired": "You need to log in to accept the invitation"
 } 

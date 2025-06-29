@@ -26,6 +26,8 @@ import { boardService } from '../services/boardService';
 import { Role } from '../types/Role';
 import { useLocalization } from '../hooks/useLocalization';
 import { getRoleDisplayName } from '../utils/roleUtils';
+import { useSnackbar } from 'notistack';
+import { showInviteNotification, showAuthNotification } from '../utils/notifications';
 
 // Ключ для локального хранилища
 const INVITE_TOKEN_STORAGE_KEY = 'pendingInviteToken';
@@ -53,6 +55,7 @@ const InvitePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLocalization();
+  const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
@@ -96,7 +99,7 @@ const InvitePage: React.FC = () => {
         const inviteToken = token || localStorage.getItem(INVITE_TOKEN_STORAGE_KEY);
         
         if (!inviteToken) {
-          setError('Некорректная ссылка приглашения');
+          setError(t('inviteLinkInvalid'));
           return;
         }
         
@@ -127,7 +130,7 @@ const InvitePage: React.FC = () => {
         }, 1000);
       } catch (err) {
         console.error('Ошибка при загрузке данных приглашения:', err);
-        setError('Не удалось загрузить информацию о приглашении');
+        setError(t('inviteLoadFailed'));
         setLoading(false);
       }
     };
@@ -144,13 +147,13 @@ const InvitePage: React.FC = () => {
       const inviteToken = token || localStorage.getItem(INVITE_TOKEN_STORAGE_KEY);
       
       if (!inviteToken || !inviteData) {
-        setError('Некорректное приглашение');
+        setError(t('inviteInvalidData'));
         return;
       }
       
       // Проверяем, аутентифицирован ли пользователь
       if (!isAuthenticated) {
-        setError('Необходимо войти в систему, чтобы принять приглашение');
+        setError(t('inviteLoginRequired'));
         setLoading(false);
         return;
       }
@@ -184,12 +187,12 @@ const InvitePage: React.FC = () => {
         }, 1000);
       } catch (apiError) {
         console.error('Ошибка API при принятии приглашения:', apiError);
-        setError('Ошибка сервера при обработке приглашения');
+        setError(t('inviteServerError'));
         setLoading(false);
       }
     } catch (err) {
       console.error('Ошибка при принятии приглашения:', err);
-      setError('Не удалось принять приглашение');
+      setError(t('inviteAcceptFailed'));
       setLoading(false);
     }
   };

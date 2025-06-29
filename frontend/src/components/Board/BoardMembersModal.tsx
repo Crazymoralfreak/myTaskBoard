@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   Dialog,
@@ -30,6 +30,8 @@ import {
   Avatar,
   List,
   ListItemSecondaryAction,
+  Menu,
+  InputLabel,
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
@@ -53,7 +55,10 @@ import { boardService } from '../../services/boardService';
 import { useUserRole, Permission } from '../../hooks/useUserRole';
 import { getAvatarUrl } from '../../utils/avatarUtils';
 import { useLocalization } from '../../hooks/useLocalization';
-import { getRoleDisplayName, getRoleDescription } from '../../utils/roleUtils';
+import { getRoleDisplayName, getRoleDescription, getRoleColors } from '../../utils/roleUtils';
+import { useSnackbar } from 'notistack';
+import { showMemberNotification, showGeneralNotification } from '../../utils/notifications';
+import { useTheme } from '@mui/material/styles';
 
 interface BoardMembersModalProps {
   open: boolean;
@@ -80,6 +85,9 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   currentUserRoleId
 }) => {
   const { t } = useLocalization();
+  const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
   const [activeTab, setActiveTab] = useState<number>(0);
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<BoardMember[]>([]);
@@ -132,23 +140,14 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
     }
   };
   
-  // Получаем цвет для роли
   const getRoleColor = (roleName?: string): string => {
-    if (!roleName) return '#E0E0E0';
-    
-    switch (roleName.toUpperCase()) {
-      case SystemRoles.ADMIN:
-        return '#ffe0e0'; // Светло-красный
-      case SystemRoles.EDITOR:
-        return '#e0f4ff'; // Светло-синий
-      case SystemRoles.VIEWER:
-        return '#e8f5e9'; // Светло-зеленый
-      default:
-        return '#f5f5f5'; // Светло-серый
-    }
+    return getRoleColors(roleName, isDarkMode).background;
   };
   
-  // Получаем иконку для роли
+  const getRoleTextColor = (roleName?: string): string => {
+    return getRoleColors(roleName, isDarkMode).color;
+  };
+  
   const getRoleIcon = (roleName?: string) => {
     if (!roleName) return <InfoIcon fontSize="small" />;
     
@@ -202,69 +201,41 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   const handleRoleChange = async () => {
     if (!selectedMember || !selectedRoleId) return;
     
+    setChangingRole(true);
     try {
-      setChangingRole(true);
-      
-      // Определяем ID пользователя из разных возможных форматов данных
-      const userId = selectedMember.userId || (selectedMember.user && selectedMember.user.id);
-      
-      if (!userId) {
-        throw new Error(t('errorIdentifyUser'));
-      }
-      
-      console.log('Обновляем роль пользователя:', { userId, roleId: selectedRoleId });
-      
       const updatedMember = await BoardMembersService.updateMemberRole(
-        boardId,
-        userId,
+        boardId, 
+        selectedMember.userId, 
         { roleId: selectedRoleId }
       );
       
-      console.log('Получен обновленный участник:', updatedMember);
+      const username = selectedMember.displayName || selectedMember.username;
+      const roleName = roles.find(r => r.id === selectedRoleId)?.name || '';
       
-      // Проверяем, что получили валидный объект
-      if (!updatedMember) {
-        throw new Error('Сервер вернул пустой ответ');
-      }
-      
-      // Проверяем наличие обязательных полей
-      if (!updatedMember.userId && !(updatedMember.user && updatedMember.user.id)) {
-        console.warn('Обновленный участник не содержит ID пользователя:', updatedMember);
-      }
-      
-      // Обновляем участника в списке, используя метод проверки соответствия
-      setMembers(prev => prev.map(member => 
-        isSameMember(member, updatedMember) ? updatedMember : member
-      ));
-      
-      setFilteredMembers(prev => prev.map(member => 
-        isSameMember(member, updatedMember) ? updatedMember : member
-      ));
+      showMemberNotification(
+        t, 
+        enqueueSnackbar, 
+        'memberRoleChanged', 
+        { 
+          name: username, 
+          role: getRoleDisplayName(roleName, t) 
+        }, 
+        'success'
+      );
+
+      // Обновляем список участников
+      setMembers(prevMembers => 
+        prevMembers.map(member => 
+          isSameMember(member, updatedMember) ? updatedMember : member
+        )
+      );
       
       setShowRoleSelector(false);
-      
-      // Получаем имя пользователя из разных возможных форматов данных
-      const username = updatedMember.username || 
-                       (updatedMember.user && updatedMember.user.username) || 
-                       selectedMember.username || 
-                       (selectedMember.user && selectedMember.user.username) || 
-                       t('user');
-      
-      setSuccessMessage(`${t('memberRoleChanged')} ${username} ${t('to')} ${getRoleName(selectedRoleId)}`);
-      
-      // Сбрасываем выбранные значения после небольшой задержки
-      setTimeout(() => {
-        setSelectedMember(null);
-        setSelectedRoleId(null);
-      }, 300);
-    } catch (error) {
-      console.error('Ошибка при изменении роли:', error);
-      setError(t('errorChangeRole'));
-      
-      // Закрываем диалог при ошибке после небольшой задержки
-      setTimeout(() => {
-        setShowRoleSelector(false);
-      }, 1500);
+      setSelectedMember(null);
+      setSelectedRoleId(null);
+    } catch (err) {
+      console.error('Error changing member role:', err);
+      showMemberNotification(t, enqueueSnackbar, 'memberRoleChangeError', {}, 'error');
     } finally {
       setChangingRole(false);
     }
@@ -316,10 +287,10 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
       ));
       
       const username = selectedMember.username || (selectedMember.user && selectedMember.user.username) || t('user');
-      setSuccessMessage(`${t('memberRemovedSuccess')} ${username}`);
+      showMemberNotification(t, enqueueSnackbar, 'memberRemoved', { name: username }, 'success');
     } catch (error) {
       console.error('Ошибка при удалении участника:', error);
-      setError(t('errorRemoveMember'));
+      showMemberNotification(t, enqueueSnackbar, 'memberRemoveError', {}, 'error');
     } finally {
       setDeletingMember(false);
       setConfirmDelete(false);
@@ -526,7 +497,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                 sx={{ 
                   height: 20, 
                   backgroundColor: getRoleColor(roleName),
-                  color: 'white',
+                  color: getRoleTextColor(roleName),
                   '& .MuiChip-label': { px: 1, fontSize: '0.7rem' }
                 }}
                 icon={getRoleIcon(roleName)}
@@ -585,7 +556,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
         fullWidth
       >
         <DialogTitle>
-          Изменение роли участника
+          {t('changeMemberRoleTitle')}
         </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
@@ -607,20 +578,21 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
           </Box>
           
           <Typography variant="subtitle2" gutterBottom>
-            Текущая роль: 
+            {t('currentRole')} 
             <Chip
-              label={selectedMember.role?.name ? getRoleDisplayName(selectedMember.role.name, t) : "Нет роли"} 
+              label={selectedMember.role?.name ? getRoleDisplayName(selectedMember.role.name, t) : t('noRole')} 
               size="small"
               sx={{
                 ml: 1,
                 bgcolor: getRoleColor(selectedMember.role?.name),
+                color: getRoleTextColor(selectedMember.role?.name),
               }}
               icon={getRoleIcon(selectedMember.role?.name)}
             />
           </Typography>
           
           <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            Выберите новую роль:
+            {t('selectNewRole')}
           </Typography>
           
           <Box sx={{ mt: 1 }}>
@@ -631,14 +603,18 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                   button
                   selected={selectedRoleId === role.id}
                   onClick={() => setSelectedRoleId(role.id)}
-                  sx={{ 
+                                      sx={{ 
                     borderRadius: 1,
                     mb: 1,
                     bgcolor: selectedRoleId === role.id ? getRoleColor(role.name) : 'background.paper',
+                    color: selectedRoleId === role.id ? getRoleTextColor(role.name) : 'text.primary',
                   }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: getRoleColor(role.name) }}>
+                    <Avatar sx={{ 
+                      bgcolor: getRoleColor(role.name),
+                      color: getRoleTextColor(role.name)
+                    }}>
                       {getRoleIcon(role.name)}
                     </Avatar>
                   </ListItemAvatar>
@@ -647,7 +623,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                     secondary={getRoleDescription(role.name, t)}
                   />
                   {selectedRoleId === role.id && (
-                    <Chip label="Выбрано" size="small" color="primary" />
+                    <Chip label={t('roleSelected')} size="small" color="primary" />
                   )}
                 </ListItem>
               ))}
@@ -659,7 +635,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
             onClick={() => setShowRoleSelector(false)} 
             disabled={changingRole}
           >
-            Отмена
+            {t('cancel')}
           </Button>
           <Button 
             onClick={handleRoleChange} 
@@ -668,7 +644,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
             disabled={changingRole || !selectedRoleId || selectedRoleId === selectedMember.role?.id}
             startIcon={changingRole && <CircularProgress size={16} />}
           >
-            {changingRole ? 'Сохранение...' : 'Сохранить'}
+            {changingRole ? t('saving') : t('save')}
           </Button>
         </DialogActions>
       </Dialog>
