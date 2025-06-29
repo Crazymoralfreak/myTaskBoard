@@ -39,6 +39,7 @@ import { useLocalization } from '../hooks/useLocalization';
 import FlagRU from '../components/shared/LanguageSelector/FlagRU';
 import FlagUS from '../components/shared/LanguageSelector/FlagUS';
 import TimezoneSelector from '../components/shared/TimezoneSelector/TimezoneSelector';
+import { showLocalizedNotification, showSettingsNotification } from '../utils/notifications';
 
 interface UserSettings {
   darkMode: boolean;
@@ -87,7 +88,7 @@ export const SettingsPage: React.FC = () => {
       setNotificationPreferences(notificationPrefsResponse);
     } catch (error) {
       console.error('Ошибка при загрузке настроек:', error);
-      enqueueSnackbar(t('settingsLoadError'), { variant: 'error' });
+      showLocalizedNotification(t, enqueueSnackbar, 'settingsLoadError', {}, 'error');
     } finally {
       setLoading(false);
     }
@@ -133,9 +134,7 @@ export const SettingsPage: React.FC = () => {
       // Уведомляем LocalizationContext об изменениях
       updateUserSettings(updatedSettings);
       
-      enqueueSnackbar(`Настройка "${getInterfaceSettingDisplayName(setting)}" сохранена`, { 
-        variant: 'success' 
-      });
+      showSettingsNotification(t, enqueueSnackbar, 'settingSaved', { setting: getInterfaceSettingDisplayName(setting) }, 'success');
       
       // Обновляем localStorage для некоторых настроек
       if (setting === 'darkMode') {
@@ -146,9 +145,7 @@ export const SettingsPage: React.FC = () => {
       
     } catch (error) {
       console.error('Ошибка при сохранении настройки:', error);
-      enqueueSnackbar(`Не удалось сохранить настройку "${getInterfaceSettingDisplayName(setting)}"`, { 
-        variant: 'error' 
-      });
+      showSettingsNotification(t, enqueueSnackbar, 'settingSaveError', { setting: getInterfaceSettingDisplayName(setting) }, 'error');
       
       // Откатываем изменение при ошибке
       setSettings(prev => prev ? {
@@ -197,9 +194,7 @@ export const SettingsPage: React.FC = () => {
       // Уведомляем LocalizationContext об изменениях
       updateUserSettings(updatedSettings);
       
-      enqueueSnackbar(`Настройка "${getInterfaceSettingDisplayName(setting)}" сохранена`, { 
-        variant: 'success' 
-      });
+      showSettingsNotification(t, enqueueSnackbar, 'settingSaved', { setting: getInterfaceSettingDisplayName(setting) }, 'success');
       
       // Обновляем localStorage для некоторых настроек
       if (setting === 'language') {
@@ -212,9 +207,7 @@ export const SettingsPage: React.FC = () => {
       
     } catch (error) {
       console.error('Ошибка при сохранении настройки:', error);
-      enqueueSnackbar(`Не удалось сохранить настройку "${getInterfaceSettingDisplayName(setting)}"`, { 
-        variant: 'error' 
-      });
+      showSettingsNotification(t, enqueueSnackbar, 'settingSaveError', { setting: getInterfaceSettingDisplayName(setting) }, 'error');
       
       // Откатываем изменение при ошибке
       setSettings(prev => prev ? {
@@ -239,10 +232,10 @@ export const SettingsPage: React.FC = () => {
         const updatedSettings = await userService.updateUserSetting('darkMode', newDarkMode);
         setSettings(updatedSettings);
         
-        enqueueSnackbar('Тема изменена', { variant: 'success' });
+        showSettingsNotification(t, enqueueSnackbar, 'settingSaved', { setting: t('darkMode') }, 'success');
       } catch (error) {
         console.error('Ошибка при сохранении темы:', error);
-        enqueueSnackbar('Не удалось сохранить тему', { variant: 'error' });
+        showSettingsNotification(t, enqueueSnackbar, 'settingSaveError', { setting: t('darkMode') }, 'error');
       } finally {
         setSavingSettings(prev => ({ ...prev, darkMode: false }));
       }
@@ -252,20 +245,20 @@ export const SettingsPage: React.FC = () => {
   const handleClearCache = async () => {
     try {
       await userService.clearCache();
-      enqueueSnackbar('Кэш очищен', { variant: 'success' });
+      showLocalizedNotification(t, enqueueSnackbar, 'clearCache', {}, 'success');
     } catch (error) {
       console.error('Ошибка при очистке кэша:', error);
-      enqueueSnackbar('Не удалось очистить кэш', { variant: 'error' });
+      showLocalizedNotification(t, enqueueSnackbar, 'clearCacheError', {}, 'error');
     }
   };
 
   const handleDeleteData = async () => {
     try {
       await userService.deleteUserData();
-      enqueueSnackbar('Данные удалены', { variant: 'success' });
+      showLocalizedNotification(t, enqueueSnackbar, 'deleteAllData', {}, 'success');
     } catch (error) {
       console.error('Ошибка при удалении данных:', error);
-      enqueueSnackbar('Не удалось удалить данные', { variant: 'error' });
+      showLocalizedNotification(t, enqueueSnackbar, 'deleteAllDataError', {}, 'error');
     }
   };
 
@@ -290,10 +283,10 @@ export const SettingsPage: React.FC = () => {
       };
       
       await updateNotificationPreferences(updatedPreferences);
-      enqueueSnackbar(`Настройка "${getNotificationSettingDisplayName(key)}" обновлена`, { variant: 'success' });
+      showLocalizedNotification(t, enqueueSnackbar, 'notificationSettingUpdated', { setting: t(getNotificationSettingDisplayName(key)) }, 'success');
     } catch (error) {
       console.error('Ошибка при сохранении настройки:', error);
-      enqueueSnackbar('Не удалось сохранить настройку', { variant: 'error' });
+      showLocalizedNotification(t, enqueueSnackbar, 'notificationSettingUpdateError', { setting: t(getNotificationSettingDisplayName(key)) }, 'error');
       
       // Откатываем изменение в UI при ошибке
       setNotificationPreferences(prev => ({
@@ -310,7 +303,7 @@ export const SettingsPage: React.FC = () => {
       setNotificationPreferences(updatedPreferences);
     } catch (error) {
       console.error('Ошибка при обновлении настройки уведомлений:', error);
-      enqueueSnackbar('Не удалось обновить настройку', { variant: 'error' });
+      showLocalizedNotification(t, enqueueSnackbar, 'notificationSettingUpdateError', { setting: t(getNotificationSettingDisplayName(settingKey as keyof NotificationPreferences)) }, 'error');
       throw error; // Пробрасываем ошибку для обработки в компоненте
     }
   };
@@ -320,12 +313,12 @@ export const SettingsPage: React.FC = () => {
     const displayNames: Record<keyof UserSettings, string> = {
       darkMode: t('darkMode'),
       compactMode: t('compactMode'),
-      enableAnimations: t('animations'),
+      enableAnimations: t('enableAnimations'),
       browserNotifications: t('browserNotifications'),
       emailNotifications: t('emailNotifications'),
       telegramNotifications: t('telegramNotifications'),
       language: t('language'),
-      timezone: t('temporalZone')
+      timezone: t('timezone')
     };
     return displayNames[key] || key as string;
   };
@@ -378,11 +371,11 @@ export const SettingsPage: React.FC = () => {
       // Уведомляем LocalizationContext об изменениях
       updateUserSettings(updatedSettings);
       
-      enqueueSnackbar(`Настройка "${getInterfaceSettingDisplayName('timezone')}" сохранена`, { variant: 'success' });
+      showSettingsNotification(t, enqueueSnackbar, 'settingSaved', { setting: getInterfaceSettingDisplayName('timezone') }, 'success');
       localStorage.setItem('timezone', newValue);
     } catch (error) {
       console.error('Ошибка при сохранении настройки:', error);
-      enqueueSnackbar(`Не удалось сохранить настройку "${getInterfaceSettingDisplayName('timezone')}"`, { variant: 'error' });
+      showSettingsNotification(t, enqueueSnackbar, 'settingSaveError', { setting: getInterfaceSettingDisplayName('timezone') }, 'error');
       setSettings(prev => prev ? { ...prev, timezone: settings.timezone } : null);
     } finally {
       setSavingSettings(prev => ({ ...prev, [settingName]: false }));

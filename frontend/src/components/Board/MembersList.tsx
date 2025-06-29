@@ -237,7 +237,7 @@ const MembersList: React.FC<MembersListProps> = ({
       }
       
       onMemberRoleChanged(updatedMember);
-      setSuccessMessage(`${t('memberRoleChanged')} ${editingRoleMember.displayName || editingRoleMember.username} ${t('to')} "${selectedRole?.name || t('newRole')}"`);
+      setSuccessMessage(`${t('memberRoleChanged')} ${editingRoleMember.displayName || editingRoleMember.username} ${t('to')} "${selectedRole ? getRoleDisplayName(selectedRole.name, t) : t('newRole')}"`);
       
       // Закрываем диалог
       setEditRoleDialogOpen(false);
@@ -308,7 +308,7 @@ const MembersList: React.FC<MembersListProps> = ({
           if (!a.role && !b.role) return 0;
           if (!a.role) return 1;
           if (!b.role) return -1;
-          return a.role.name.localeCompare(b.role.name);
+          return getRoleDisplayName(a.role.name, t).localeCompare(getRoleDisplayName(b.role.name, t));
         });
       case 'joined':
         return sorted.sort((a, b) => {
@@ -325,7 +325,7 @@ const MembersList: React.FC<MembersListProps> = ({
     
     if (sortOrder === 'role') {
       return sortedMembers.reduce<Record<string, BoardMember[]>>((groups, member) => {
-        const roleName = member.role?.name || t('noRoleLabel');
+        const roleName = member.role?.name ? getRoleDisplayName(member.role.name, t) : t('noRoleLabel');
         if (!groups[roleName]) {
           groups[roleName] = [];
         }
@@ -421,7 +421,7 @@ const MembersList: React.FC<MembersListProps> = ({
   const renderMemberItem = (member: BoardMember): JSX.Element => {
     // Проверяем принадлежность к владельцу доски
     const isOwner = member.userId === ownerId;
-    const roleName = member.role?.name || t('noRoleLabel');
+    const roleName = member.role?.name ? getRoleDisplayName(member.role.name, t) : t('noRoleLabel');
     
     // Подготавливаем URL аватарки заранее
     const avatarSrc = processAvatarUrl(member.avatarUrl);
@@ -547,9 +547,9 @@ const MembersList: React.FC<MembersListProps> = ({
                       </Typography>
                       
                       {roles.filter(role => role.id !== member.role?.id).map(role => (
-                        <Tooltip key={role.id} title={`${t('changeToRole')} ${role.name}`} arrow>
+                        <Tooltip key={role.id} title={`${t('changeToRole')} ${getRoleDisplayName(role.name, t)}`} arrow>
                           <Chip
-                            label={role.name}
+                            label={getRoleDisplayName(role.name, t)}
                             size="small"
                             variant="outlined"
                             sx={{ 
@@ -790,7 +790,7 @@ const MembersList: React.FC<MembersListProps> = ({
               
               <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
                 {t('currentRole')} <Chip 
-                  label={editingRoleMember.role?.name || t('notSpecifiedRole')} 
+                  label={editingRoleMember.role?.name ? getRoleDisplayName(editingRoleMember.role.name, t) : t('notSpecifiedRole')} 
                   size="small"
                   variant="outlined"
                   sx={{ 
@@ -835,7 +835,7 @@ const MembersList: React.FC<MembersListProps> = ({
                           </Box>
                           <Box>
                             <Typography variant="subtitle1" fontWeight="medium">
-                              {role.name}
+                              {getRoleDisplayName(role.name, t)}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {role.description}

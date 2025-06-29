@@ -142,5 +142,12 @@
   "forTask": "для задачи",
   "timeAgo": "назад",
   "taskAssigned": "Назначена задача",
-  "boardAdded": "Добавлены в доску"
+  "boardAdded": "Добавлены в доску",
+  "notificationSettingUpdated": "Настройка уведомлений обновлена",
+  "notificationSettingUpdateError": "Ошибка обновления настройки уведомлений",
+  "notificationSettingLoadError": "Ошибка загрузки настроек уведомлений",
+  "notificationMarkedRead": "Уведомление отмечено как прочитанное",
+  "notificationMarkReadError": "Ошибка отметки уведомления как прочитанного",
+  "notificationCleared": "Уведомления очищены",
+  "notificationClearError": "Ошибка очистки уведомлений"
 } 

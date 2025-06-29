@@ -318,7 +318,7 @@ const InviteForm: React.FC<InviteFormProps> = ({ boardId, roles, onInvite }) => 
               <Typography variant="body2">
                 {addedUser.displayName || addedUser.username} 
                 {selectedRole && <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                  {t('inviteMessagesSuccessWithRole')} "{selectedRole.name}"
+                  {t('inviteMessagesSuccessWithRole')} "{getRoleDisplayName(selectedRole.name, t)}"
                 </Typography>}
               </Typography>
             </Box>

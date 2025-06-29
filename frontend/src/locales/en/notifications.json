@@ -142,5 +142,12 @@
   "forTask": "for task",
   "timeAgo": "ago",
   "taskAssigned": "Task assigned",
-  "boardAdded": "Added to board"
+  "boardAdded": "Added to board",
+  "notificationSettingUpdated": "Notification setting updated",
+  "notificationSettingUpdateError": "Error updating notification setting",
+  "notificationSettingLoadError": "Error loading notification settings",
+  "notificationMarkedRead": "Notification marked as read",
+  "notificationMarkReadError": "Error marking notification as read",
+  "notificationCleared": "Notifications cleared",
+  "notificationClearError": "Error clearing notifications"
 } 

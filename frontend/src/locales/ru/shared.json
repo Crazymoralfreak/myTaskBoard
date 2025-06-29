@@ -194,5 +194,16 @@
   "minimum": "Минимум",
   "maximum": "Максимум",
   "tags": "Теги",
-  "subtasks": "Подзадачи"
+  "subtasks": "Подзадачи",
+  "dataSaved": "Данные сохранены",
+  "dataLoaded": "Данные загружены",
+  "dataDeleted": "Данные удалены",
+  "dataSaveError": "Ошибка сохранения данных",
+  "dataLoadError": "Ошибка загрузки данных",
+  "dataDeleteError": "Ошибка удаления данных",
+  "operationSuccess": "Операция выполнена успешно",
+  "operationError": "Ошибка выполнения операции",
+  "validationError": "Ошибка валидации",
+  "networkError": "Ошибка сети",
+  "unknownError": "Неизвестная ошибка"
 } 

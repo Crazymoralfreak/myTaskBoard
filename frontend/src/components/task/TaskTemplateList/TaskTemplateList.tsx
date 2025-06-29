@@ -22,7 +22,15 @@ import {
     List,
     ListItem,
     ListItemText,
-    ListItemSecondaryAction
+    ListItemSecondaryAction,
+    ListItemIcon,
+    Paper,
+    Alert,
+    Fab,
+    FormControl,
+    InputLabel,
+    Select,
+    SelectChangeEvent
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -35,6 +43,8 @@ import { ConfirmDialog } from '../../shared/ConfirmDialog';
 import { iconNameToComponent } from '../../shared/IconSelector/iconMapping';
 import { taskService } from '../../../services/taskService';
 import { useSnackbar } from 'notistack';
+import { useLocalization } from '../../../hooks/useLocalization';
+import { showTemplateNotification, showGeneralNotification } from '../../../utils/notifications';
 
 interface TaskTemplate {
     id: number;
@@ -82,6 +92,7 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
     const [templateStatusId, setTemplateStatusId] = useState<number | null>(null);
     const [templatePriority, setTemplatePriority] = useState<TaskPriority>('NONE');
     const { enqueueSnackbar } = useSnackbar();
+    const { t } = useLocalization();
 
     useEffect(() => {
         loadTemplates();
@@ -90,15 +101,15 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
     const loadTemplates = async () => {
         if (!boardId) return;
         
+        setLoading(true);
         try {
-            setLoading(true);
             const response = await taskService.getTaskTemplates(boardId);
             if (response && response.data) {
                 setTemplates(response.data as unknown as TaskTemplate[]);
             }
         } catch (error) {
             console.error('Failed to load templates:', error);
-            enqueueSnackbar('Не удалось загрузить шаблоны', { variant: 'error' });
+            showTemplateNotification(t, enqueueSnackbar, 'templateLoadError', {}, 'error');
         } finally {
             setLoading(false);
         }
@@ -165,12 +176,12 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
 
     const handleCreateTemplate = () => {
         if (!templateName.trim() || !templateTitle.trim()) {
-            setError('Название шаблона и задачи обязательны');
+            showGeneralNotification(t, enqueueSnackbar, 'validationError', {}, 'error');
             return;
         }
 
         const newTemplate: TaskTemplate = {
-            id: Date.now(), // Простой способ создать уникальный id
+            id: Date.now(),
             name: templateName.trim(),
             taskData: {
                 title: templateTitle.trim(),
@@ -190,11 +201,12 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
         setTemplates(prev => [...prev, newTemplate]);
         resetFormFields();
         setCreateDialogOpen(false);
+        showTemplateNotification(t, enqueueSnackbar, 'templateCreated', {}, 'success');
     };
 
     const handleUpdateTemplate = () => {
         if (!currentTemplate || !templateName.trim() || !templateTitle.trim()) {
-            setError('Название шаблона и задачи обязательны');
+            showGeneralNotification(t, enqueueSnackbar, 'validationError', {}, 'error');
             return;
         }
 
@@ -222,6 +234,7 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
         
         resetFormFields();
         setEditDialogOpen(false);
+        showTemplateNotification(t, enqueueSnackbar, 'templateUpdated', {}, 'success');
     };
 
     const handleDeleteTemplate = () => {
@@ -236,10 +249,10 @@ export const TaskTemplateList: React.FC<TaskTemplateListProps> = ({
         try {
             await taskService.deleteTaskTemplate(templateId);
             setTemplates(templates.filter(t => t.id !== templateId));
-            enqueueSnackbar('Шаблон удален', { variant: 'success' });
+            showTemplateNotification(t, enqueueSnackbar, 'templateDeleted', {}, 'success');
         } catch (error) {
             console.error('Failed to delete template:', error);
-            enqueueSnackbar('Не удалось удалить шаблон', { variant: 'error' });
+            showTemplateNotification(t, enqueueSnackbar, 'templateDeleteError', {}, 'error');
         }
     };
 

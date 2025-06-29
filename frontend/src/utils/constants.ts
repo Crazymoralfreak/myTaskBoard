@@ -4,7 +4,6 @@ export const SUPPORTED_LANGUAGES = [
 ] as const;
 
 export const SUPPORTED_TIMEZONES = [
-  // Основные часовые пояса России и СНГ
   { value: 'Europe/Kaliningrad', label: 'UTC+2', offset: '+02:00' },
   { value: 'Europe/Moscow', label: 'UTC+3', offset: '+03:00' },
   { value: 'Europe/Samara', label: 'UTC+4', offset: '+04:00' },
@@ -15,8 +14,6 @@ export const SUPPORTED_TIMEZONES = [
   { value: 'Asia/Vladivostok', label: 'UTC+10', offset: '+10:00' },
   { value: 'Asia/Magadan', label: 'UTC+11', offset: '+11:00' },
   { value: 'Asia/Kamchatka', label: 'UTC+12', offset: '+12:00' },
-  
-  // Популярные международные часовые пояса
   { value: 'UTC', label: 'UTC+0', offset: '+00:00' },
   { value: 'Europe/London', label: 'UTC+0/+1', offset: '+00:00' },
   { value: 'Europe/Berlin', label: 'UTC+1/+2', offset: '+01:00' },

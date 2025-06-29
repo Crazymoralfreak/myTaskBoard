@@ -47,6 +47,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { TextRenderer } from '../../../utils/textUtils';
 import { useLocalization } from '../../../hooks/useLocalization';
+import { getRoleDisplayName } from '../../../utils/roleUtils';
 
 interface SubtaskListProps {
     task: Task;
@@ -898,7 +899,7 @@ export const SubtaskList: React.FC<SubtaskListProps> = ({ task, onTaskUpdate, on
                                             </Typography>
                                             {member.role && (
                                                 <Chip 
-                                                    label={member.role.name} 
+                                                    label={getRoleDisplayName(member.role.name, t)} 
                                                     size="small" 
                                                     variant="outlined"
                                                     sx={{ height: 20, fontSize: '0.75rem' }}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
     Container, 
@@ -58,6 +58,9 @@ import { BoardMembersService } from '../services/BoardMembersService';
 import { BoardMember } from '../types/BoardMember';
 import { getAvatarUrl } from '../utils/avatarUtils';
 import { useLocalization } from '../hooks/useLocalization';
+import { getRoleDisplayName } from '../utils/roleUtils';
+import { useSnackbar } from 'notistack';
+import { showBoardNotification, showTaskNotification, showGeneralNotification } from '../utils/notifications';
 
 // Определяем тип для события горячих клавиш
 interface HotkeyEvent {
@@ -121,6 +124,7 @@ interface TasksChangeFn {
 
 export const BoardPage: React.FC = () => {
     const { t } = useLocalization();
+    const { enqueueSnackbar } = useSnackbar();
     const { boardId } = useParams<{ boardId: string }>();
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);
@@ -608,7 +612,7 @@ export const BoardPage: React.FC = () => {
     // Обновляем обработчики действий с проверкой разрешений
     const handleAddColumn = async (columnName: string) => {
         if (!canAddColumn()) {
-            toast.error('У вас нет прав на добавление колонок');
+            showBoardNotification(t, enqueueSnackbar, 'columnAddError', {}, 'error');
             return;
         }
         
@@ -630,11 +634,11 @@ export const BoardPage: React.FC = () => {
             setFilteredColumns([...processedBoard.columns]);
             setTaskTypes(processedBoard.taskTypes || []);
             
-            toast.success('Колонка успешно добавлена');
+            showBoardNotification(t, enqueueSnackbar, 'columnAdded', { name: columnName }, 'success');
         } catch (error) {
             console.error('Ошибка при добавлении колонки:', error instanceof Error ? error.message : error);
             setError(t('errorAddColumn'));
-            toast.error(t('errorAddColumn'));
+            showBoardNotification(t, enqueueSnackbar, 'columnAddError', {}, 'error');
         } finally {
             setLoading(false);
         }
@@ -832,7 +836,7 @@ export const BoardPage: React.FC = () => {
             }
         } catch (error) {
             console.error('Error moving task:', error);
-            toast.error('Ошибка при перемещении задачи');
+            showTaskNotification(t, enqueueSnackbar, 'taskMoveError', {}, 'error');
             
             // Откатываем изменения в случае ошибки
             if (board) {
@@ -1080,10 +1084,10 @@ export const BoardPage: React.FC = () => {
             setFilteredColumns([...processedBoard.columns]);
             setTaskTypes(processedBoard.taskTypes || []);
             
-            toast.success(t('boardUpdated'));
+            showBoardNotification(t, enqueueSnackbar, 'boardUpdated', {}, 'success');
         } catch (error) {
             console.error(t('errorUpdatingBoard'), error);
-            toast.error(t('failedToUpdateBoard'));
+            showBoardNotification(t, enqueueSnackbar, 'boardUpdateError', {}, 'error');
         } finally {
             setIsRefreshing(false);
         }
@@ -1427,11 +1431,11 @@ export const BoardPage: React.FC = () => {
                                                             <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
                                                                 {username || email?.split('@')[0] || 'Пользователь'}
                                                             </Typography>
-                                                            {member.role && (
-                                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                                    {member.role.name}
-                                                                </Typography>
-                                                            )}
+                                                                                                        {member.role && (
+                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                    {getRoleDisplayName(member.role.name, t)}
+                                                </Typography>
+                                            )}
                                                         </Box>
                                                     </Box>
                                                 }

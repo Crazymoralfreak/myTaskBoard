@@ -24,6 +24,8 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import { authService } from '../services/authService';
 import { boardService } from '../services/boardService';
 import { Role } from '../types/Role';
+import { useLocalization } from '../hooks/useLocalization';
+import { getRoleDisplayName } from '../utils/roleUtils';
 
 // Ключ для локального хранилища
 const INVITE_TOKEN_STORAGE_KEY = 'pendingInviteToken';
@@ -50,6 +52,7 @@ const InvitePage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLocalization();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
@@ -202,7 +205,7 @@ const InvitePage: React.FC = () => {
         </Alert>
         
         <Typography variant="body2" color="text.secondary" paragraph>
-          После авторизации вы сможете присоединиться к доске "{inviteData?.boardName}" с ролью "{inviteData?.roleName}"
+          После авторизации вы сможете присоединиться к доске "{inviteData?.boardName}" с ролью "{inviteData?.roleName ? getRoleDisplayName(inviteData.roleName, t) : inviteData?.roleName}"
         </Typography>
       </CardContent>
       <CardActions sx={{ justifyContent: 'space-between', p: 2 }}>
@@ -269,7 +272,7 @@ const InvitePage: React.FC = () => {
               Ваша роль:
             </Typography>
             <Chip 
-              label={inviteData?.roleName} 
+              label={inviteData?.roleName ? getRoleDisplayName(inviteData.roleName, t) : inviteData?.roleName} 
               size="small" 
               color={
                 inviteData?.roleName === 'ADMIN' ? 'error' :

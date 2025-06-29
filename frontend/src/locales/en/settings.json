@@ -52,5 +52,8 @@
   "appVersion": "Application Version",
   "clearCache": "Clear application cache",
   "deleteAllData": "Delete all data",
-  "notificationsTitle": "Notification Settings"
+  "notificationsTitle": "Notification Settings",
+  "settingSaved": "Setting \"{setting}\" saved",
+  "settingSaveError": "Failed to save setting \"{setting}\"",
+  "settingSaveWarning": "Selected setting \"{setting}\" is not supported by the server. Using \"{actual}\"."
 } 

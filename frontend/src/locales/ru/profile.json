@@ -51,5 +51,10 @@
   "profileChangePhoto": "Изменить фото",
   "profileSavingProfile": "Сохранение профиля",
   "profileCanvasContextError": "Не удалось создать контекст canvas",
-  "profileCreateImageError": "Не удалось создать изображение"
+  "profileCreateImageError": "Не удалось создать изображение",
+  "profileLoadError": "Ошибка загрузки профиля",
+  "avatarUploaded": "Аватар загружен",
+  "avatarUploadError": "Ошибка загрузки аватара",
+  "passwordChanged": "Пароль изменен",
+  "passwordChangeError": "Ошибка изменения пароля"
 } 

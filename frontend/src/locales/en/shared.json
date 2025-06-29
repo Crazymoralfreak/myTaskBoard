@@ -194,5 +194,16 @@
   "minimum": "Minimum",
   "maximum": "Maximum",
   "tags": "Tags",
-  "subtasks": "Subtasks"
+  "subtasks": "Subtasks",
+  "dataSaved": "Data saved",
+  "dataLoaded": "Data loaded",
+  "dataDeleted": "Data deleted",
+  "dataSaveError": "Error saving data",
+  "dataLoadError": "Error loading data",
+  "dataDeleteError": "Error deleting data",
+  "operationSuccess": "Operation completed successfully",
+  "operationError": "Operation error",
+  "validationError": "Validation error",
+  "networkError": "Network error",
+  "unknownError": "Unknown error"
 } 

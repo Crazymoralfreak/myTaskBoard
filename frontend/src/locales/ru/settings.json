@@ -52,5 +52,8 @@
   "appVersion": "Версия приложения",
   "clearCache": "Очистить кэш приложения",
   "deleteAllData": "Удалить все данные",
-  "notificationsTitle": "Настройки уведомлений"
+  "notificationsTitle": "Настройки уведомлений",
+  "settingSaved": "Настройка \"{setting}\" сохранена",
+  "settingSaveError": "Не удалось сохранить настройку \"{setting}\"",
+  "settingSaveWarning": "Выбранная настройка \"{setting}\" не поддерживается сервером. Используется \"{actual}\"."
 } 

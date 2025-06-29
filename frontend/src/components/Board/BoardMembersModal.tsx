@@ -443,7 +443,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   
   const getRoleName = (roleId: number): string => {
     const role = roles.find(r => r.id === roleId);
-    return role ? role.name : 'Неизвестная роль';
+    return role ? getRoleDisplayName(role.name, t) : 'Неизвестная роль';
   };
   
   // Проверяем, может ли текущий пользователь изменять роли участников
@@ -477,7 +477,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
   const renderMemberItem = (member: BoardMember) => {
     const isCurrentUser = member.userId === currentUserId;
     const isOwner = member.userId === ownerId;
-    const roleName = member.role?.name || t('noRoleLabel');
+    const roleName = member.role?.name ? getRoleDisplayName(member.role.name, t) : t('noRoleLabel');
     
     return (
       <ListItem
@@ -609,7 +609,7 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
           <Typography variant="subtitle2" gutterBottom>
             Текущая роль: 
             <Chip
-              label={selectedMember.role?.name || "Нет роли"} 
+              label={selectedMember.role?.name ? getRoleDisplayName(selectedMember.role.name, t) : "Нет роли"} 
               size="small"
               sx={{
                 ml: 1,
@@ -865,13 +865,13 @@ const BoardMembersModal: React.FC<BoardMembersModalProps> = ({
                     return <Typography color="text.secondary">{t('allRoles')}</Typography>;
                   }
                   const role = roles.find(r => r.id.toString() === selected);
-                  return role ? role.name : t('allRoles');
+                  return role ? getRoleDisplayName(role.name, t) : t('allRoles');
                 }}
               >
                 <MenuItem value="">{t('allRoles')}</MenuItem>
                 {roles.map(role => (
                   <MenuItem key={role.id} value={role.id.toString()}>
-                    {role.name}
+                    {getRoleDisplayName(role.name, t)}
                   </MenuItem>
                 ))}
               </Select>

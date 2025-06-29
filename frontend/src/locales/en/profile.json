@@ -51,5 +51,10 @@
   "profileChangePhoto": "Change Photo",
   "profileSavingProfile": "Saving profile",
   "profileCanvasContextError": "Failed to create canvas context",
-  "profileCreateImageError": "Failed to create image"
+  "profileCreateImageError": "Failed to create image",
+  "profileLoadError": "Error loading profile",
+  "avatarUploaded": "Avatar uploaded",
+  "avatarUploadError": "Error uploading avatar",
+  "passwordChanged": "Password changed",
+  "passwordChangeError": "Error changing password"
 } 

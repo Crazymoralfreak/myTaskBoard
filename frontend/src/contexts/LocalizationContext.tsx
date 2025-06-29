@@ -90,6 +90,26 @@ export const AppLocalizationProvider: React.FC<LocalizationProviderProps> = ({
   const t = (key: string): string => {
     const currentTranslations = translations[language];
     
+    // Обработка namespace с точкой (например, settings.settingSaved)
+    if (key.includes('.')) {
+      const [namespace, localKey] = key.split('.', 2);
+      const namespacedKey = localKey; // В плоской структуре используем только локальный ключ
+      
+      if (currentTranslations[namespacedKey] && typeof currentTranslations[namespacedKey] === 'string') {
+        return currentTranslations[namespacedKey];
+      }
+
+      // Fallback на английский если текущий язык не английский
+      if (language !== 'en' && translations.en[namespacedKey] && typeof translations.en[namespacedKey] === 'string') {
+        console.warn(`Translation missing for key "${namespacedKey}" (from "${key}") in language "${language}", using English fallback`);
+        return translations.en[namespacedKey];
+      }
+
+      // Если перевод не найден нигде, возвращаем ключ в квадратных скобках
+      console.warn(`Translation missing for key "${namespacedKey}" (from "${key}") in all languages`);
+      return `[${namespacedKey}]`;
+    }
+    
     // Прямой доступ к переводу в плоской структуре
     if (currentTranslations[key] && typeof currentTranslations[key] === 'string') {
       return currentTranslations[key];

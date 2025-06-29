@@ -28,6 +28,7 @@ import { InviteLinkService } from '../../services/InviteLinkService';
 import { formatDistanceToNow, formatRelative, isAfter } from 'date-fns';
 import { formatDateWithTZ } from '../../utils/formatters';
 import { useLocalization } from '../../hooks/useLocalization';
+import { getRoleDisplayName } from '../../utils/roleUtils';
 
 interface InviteLinksListProps {
   boardId: string;
@@ -210,7 +211,7 @@ const InviteLinksList: React.FC<InviteLinksListProps> = ({
                       Роль: 
                     </Typography>{' '}
                     <Typography variant="caption" component="span" fontWeight="500">
-                      {link.defaultRole.name}
+                      {getRoleDisplayName(link.defaultRole.name, t)}
                     </Typography>
                   </Box>
                   

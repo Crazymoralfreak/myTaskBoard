@@ -27,7 +27,9 @@ import {
   FormControlLabel,
   useTheme,
   Tooltip,
-  useMediaQuery
+  useMediaQuery,
+  Chip,
+  Stack
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -36,6 +38,9 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import SettingsIcon from '@mui/icons-material/Settings';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import EditIcon from '@mui/icons-material/Edit';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { fetchUserProfile, updateUserProfile, changePassword, updateUserAvatar, uploadUserAvatar, updateUserSettings } from '../api/api';
 import { getAvatarUrl } from '../utils/avatarUtils';
 import AvatarUploader from '../components/AvatarUploader';
@@ -44,6 +49,9 @@ import { toast } from 'react-hot-toast';
 import * as authService from '../services/authService';
 import { styled } from '@mui/system';
 import { useLocalization } from '../hooks/useLocalization';
+import { useAuth } from '../hooks/useAuth';
+import { useSnackbar } from 'notistack';
+import { showLocalizedToast, showProfileNotification } from '../utils/notifications';
 
 // Стандартные аватары
 const AVATAR_OPTIONS = [
@@ -108,6 +116,8 @@ export const ProfilePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const token = localStorage.getItem('token');
+  const { user } = useAuth();
+  const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
     loadUserProfile();
@@ -144,48 +154,34 @@ export const ProfilePage = () => {
   };
 
   const handleSaveProfile = async () => {
-    if (!isEditing) return;
-
     setSaving(true);
     try {
-      console.log('Сохранение профиля:', profile);
+      const updatedProfile = await updateUserProfile(profile);
       
-      // Сначала сохраняем информацию профиля
-      const updatedProfile = await updateUserProfile({
-        username: profile.username,
-        email: profile.email,
-        phone: profile.phone, // Использую поле phone вместо phoneNumber
-        position: profile.position,
-        bio: profile.bio
-      });
-      
-      // Обновляем состояние данными с сервера (теперь содержит актуальные settings)
-      console.log('Получен обновленный профиль от сервера:', updatedProfile);
-      setProfile(updatedProfile);
-      
-      // Затем отдельно сохраняем настройки пользователя (если они есть)
-      if (updatedProfile?.settings && token) {
+      // Сохраняем настройки пользователя отдельно, если они есть
+      if (profile.userSettings || profile.settings) {
         try {
-          console.log('Сохранение настроек пользователя:', updatedProfile.settings);
+          const token = localStorage.getItem('token');
+          if (!token) throw new Error('No token found');
+          
           await updateUserSettings(token, updatedProfile.settings);
           console.log('Настройки пользователя успешно сохранены');
         } catch (settingsError) {
           console.error('Ошибка при сохранении настроек:', settingsError);
-          // Продолжаем выполнение, даже если настройки не сохранились
-          toast.error(t('profileSettingsUpdateError'));
+          showProfileNotification(t, enqueueSnackbar, 'profileUpdateError', {}, 'error');
         }
       }
       
       setIsEditing(false);
       setOriginalProfile({...updatedProfile});
-      toast.success(t('profileUpdated'));
+      showProfileNotification(t, enqueueSnackbar, 'profileUpdated', {}, 'success');
     } catch (error: any) {
       console.error('Error saving profile:', error);
-              if (error.response && error.response.status === 401) {
-        toast.error(t('profileSessionExpired'));
+      if (error.response && error.response.status === 401) {
+        showProfileNotification(t, enqueueSnackbar, 'profileUpdateError', {}, 'error');
         navigate('/login');
       } else {
-        toast.error(t('profileUpdateError') + ': ' + (error.message || t('profileUnknownError')));
+        showProfileNotification(t, enqueueSnackbar, 'profileUpdateError', {}, 'error');
       }
     } finally {
       setSaving(false);
@@ -286,26 +282,15 @@ export const ProfilePage = () => {
     try {
       setLoading(true);
       
-      // Извлекаем из объекта URL file-объект для загрузки
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
       
-      console.log('Подготовка файла для загрузки:', {
-        размер: file.size,
-        тип: file.type
-      });
-      
-      // Загружаем файл на сервер
       const result = await uploadUserAvatar(file);
-      console.log('Результат загрузки аватара:', result);
       
       if (result && result.avatarUrl) {
-        // Получаем обновленный профиль с сервера
         const updatedProfile = await fetchUserProfile();
-        console.log('Получен обновленный профиль после загрузки аватара:', updatedProfile);
         
-        // Для обратной совместимости
         if (!updatedProfile.userSettings && updatedProfile.settings) {
           updatedProfile.userSettings = updatedProfile.settings;
         }
@@ -314,23 +299,11 @@ export const ProfilePage = () => {
         setOriginalProfile(updatedProfile);
         setSelectedAvatar(result.avatarUrl);
         
-        // Проверяем URL аватара
-        const avatarDisplay = processAvatarUrl(result.avatarUrl);
-        console.log('URL аватара для отображения после загрузки:', avatarDisplay);
-        
-        setSnackbar({
-          open: true,
-          message: t('profileAvatarUpdated'),
-          severity: 'success'
-        });
+        showProfileNotification(t, enqueueSnackbar, 'avatarUploaded', {}, 'success');
       }
     } catch (error) {
       console.error('Ошибка обновления аватара:', error);
-      setSnackbar({
-        open: true,
-        message: t('profileAvatarUpdateError'),
-        severity: 'error'
-      });
+      showProfileNotification(t, enqueueSnackbar, 'avatarUploadError', {}, 'error');
     } finally {
       setLoading(false);
       setAvatarUploaderOpen(false);
@@ -343,11 +316,8 @@ export const ProfilePage = () => {
       setLoading(true);
       await updateUserAvatar(avatarUrl);
       
-      // Получаем обновленный профиль с сервера
       const updatedProfile = await fetchUserProfile();
-      console.log('Получен обновленный профиль после выбора аватара:', updatedProfile);
       
-      // Для обратной совместимости
       if (!updatedProfile.userSettings && updatedProfile.settings) {
         updatedProfile.userSettings = updatedProfile.settings;
       }
@@ -355,21 +325,14 @@ export const ProfilePage = () => {
       setProfile(updatedProfile);
       setOriginalProfile(updatedProfile);
       setSelectedAvatar(avatarUrl);
-      setAvatarMenuAnchor(null); // Закрываем меню
-      setSnackbar({
-        open: true,
-        message: t('profileAvatarUpdated'),
-        severity: 'success'
-      });
+      setAvatarMenuAnchor(null);
+      showProfileNotification(t, enqueueSnackbar, 'avatarUploaded', {}, 'success');
     } catch (error) {
       console.error('Ошибка обновления аватара:', error);
-      setSnackbar({
-        open: true,
-        message: t('profileAvatarUpdateError'),
-        severity: 'error'
-      });
+      showProfileNotification(t, enqueueSnackbar, 'avatarUploadError', {}, 'error');
     } finally {
       setLoading(false);
+      setAvatarDialogOpen(false);
     }
   };
 

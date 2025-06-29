@@ -14,6 +14,8 @@ import {
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { InviteLinkService } from '../services/InviteLinkService';
 import { JoinBoardByInviteResponse } from '../types/inviteLink';
+import { useLocalization } from '../hooks/useLocalization';
+import { getRoleDisplayName } from '../utils/roleUtils';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -26,6 +28,7 @@ import LinkIcon from '@mui/icons-material/Link';
 const JoinByInviteLink: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const { t } = useLocalization();
   
   const [loading, setLoading] = useState<boolean>(true);
   const [joining, setJoining] = useState<boolean>(false);
@@ -234,7 +237,7 @@ const JoinByInviteLink: React.FC = () => {
                       Ваша роль:
                     </Typography>
                     <Chip 
-                      label={response.assignedRole.name} 
+                      label={getRoleDisplayName(response.assignedRole.name, t)} 
                       size="small" 
                       color="primary" 
                       variant="outlined"
